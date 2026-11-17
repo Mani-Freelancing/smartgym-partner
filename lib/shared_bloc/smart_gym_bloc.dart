@@ -1,5 +1,6 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../data/repositories/gym_repository.dart';
+import '../data/services/firestore_service.dart';
 import '../domain/models/gym_member.dart';
 import '../domain/models/gym_tenant.dart';
 import '../domain/models/machine_guide.dart';
@@ -12,9 +13,12 @@ import 'smart_gym_state.dart';
 
 class SmartGymBloc extends Bloc<SmartGymEvent, SmartGymState> {
   final GymRepository repository;
+  final FirestoreService? firestoreService;
 
-  SmartGymBloc({required this.repository})
-      : super(
+  SmartGymBloc({
+    required this.repository,
+    this.firestoreService,
+  }) : super(
           SmartGymState(
             gyms: repository.getInitialGyms(),
             members: repository.getInitialMembers(),
@@ -45,6 +49,11 @@ class SmartGymBloc extends Bloc<SmartGymEvent, SmartGymState> {
     on<ToggleVacationFreezeEvent>(_onToggleVacationFreeze);
     on<ReviewClientMealEvent>(_onReviewClientMeal);
     on<RescueMissingMemberEvent>(_onRescueMissingMember);
+  }
+
+  void _syncAsync(Future<void> Function() task) {
+    if (firestoreService == null) return;
+    task().catchError((_) {});
   }
 
   void _onSelectGymTenant(
@@ -85,10 +94,25 @@ class SmartGymBloc extends Bloc<SmartGymEvent, SmartGymState> {
       state.copyWith(
         isPartnerLoggedIn: true,
         partnerRole: event.role,
-        loggedInTrainerName:
-            event.trainerName ?? state.currentGym.headTrainer,
+        loggedInTrainerName: event.trainerName ?? state.currentGym.headTrainer,
       ),
     );
+    _syncAsync(() async {
+      await firestoreService!.seedGymIfEmpty(
+        gym: state.currentGym,
+        trainers: state.trainers,
+        members: state.members,
+        enquiries: state.enquiries,
+        machines: state.machineGuides,
+        meals: state.mealQueue,
+      );
+      await firestoreService!.registerPhoneLookup(
+        phone: event.phone,
+        role: event.role.name,
+        gymId: state.currentGym.id,
+        name: event.trainerName ?? 'Gym Owner',
+      );
+    });
   }
 
   void _onLogoutPartner(
@@ -117,6 +141,7 @@ class SmartGymBloc extends Bloc<SmartGymEvent, SmartGymState> {
     );
     final updated = [newMember, ...state.members];
     emit(state.copyWith(members: updated));
+    _syncAsync(() => firestoreService!.addMember(state.currentGym.id, newMember));
   }
 
   void _onAddWalkInEnquiry(
@@ -132,6 +157,7 @@ class SmartGymBloc extends Bloc<SmartGymEvent, SmartGymState> {
       timeLabel: 'Just Now',
     );
     emit(state.copyWith(enquiries: [newEnq, ...state.enquiries]));
+    _syncAsync(() => firestoreService!.addEnquiry(state.currentGym.id, newEnq));
   }
 
   void _onConvertEnquiryToMember(
@@ -162,6 +188,10 @@ class SmartGymBloc extends Bloc<SmartGymEvent, SmartGymState> {
         members: [convertedMember, ...state.members],
       ),
     );
+    _syncAsync(() async {
+      await firestoreService!.markEnquiryConverted(state.currentGym.id, enq.id);
+      await firestoreService!.addMember(state.currentGym.id, convertedMember);
+    });
   }
 
   void _onMarkTrainerDutyCheckIn(
@@ -169,11 +199,19 @@ class SmartGymBloc extends Bloc<SmartGymEvent, SmartGymState> {
     Emitter<SmartGymState> emit,
   ) {
     final updated = List<TrainerProfile>.from(state.trainers);
-    updated[event.trainerIndex] = updated[event.trainerIndex].copyWith(
+    final trainer = updated[event.trainerIndex];
+    updated[event.trainerIndex] = trainer.copyWith(
       isOnDuty: true,
       morningCheckInTime: 'Checked In Now',
     );
     emit(state.copyWith(trainers: updated));
+    _syncAsync(
+      () => firestoreService!.markTrainerDuty(
+        state.currentGym.id,
+        trainer.id,
+        'Checked In Now',
+      ),
+    );
   }
 
   void _onUpdateMemberWeight(
@@ -187,6 +225,13 @@ class SmartGymBloc extends Bloc<SmartGymEvent, SmartGymState> {
       return m;
     }).toList();
     emit(state.copyWith(members: updated));
+    _syncAsync(
+      () => firestoreService!.updateMemberWeight(
+        state.currentGym.id,
+        event.memberId,
+        event.newWeightKg,
+      ),
+    );
   }
 
   void _onAddMachineGuide(
@@ -200,6 +245,9 @@ class SmartGymBloc extends Bloc<SmartGymEvent, SmartGymState> {
       mistakeTip: event.mistakeTip.trim(),
     );
     emit(state.copyWith(machineGuides: [nextGuide, ...state.machineGuides]));
+    _syncAsync(
+      () => firestoreService!.addMachineGuide(state.currentGym.id, nextGuide),
+    );
   }
 
   void _onToggleMembershipExpiryDemo(
@@ -282,10 +330,18 @@ class SmartGymBloc extends Bloc<SmartGymEvent, SmartGymState> {
     Emitter<SmartGymState> emit,
   ) {
     final updatedMeals = List<MealReviewItem>.from(state.mealQueue);
-    updatedMeals[event.mealIndex] = updatedMeals[event.mealIndex].copyWith(
+    final meal = updatedMeals[event.mealIndex];
+    updatedMeals[event.mealIndex] = meal.copyWith(
       trainerFeedback: event.feedback,
     );
     emit(state.copyWith(mealQueue: updatedMeals));
+    _syncAsync(
+      () => firestoreService!.updateMealFeedback(
+        state.currentGym.id,
+        meal.id,
+        event.feedback,
+      ),
+    );
   }
 
   void _onRescueMissingMember(

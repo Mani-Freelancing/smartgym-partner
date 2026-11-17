@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "96997886419",
+    "project_id": "smartgym-os",
+    "storage_bucket": "smartgym-os.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:96997886419:android:278ebc18e546fd6149c726",
+        "android_client_info": {
+          "package_name": "com.example.flutter_demo_application"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBIFD1qIVPSjvOV-Fi5NLOu3DfMxPV7Rxs"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:96997886419:android:4616860a121d4a5349c726",
+        "android_client_info": {
+          "package_name": "com.smartgym.partner"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBIFD1qIVPSjvOV-Fi5NLOu3DfMxPV7Rxs"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

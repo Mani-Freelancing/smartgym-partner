@@ -1,0 +1,485 @@
+rules_version = '2';
+
+// ===============================================================
+// Assumed Data Model (SmartGym OS - Multi-Tenant SaaS)
+// ===============================================================
+//
+// Collection: phone_index/{phone}
+// Document ID: Normalized E.164 phone number (e.g. "+919849012345")
+// Fields:
+//   - phone: string (optional, 7..20 chars, matches doc ID if present)
+//   - role: string (required, "owner" | "trainer" | "member")
+//   - gymId: string (required, 1..64 chars, immutable on update)
+//   - uid: string (required, 0..128 chars)
+//   - name: string (required, 0..100 chars)
+//   - updatedAt: timestamp (optional)
+//
+// Collection: gyms/{gymId}
+// Document ID: Gym tenant ID
+// Fields:
+//   - id: string (optional, 1..64 chars, immutable)
+//   - name: string (required, 1..100 chars)
+//   - area: string (required, 1..100 chars)
+//   - headTrainer: string (required, 1..100 chars)
+//   - monthlyFee: number (required, >= 0, <= 1000000)
+//   - ptFee: number (required, >= 0, <= 1000000)
+//   - activeCrowd: int (required, >= 0, <= maxCapacity)
+//   - maxCapacity: int (required, >= 1, <= 10000)
+//   - ownerUid: string (required, 1..128 chars, immutable)
+//   - createdAt: timestamp (optional, immutable)
+//
+// Collection: gyms/{gymId}/trainers/{trainerId}
+// Fields:
+//   - id: string (optional, 1..64 chars, immutable)
+//   - name: string (required, 1..100 chars)
+//   - phone: string (optional, 7..20 chars)
+//   - specialty: string (required, 1..100 chars)
+//   - morningCheckInTime: string (required, 0..30 chars)
+//   - isOnDuty: bool (required)
+//   - commissionPercent: number (required, >= 0, <= 100)
+//
+// Collection: gyms/{gymId}/members/{memberId}
+// Fields:
+//   - id: string (optional, 1..64 chars, immutable)
+//   - name: string (required, 1..100 chars)
+//   - phone: string (required, 7..20 chars)
+//   - planTitle: string (required, 1..100 chars)
+//   - feePaid: number (required, >= 0, <= 1000000)
+//   - joinedDate: string (required, 1..40 chars)
+//   - expiryDate: string (required, 1..40 chars)
+//   - daysLeft: int (required, -3650..3650)
+//   - assignedTrainer: string (required, 0..100 chars)
+//   - isPtClient: bool (required)
+//   - addedByTrainer: string (required, 0..100 chars)
+//   - currentWeightKg: number (required, >= 10, <= 500)
+//   - createdAt: timestamp (optional, immutable)
+//
+// Collection: gyms/{gymId}/enquiries/{enquiryId}
+// Fields:
+//   - id: string (optional, 1..64 chars, immutable)
+//   - name: string (required, 1..100 chars)
+//   - phone: string (required, 7..20 chars)
+//   - interestedPlan: string (required, 1..100 chars)
+//   - loggedByTrainer: string (required, 0..100 chars)
+//   - timeLabel: string (required, 1..50 chars)
+//   - converted: bool (required)
+//   - createdAt: timestamp (optional, immutable)
+//
+// Collection: gyms/{gymId}/meals/{mealId}
+// Fields:
+//   - id: string (optional, 1..64 chars, immutable)
+//   - memberName: string (required, 1..100 chars)
+//   - timeLabel: string (required, 1..50 chars)
+//   - mealDescription: string (required, 1..1000 chars)
+//   - macros: string (required, 0..200 chars)
+//   - trainerFeedback: string (required, 0..500 chars)
+//   - memberPhone: string (optional, 7..20 chars, immutable)
+//
+// Collection: gyms/{gymId}/machines/{machineId}
+// Fields:
+//   - code: string (required, 1..30 chars, immutable)
+//   - name: string (required, 1..100 chars)
+//   - muscle: string (required, 1..100 chars)
+//   - mistakeTip: string (required, 0..500 chars)
+//
+// Collection: gyms/{gymId}/missing/{missingId}
+// Fields:
+//   - name: string (required, 1..100 chars)
+//   - daysMissing: int (required, 0..3650)
+//   - planName: string (required, 0..100 chars)
+//   - lastMuscleTrained: string (required, 0..100 chars)
+//   - contacted: bool (required)
+//
+// ===============================================================
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ===============================================================
+    // Core Helper Functions
+    // ===============================================================
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function hasPhone() {
+      return isAuthenticated() &&
+             ('phone_number' in request.auth.token) &&
+             request.auth.token.phone_number is string;
+    }
+
+    function userPhone() {
+      return request.auth.token.phone_number;
+    }
+
+    function phoneIndexPath() {
+      return /databases/$(database)/documents/phone_index/$(userPhone());
+    }
+
+    function hasPhoneIndex() {
+      return hasPhone() && exists(phoneIndexPath());
+    }
+
+    function phoneIndexData() {
+      return get(phoneIndexPath()).data;
+    }
+
+    function gymPath(gymId) {
+      return /databases/$(database)/documents/gyms/$(gymId);
+    }
+
+    function isGymDocOwner(gymId) {
+      return isAuthenticated() && (
+        (exists(gymPath(gymId)) && get(gymPath(gymId)).data.ownerUid == request.auth.uid) ||
+        (existsAfter(gymPath(gymId)) && getAfter(gymPath(gymId)).data.ownerUid == request.auth.uid)
+      );
+    }
+
+    function isGymOwner(gymId) {
+      return isAuthenticated() && (
+        (request.auth.token.role == 'owner' && request.auth.token.gymId == gymId) ||
+        isGymDocOwner(gymId) ||
+        (hasPhoneIndex() && phoneIndexData().gymId == gymId && phoneIndexData().role == 'owner')
+      );
+    }
+
+    function isGymTrainer(gymId) {
+      return isAuthenticated() && (
+        (request.auth.token.role == 'trainer' && request.auth.token.gymId == gymId) ||
+        (hasPhoneIndex() && phoneIndexData().gymId == gymId && phoneIndexData().role == 'trainer')
+      );
+    }
+
+    function isGymMember(gymId) {
+      return isAuthenticated() && (
+        (request.auth.token.role == 'member' && request.auth.token.gymId == gymId) ||
+        (hasPhoneIndex() && phoneIndexData().gymId == gymId && phoneIndexData().role == 'member')
+      );
+    }
+
+    function isStaffOfGym(gymId) {
+      return isGymOwner(gymId) || isGymTrainer(gymId);
+    }
+
+    function isUserOfGym(gymId) {
+      return isGymOwner(gymId) || isGymTrainer(gymId) || isGymMember(gymId);
+    }
+
+    function hasRequiredFields(fields) {
+      return request.resource.data.keys().hasAll(fields);
+    }
+
+    function hasOnlyAllowedFields(fields) {
+      return request.resource.data.keys().hasOnly(fields);
+    }
+
+    function areImmutableFieldsUnchanged(fields) {
+      return !request.resource.data.diff(resource.data).affectedKeys().hasAny(fields);
+    }
+
+    function isValidString(val, minLen, maxLen) {
+      return val is string && val.size() >= minLen && val.size() <= maxLen;
+    }
+
+    function isValidOptionalString(data, field, minLen, maxLen) {
+      return !(field in data) || isValidString(data[field], minLen, maxLen);
+    }
+
+    function isValidOptionalTimestamp(data, field) {
+      return !(field in data) || data[field] is timestamp;
+    }
+
+    function isValidPhoneString(val) {
+      return val is string && val.size() >= 7 && val.size() <= 20;
+    }
+
+    // ===============================================================
+    // Domain Validators (Used in BOTH create and update)
+    // ===============================================================
+
+    function isValidPhoneIndex(data, phoneDocId) {
+      return hasRequiredFields(['role', 'gymId', 'uid', 'name']) &&
+             hasOnlyAllowedFields(['phone', 'role', 'gymId', 'uid', 'name', 'updatedAt']) &&
+             isValidPhoneString(phoneDocId) &&
+             (!('phone' in data) || (isValidPhoneString(data.phone) && data.phone == phoneDocId)) &&
+             data.role in ['owner', 'trainer', 'member'] &&
+             isValidString(data.gymId, 1, 64) &&
+             isValidString(data.uid, 0, 128) &&
+             isValidString(data.name, 0, 100) &&
+             isValidOptionalTimestamp(data, 'updatedAt');
+    }
+
+    function isValidGym(data) {
+      return hasRequiredFields([
+               'name', 'area', 'headTrainer', 'monthlyFee',
+               'ptFee', 'activeCrowd', 'maxCapacity', 'ownerUid'
+             ]) &&
+             hasOnlyAllowedFields([
+               'id', 'name', 'area', 'headTrainer', 'monthlyFee',
+               'ptFee', 'activeCrowd', 'maxCapacity', 'ownerUid', 'createdAt'
+             ]) &&
+             isValidOptionalString(data, 'id', 1, 64) &&
+             isValidString(data.name, 1, 100) &&
+             isValidString(data.area, 1, 100) &&
+             isValidString(data.headTrainer, 1, 100) &&
+             data.monthlyFee is number && data.monthlyFee >= 0 && data.monthlyFee <= 1000000 &&
+             data.ptFee is number && data.ptFee >= 0 && data.ptFee <= 1000000 &&
+             data.maxCapacity is int && data.maxCapacity >= 1 && data.maxCapacity <= 10000 &&
+             data.activeCrowd is int && data.activeCrowd >= 0 && data.activeCrowd <= data.maxCapacity &&
+             isValidString(data.ownerUid, 1, 128) &&
+             isValidOptionalTimestamp(data, 'createdAt');
+    }
+
+    function isValidTrainer(data) {
+      return hasRequiredFields([
+               'name', 'specialty', 'morningCheckInTime', 'isOnDuty', 'commissionPercent'
+             ]) &&
+             hasOnlyAllowedFields([
+               'id', 'name', 'phone', 'specialty', 'morningCheckInTime',
+               'isOnDuty', 'commissionPercent'
+             ]) &&
+             isValidOptionalString(data, 'id', 1, 64) &&
+             isValidString(data.name, 1, 100) &&
+             (!('phone' in data) || isValidPhoneString(data.phone)) &&
+             isValidString(data.specialty, 1, 100) &&
+             isValidString(data.morningCheckInTime, 0, 30) &&
+             data.isOnDuty is bool &&
+             data.commissionPercent is number && data.commissionPercent >= 0 && data.commissionPercent <= 100;
+    }
+
+    function isValidMember(data) {
+      return hasRequiredFields([
+               'name', 'phone', 'planTitle', 'feePaid', 'joinedDate',
+               'expiryDate', 'daysLeft', 'assignedTrainer', 'isPtClient',
+               'addedByTrainer', 'currentWeightKg'
+             ]) &&
+             hasOnlyAllowedFields([
+               'id', 'name', 'phone', 'planTitle', 'feePaid', 'joinedDate',
+               'expiryDate', 'daysLeft', 'assignedTrainer', 'isPtClient',
+               'addedByTrainer', 'currentWeightKg', 'createdAt'
+             ]) &&
+             isValidOptionalString(data, 'id', 1, 64) &&
+             isValidString(data.name, 1, 100) &&
+             isValidPhoneString(data.phone) &&
+             isValidString(data.planTitle, 1, 100) &&
+             data.feePaid is number && data.feePaid >= 0 && data.feePaid <= 1000000 &&
+             isValidString(data.joinedDate, 1, 40) &&
+             isValidString(data.expiryDate, 1, 40) &&
+             data.daysLeft is int && data.daysLeft >= -3650 && data.daysLeft <= 3650 &&
+             isValidString(data.assignedTrainer, 0, 100) &&
+             data.isPtClient is bool &&
+             isValidString(data.addedByTrainer, 0, 100) &&
+             data.currentWeightKg is number && data.currentWeightKg >= 10 && data.currentWeightKg <= 500 &&
+             isValidOptionalTimestamp(data, 'createdAt');
+    }
+
+    function isValidEnquiry(data) {
+      return hasRequiredFields([
+               'name', 'phone', 'interestedPlan', 'loggedByTrainer', 'timeLabel', 'converted'
+             ]) &&
+             hasOnlyAllowedFields([
+               'id', 'name', 'phone', 'interestedPlan', 'loggedByTrainer',
+               'timeLabel', 'converted', 'createdAt'
+             ]) &&
+             isValidOptionalString(data, 'id', 1, 64) &&
+             isValidString(data.name, 1, 100) &&
+             isValidPhoneString(data.phone) &&
+             isValidString(data.interestedPlan, 1, 100) &&
+             isValidString(data.loggedByTrainer, 0, 100) &&
+             isValidString(data.timeLabel, 1, 50) &&
+             data.converted is bool &&
+             isValidOptionalTimestamp(data, 'createdAt');
+    }
+
+    function isValidMeal(data) {
+      return hasRequiredFields([
+               'memberName', 'timeLabel', 'mealDescription', 'macros', 'trainerFeedback'
+             ]) &&
+             hasOnlyAllowedFields([
+               'id', 'memberName', 'timeLabel', 'mealDescription',
+               'macros', 'trainerFeedback', 'memberPhone'
+             ]) &&
+             isValidOptionalString(data, 'id', 1, 64) &&
+             isValidString(data.memberName, 1, 100) &&
+             isValidString(data.timeLabel, 1, 50) &&
+             isValidString(data.mealDescription, 1, 1000) &&
+             isValidString(data.macros, 0, 200) &&
+             isValidString(data.trainerFeedback, 0, 500) &&
+             (!('memberPhone' in data) || isValidPhoneString(data.memberPhone));
+    }
+
+    function isValidMachine(data) {
+      return hasRequiredFields(['code', 'name', 'muscle', 'mistakeTip']) &&
+             hasOnlyAllowedFields(['code', 'name', 'muscle', 'mistakeTip']) &&
+             isValidString(data.code, 1, 30) &&
+             isValidString(data.name, 1, 100) &&
+             isValidString(data.muscle, 1, 100) &&
+             isValidString(data.mistakeTip, 0, 500);
+    }
+
+    function isValidMissingMember(data) {
+      return hasRequiredFields(['name', 'daysMissing', 'planName', 'lastMuscleTrained', 'contacted']) &&
+             hasOnlyAllowedFields(['name', 'daysMissing', 'planName', 'lastMuscleTrained', 'contacted']) &&
+             isValidString(data.name, 1, 100) &&
+             data.daysMissing is int && data.daysMissing >= 0 && data.daysMissing <= 3650 &&
+             isValidString(data.planName, 0, 100) &&
+             isValidString(data.lastMuscleTrained, 0, 100) &&
+             data.contacted is bool;
+    }
+
+    // ===============================================================
+    // Collection Rules
+    // ===============================================================
+
+    match /phone_index/{phone} {
+      // Users can read their own phone_index entry; gym owners can read trainer/member entries in their gym.
+      allow read: if (hasPhone() && userPhone() == phone) ||
+                     (isGymOwner(resource.data.gymId) && resource.data.role in ['trainer', 'member']);
+
+      // Owners can create trainer/member phone_index entries for their own gym (or their own owner entry if they own the gym doc).
+      allow create: if isValidPhoneIndex(request.resource.data, phone) &&
+                       isGymOwner(request.resource.data.gymId) &&
+                       (request.resource.data.role in ['trainer', 'member'] ||
+                        (request.resource.data.role == 'owner' && hasPhone() && userPhone() == phone && isGymDocOwner(request.resource.data.gymId)));
+
+      // Owners can update trainer/member phone_index entries for their own gym without changing gymId or escalating to owner.
+      allow update: if isValidPhoneIndex(request.resource.data, phone) &&
+                       areImmutableFieldsUnchanged(['gymId', 'phone']) &&
+                       isGymOwner(resource.data.gymId) &&
+                       resource.data.role in ['trainer', 'member'] &&
+                       request.resource.data.role in ['trainer', 'member'];
+
+      // Owners can delete trainer/member phone_index entries for their own gym.
+      allow delete: if isGymOwner(resource.data.gymId) &&
+                       resource.data.role in ['trainer', 'member'];
+    }
+
+    match /gyms/{gymId} {
+      // Any authenticated user belonging to this gym tenant can read its details.
+      allow read: if isUserOfGym(gymId);
+
+      // Authenticated user creating a gym must set themselves as ownerUid.
+      allow create: if isAuthenticated() &&
+                       isValidGym(request.resource.data) &&
+                       request.resource.data.ownerUid == request.auth.uid;
+
+      // Owners can update gym fees/settings; trainers can update activeCrowd;
+      // members can safely increment/decrement activeCrowd by 1 within capacity.
+      allow update: if isValidGym(request.resource.data) &&
+                       areImmutableFieldsUnchanged(['id', 'ownerUid', 'createdAt']) &&
+                       (
+                         isGymOwner(gymId) ||
+                         (isGymTrainer(gymId) &&
+                          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['activeCrowd'])) ||
+                         (isGymMember(gymId) &&
+                          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['activeCrowd']) &&
+                          math.abs(request.resource.data.activeCrowd - resource.data.activeCrowd) == 1)
+                       );
+
+      allow delete: if isGymOwner(gymId);
+
+      // Trainers subcollection
+      match /trainers/{trainerId} {
+        allow read: if isStaffOfGym(gymId);
+
+        allow create: if isGymOwner(gymId) && isValidTrainer(request.resource.data);
+
+        // Owners can update all trainer fields; trainers can only update their own isOnDuty and morningCheckInTime.
+        allow update: if isValidTrainer(request.resource.data) &&
+                         areImmutableFieldsUnchanged(['id']) &&
+                         (
+                           isGymOwner(gymId) ||
+                           (isGymTrainer(gymId) &&
+                            request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isOnDuty', 'morningCheckInTime']) &&
+                            (('phone' in resource.data && hasPhone() && resource.data.phone == userPhone()) ||
+                             trainerId == request.auth.uid))
+                         );
+
+        allow delete: if isGymOwner(gymId);
+      }
+
+      // Members subcollection
+      match /members/{memberId} {
+        allow read: if isStaffOfGym(gymId) ||
+                       (isGymMember(gymId) && hasPhone() && resource.data.phone == userPhone());
+
+        allow create: if isStaffOfGym(gymId) && isValidMember(request.resource.data);
+
+        allow update: if isStaffOfGym(gymId) &&
+                         isValidMember(request.resource.data) &&
+                         areImmutableFieldsUnchanged(['id', 'createdAt']);
+
+        allow delete: if isGymOwner(gymId);
+      }
+
+      // Walk-in Enquiries subcollection
+      match /enquiries/{enquiryId} {
+        allow read: if isStaffOfGym(gymId);
+
+        allow create: if isStaffOfGym(gymId) && isValidEnquiry(request.resource.data);
+
+        allow update: if isStaffOfGym(gymId) &&
+                         isValidEnquiry(request.resource.data) &&
+                         areImmutableFieldsUnchanged(['id', 'createdAt']);
+
+        allow delete: if isGymOwner(gymId);
+      }
+
+      // Meals subcollection
+      match /meals/{mealId} {
+        allow read: if isStaffOfGym(gymId) ||
+                       (isGymMember(gymId) && hasPhone() && ('memberPhone' in resource.data) && resource.data.memberPhone == userPhone());
+
+        allow create: if isValidMeal(request.resource.data) &&
+                         (
+                           isStaffOfGym(gymId) ||
+                           (isGymMember(gymId) &&
+                            hasPhone() &&
+                            ('memberPhone' in request.resource.data) &&
+                            request.resource.data.memberPhone == userPhone() &&
+                            request.resource.data.trainerFeedback == '')
+                         );
+
+        // Only owners and trainers can update trainerFeedback.
+        allow update: if isStaffOfGym(gymId) &&
+                         isValidMeal(request.resource.data) &&
+                         areImmutableFieldsUnchanged(['id', 'memberPhone']) &&
+                         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['trainerFeedback']);
+
+        allow delete: if isGymOwner(gymId);
+      }
+
+      // Machines subcollection
+      match /machines/{machineId} {
+        allow read: if isUserOfGym(gymId);
+
+        allow create: if isStaffOfGym(gymId) && isValidMachine(request.resource.data);
+
+        allow update: if isStaffOfGym(gymId) &&
+                         isValidMachine(request.resource.data) &&
+                         areImmutableFieldsUnchanged(['code']);
+
+        allow delete: if isGymOwner(gymId);
+      }
+
+      // Missing members radar subcollection
+      match /missing/{missingId} {
+        allow read: if isStaffOfGym(gymId);
+
+        allow create: if isStaffOfGym(gymId) && isValidMissingMember(request.resource.data);
+
+        allow update: if isStaffOfGym(gymId) && isValidMissingMember(request.resource.data);
+
+        allow delete: if isGymOwner(gymId);
+      }
+    }
+
+    // ===============================================================
+    // Default Deny
+    // ===============================================================
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

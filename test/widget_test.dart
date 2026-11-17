@@ -25,9 +25,9 @@ void main() {
     await tester.tap(find.text('CONTINUE'));
     await tester.pump(const Duration(milliseconds: 300));
 
-    // 3. Enter 4-digit OTP manually -> Verify & Continue
+    // 3. Enter 6-digit OTP manually -> Verify & Continue
     expect(find.text('Verify your number'), findsOneWidget);
-    await tester.enterText(find.byKey(const ValueKey('otp_input')), '4829');
+    await tester.enterText(find.byKey(const ValueKey('otp_input')), '123456');
     await tester.tap(find.text('VERIFY & CONTINUE'));
     await tester.pump(const Duration(milliseconds: 500));
 
