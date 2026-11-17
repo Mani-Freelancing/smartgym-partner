@@ -1,0 +1,1 @@
+enum PartnerRole { trainer, owner }

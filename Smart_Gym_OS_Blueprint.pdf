@@ -1,0 +1,220 @@
+%PDF-1.4
+%‚„œ”
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [5 0 R 7 0 R 9 0 R] /Count 3 >>
+endobj
+3 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>
+endobj
+4 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>
+endobj
+5 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents 6 0 R >>
+endobj
+6 0 obj
+<< /Length 5058 >>
+stream
+0.060 0.720 0.500 rg 0.0 830.0 595.0 12.0 re f
+0.060 0.090 0.160 rg 36.0 722.0 523.0 68.0 re f
+0.060 0.720 0.500 rg 36.0 722.0 6.0 68.0 re f
+BT /F2 8.5 Tf 0.060 0.720 0.500 rg 52.0 766.0 Td (FLUTTER SAAS PRODUCT & BUSINESS BLUEPRINT) Tj ET
+BT /F2 16 Tf 1.000 1.000 1.000 rg 52.0 747.0 Td (SMART GYM OS - COMPLETE MASTERPLAN) Tj ET
+BT /F1 9.5 Tf 0.800 0.840 0.880 rg 52.0 732.0 Td (Build 1 Multi-Tenant Flutter App | Rent to 50-100 Gyms | Empower Owners, Trainers & Members) Tj ET
+0.940 0.990 0.960 rg 36.0 552.0 523.0 154.0 re f
+0.060 0.720 0.500 rg 36.0 552.0 4.0 154.0 re f
+BT /F2 10.5 Tf 0.080 0.380 0.220 rg 48.0 690.0 Td (WHY THIS PROJECT WILL 100% WORK IN THE REAL WORLD) Tj ET
+BT /F1 9.3 Tf 0.100 0.250 0.180 rg 48.0 674.0 Td (- Trainers Become Your Biggest Fans: Instead of replacing trainers with free diet) Tj ET
+BT /F1 9.3 Tf 0.100 0.250 0.180 rg 48.0 661.0 Td (  charts, every feature helps trainers sell more Personal Training \(PT\) and earn) Tj ET
+BT /F1 9.3 Tf 0.100 0.250 0.180 rg 48.0 648.0 Td (  supplement commissions.) Tj ET
+BT /F1 9.3 Tf 0.100 0.250 0.180 rg 48.0 632.0 Td (- Walk-In Face-to-Face Closing \(Zero Cold DM Waiting\): Visit local gyms between 11:00 AM) Tj ET
+BT /F1 9.3 Tf 0.100 0.250 0.180 rg 48.0 619.0 Td (  - 4:00 PM when the owner is free at reception, show their Gym Name live inside your) Tj ET
+BT /F1 9.3 Tf 0.100 0.250 0.180 rg 48.0 606.0 Td (  app, and close on the spot.) Tj ET
+BT /F1 9.3 Tf 0.100 0.250 0.180 rg 48.0 590.0 Td (- Impossible to Copy for Cheap: Hiring a developer costs Rs.1,50,000+. Renting your) Tj ET
+BT /F1 9.3 Tf 0.100 0.250 0.180 rg 48.0 577.0 Td (  ready-made Smart Gym OS costs just Rs.2,500-3,500/month \(paid for by recovering just 2) Tj ET
+BT /F1 9.3 Tf 0.100 0.250 0.180 rg 48.0 564.0 Td (  expired memberships!\).) Tj ET
+0.060 0.090 0.160 rg 36.0 518.0 24.0 18.0 re f
+BT /F2 9.5 Tf 0.060 0.720 0.500 rg 41.0 523.0 Td (01) Tj ET
+BT /F2 12.5 Tf 0.060 0.090 0.160 rg 68.0 523.0 Td (HOW 50+ GYMS USE YOUR 1 FLUTTER APP \(ARCHITECTURE\)) Tj ET
+0.850 0.880 0.920 rg 36.0 514.0 523.0 1.5 re f
+0.940 0.990 0.960 rg 36.0 392.0 523.0 112.0 re f
+0.060 0.720 0.500 rg 36.0 392.0 4.0 112.0 re f
+BT /F2 10.5 Tf 0.080 0.380 0.220 rg 48.0 488.0 Td (2 Multi-Tenant Options from a Single Flutter Codebase) Tj ET
+BT /F1 9.3 Tf 0.100 0.250 0.180 rg 48.0 472.0 Td (- Option A - Single Play Store App with Gym QR Code \(Charge Rs.10,000 Setup +) Tj ET
+BT /F1 9.3 Tf 0.100 0.250 0.180 rg 48.0 459.0 Td (  Rs.2,500/month\): Each gym gets a unique gym_id QR at reception. Scanning loads that) Tj ET
+BT /F1 9.3 Tf 0.100 0.250 0.180 rg 48.0 446.0 Td (  Gym's Logo, Colors, Trainers, and Plans from Firebase/Supabase.) Tj ET
+BT /F1 9.3 Tf 0.100 0.250 0.180 rg 48.0 430.0 Td (- Option B - Custom Branded App via Flutter Flavors \(Charge Rs.25,000 Setup +) Tj ET
+BT /F1 9.3 Tf 0.100 0.250 0.180 rg 48.0 417.0 Td (  Rs.4,000/month\): For big multi-branch gyms wanting their own Play Store name & icon,) Tj ET
+BT /F1 9.3 Tf 0.100 0.250 0.180 rg 48.0 404.0 Td (  compile a branded build in 15 minutes.) Tj ET
+0.060 0.090 0.160 rg 36.0 358.0 24.0 18.0 re f
+BT /F2 9.5 Tf 0.060 0.720 0.500 rg 41.0 363.0 Td (02) Tj ET
+BT /F2 12.5 Tf 0.060 0.090 0.160 rg 68.0 363.0 Td (THE 10 INNOVATIVE & MONEY-MAKING FEATURES) Tj ET
+0.850 0.880 0.920 rg 36.0 354.0 523.0 1.5 re f
+0.970 0.980 0.990 rg 36.0 245.0 523.0 99.0 re f
+0.060 0.720 0.500 rg 36.0 245.0 4.0 99.0 re f
+BT /F2 10.5 Tf 0.060 0.090 0.160 rg 48.0 329.0 Td (1. Smart QR Entrance Gate & Auto-UPI Fee Collector) Tj ET
+BT /F2 8.5 Tf 0.060 0.720 0.500 rg 440.0 329.0 Td ([Stops Revenue Loss]) Tj ET
+BT /F1 9.3 Tf 0.200 0.250 0.330 rg 48.0 314.0 Td (Members scan the entrance QR daily. If their membership expired yesterday, the screen) Tj ET
+BT /F1 9.3 Tf 0.200 0.250 0.330 rg 48.0 301.0 Td (turns RED \(Access Blocked\) with a 1-tap UPI Renewal button and sends auto alerts 3 days) Tj ET
+BT /F1 9.3 Tf 0.200 0.250 0.330 rg 48.0 288.0 Td (before expiry.) Tj ET
+BT /F2 9.2 Tf 0.050 0.400 0.250 rg 48.0 273.0 Td (Owner Benefit: Recovers 30% of late/unpaid fees automatically without awkward face-to-) Tj ET
+BT /F2 9.2 Tf 0.050 0.400 0.250 rg 48.0 260.0 Td (face reminders.) Tj ET
+0.970 0.980 0.990 rg 36.0 139.0 523.0 99.0 re f
+0.900 0.550 0.050 rg 36.0 139.0 4.0 99.0 re f
+BT /F2 10.5 Tf 0.060 0.090 0.160 rg 48.0 223.0 Td (2. Smart Machine QR Stickers \(Turns Gym Trainers into Celebrities\)) Tj ET
+BT /F2 8.5 Tf 0.900 0.550 0.050 rg 440.0 223.0 Td ([Sells Personal Training]) Tj ET
+BT /F1 9.3 Tf 0.200 0.250 0.330 rg 48.0 208.0 Td (Provide 20 waterproof QR stickers for machines \(Lat Pulldown, Pec Deck, Squat Rack\).) Tj ET
+BT /F1 9.3 Tf 0.200 0.250 0.330 rg 48.0 195.0 Td (Scanning pops up a 15-sec posture video of THAT GYM'S OWN TRAINER + a 'Book 1-on-1 PT) Tj ET
+BT /F1 9.3 Tf 0.200 0.250 0.330 rg 48.0 182.0 Td (with Trainer' button.) Tj ET
+BT /F2 9.2 Tf 0.050 0.400 0.250 rg 48.0 167.0 Td (Trainer Benefit: Makes trainers look like stars and converts confused beginners into) Tj ET
+BT /F2 9.2 Tf 0.050 0.400 0.250 rg 48.0 154.0 Td (Rs.5,000/mo PT clients!) Tj ET
+endstream
+endobj
+7 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents 8 0 R >>
+endobj
+8 0 obj
+<< /Length 6150 >>
+stream
+0.060 0.720 0.500 rg 0.0 830.0 595.0 12.0 re f
+0.970 0.980 0.990 rg 36.0 691.0 523.0 99.0 re f
+0.200 0.450 0.900 rg 36.0 691.0 4.0 99.0 re f
+BT /F2 10.5 Tf 0.060 0.090 0.160 rg 48.0 775.0 Td (3. Live Gym Crowd Meter \(Zero Extra Hardware Needed\)) Tj ET
+BT /F2 8.5 Tf 0.200 0.450 0.900 rg 440.0 775.0 Td ([Daily App Habit]) Tj ET
+BT /F1 9.3 Tf 0.200 0.250 0.330 rg 48.0 760.0 Td (Calculated automatically from entrance QR scans in the last 60 minutes. Members see live) Tj ET
+BT /F1 9.3 Tf 0.200 0.250 0.330 rg 48.0 747.0 Td (status from home: 'GREEN: 14 People Inside \(Best time to train!\)' or 'RED: 46 People) Tj ET
+BT /F1 9.3 Tf 0.200 0.250 0.330 rg 48.0 734.0 Td (Inside \(Peak Hour\)'.) Tj ET
+BT /F2 9.2 Tf 0.050 0.400 0.250 rg 48.0 719.0 Td (Member Benefit: Every member opens your app daily before leaving home just to check) Tj ET
+BT /F2 9.2 Tf 0.050 0.400 0.250 rg 48.0 706.0 Td (the crowd.) Tj ET
+0.970 0.980 0.990 rg 36.0 585.0 523.0 99.0 re f
+0.550 0.300 0.900 rg 36.0 585.0 4.0 99.0 re f
+BT /F2 10.5 Tf 0.060 0.090 0.160 rg 48.0 669.0 Td (4. 'VIP Meal Plate Snap' \(Locked Exclusively for Paid PT Clients\)) Tj ET
+BT /F2 8.5 Tf 0.550 0.300 0.900 rg 440.0 669.0 Td ([High PT Upgrade]) Tj ET
+BT /F1 9.3 Tf 0.200 0.250 0.330 rg 48.0 654.0 Td (Only paid Personal Training \(PT\) clients unlock Meal Snap. They snap a photo of their) Tj ET
+BT /F1 9.3 Tf 0.200 0.250 0.330 rg 48.0 641.0 Td (plate, and their Trainer taps 1 button in 2 seconds \('Great Protein!', 'Add 2 Eggs',) Tj ET
+BT /F1 9.3 Tf 0.200 0.250 0.330 rg 48.0 628.0 Td ('Reduce Rice'\). General members see it locked.) Tj ET
+BT /F2 9.2 Tf 0.050 0.400 0.250 rg 48.0 613.0 Td (Owner & Trainer Benefit: Directly convinces Rs.1,500 general members to upgrade to) Tj ET
+BT /F2 9.2 Tf 0.050 0.400 0.250 rg 48.0 600.0 Td (Rs.5,000 Personal Training!) Tj ET
+0.970 0.980 0.990 rg 36.0 479.0 523.0 99.0 re f
+0.060 0.720 0.500 rg 36.0 479.0 4.0 99.0 re f
+BT /F2 10.5 Tf 0.060 0.090 0.160 rg 48.0 563.0 Td (5. 15-Day Trainer Body Check-In & 'Ghost-Overlay' Progress Camera) Tj ET
+BT /F2 8.5 Tf 0.060 0.720 0.500 rg 440.0 563.0 Td ([Stops Dropouts]) Tj ET
+BT /F1 9.3 Tf 0.200 0.250 0.330 rg 48.0 548.0 Td (Every 15 days, unlocks a 2-minute Body Measurement Check with a Trainer. Includes a) Tj ET
+BT /F1 9.3 Tf 0.200 0.250 0.330 rg 48.0 535.0 Td (Ghost Camera that overlays a transparent outline of the Day-1 mirror photo so Day-30) Tj ET
+BT /F1 9.3 Tf 0.200 0.250 0.330 rg 48.0 522.0 Td (photos align for a Before/After slider.) Tj ET
+BT /F2 9.2 Tf 0.050 0.400 0.250 rg 48.0 507.0 Td (Trainer Benefit: Brings every member to the trainer's desk every 15 days to pitch) Tj ET
+BT /F2 9.2 Tf 0.050 0.400 0.250 rg 48.0 494.0 Td (Personal Training.) Tj ET
+0.970 0.980 0.990 rg 36.0 373.0 523.0 99.0 re f
+0.900 0.550 0.050 rg 36.0 373.0 4.0 99.0 re f
+BT /F2 10.5 Tf 0.060 0.090 0.160 rg 48.0 457.0 Td (6. 25-Day Whey Protein Refill Countdown + Post-Workout Shake Pre-Order) Tj ET
+BT /F2 8.5 Tf 0.900 0.550 0.050 rg 440.0 457.0 Td ([Supplement Sales]) Tj ET
+BT /F1 9.3 Tf 0.200 0.250 0.330 rg 48.0 442.0 Td (Tracks a 30-scoop Whey tub by subtracting 1 scoop per gym visit. On Day 25, alerts) Tj ET
+BT /F1 9.3 Tf 0.200 0.250 0.330 rg 48.0 429.0 Td (Member & Trainer: '5 scoops left! Pre-order from Gym Reception for Rs.250 off!' Plus) Tj ET
+BT /F1 9.3 Tf 0.200 0.250 0.330 rg 48.0 416.0 Td (45-min post-workout Egg/Shake pre-order.) Tj ET
+BT /F2 9.2 Tf 0.050 0.400 0.250 rg 48.0 401.0 Td (Owner Benefit: Stops members buying from Amazon/HealthKart; keeps 100% supplement) Tj ET
+BT /F2 9.2 Tf 0.050 0.400 0.250 rg 48.0 388.0 Td (profit inside the gym.) Tj ET
+0.970 0.980 0.990 rg 36.0 267.0 523.0 99.0 re f
+0.550 0.300 0.900 rg 36.0 267.0 4.0 99.0 re f
+BT /F2 10.5 Tf 0.060 0.090 0.160 rg 48.0 351.0 Td (7. 1-Tap Instagram Story 'PR & Streak Poster' \(Spotify-Wrapped Style\)) Tj ET
+BT /F2 8.5 Tf 0.550 0.300 0.900 rg 440.0 351.0 Td ([Free Local Marketing]) Tj ET
+BT /F1 9.3 Tf 0.200 0.250 0.330 rg 48.0 336.0 Td (When a member hits a 20-Day Streak or a New Personal Record \(e.g. 80kg Bench Press) Tj ET
+BT /F1 9.3 Tf 0.200 0.250 0.330 rg 48.0 323.0 Td (verified by Trainer\), generates a sleek Instagram Story poster with the Gym's Logo,) Tj ET
+BT /F1 9.3 Tf 0.200 0.250 0.330 rg 48.0 310.0 Td (Location & Trainer Name.) Tj ET
+BT /F2 9.2 Tf 0.050 0.400 0.250 rg 48.0 295.0 Td (Owner Benefit: 50 members sharing stories = thousands of local college students &) Tj ET
+BT /F2 9.2 Tf 0.050 0.400 0.250 rg 48.0 282.0 Td (friends seeing the gym for free.) Tj ET
+0.970 0.980 0.990 rg 36.0 161.0 523.0 99.0 re f
+0.200 0.450 0.900 rg 36.0 161.0 4.0 99.0 re f
+BT /F2 10.5 Tf 0.060 0.090 0.160 rg 48.0 245.0 Td (8. '5-Day Missing Member Radar' \(1-Tap Trainer WhatsApp Rescue\)) Tj ET
+BT /F2 8.5 Tf 0.200 0.450 0.900 rg 440.0 245.0 Td ([Retention Engine]) Tj ET
+BT /F1 9.3 Tf 0.200 0.250 0.330 rg 48.0 230.0 Td (If an active member hasn't scanned the entrance QR for 5 days, alerts the Trainer) Tj ET
+BT /F1 9.3 Tf 0.200 0.250 0.330 rg 48.0 217.0 Td (\('Rahul hasn't visited in 5 days'\) with a 1-tap button to send a pre-filled WhatsApp) Tj ET
+BT /F1 9.3 Tf 0.200 0.250 0.330 rg 48.0 204.0 Td (check-in message.) Tj ET
+BT /F2 9.2 Tf 0.050 0.400 0.250 rg 48.0 189.0 Td (Owner Benefit: Rescues lazy members before they quit, increasing monthly renewals by) Tj ET
+BT /F2 9.2 Tf 0.050 0.400 0.250 rg 48.0 176.0 Td (30%+.) Tj ET
+0.970 0.980 0.990 rg 36.0 68.0 523.0 86.0 re f
+0.060 0.720 0.500 rg 36.0 68.0 4.0 86.0 re f
+BT /F2 10.5 Tf 0.060 0.090 0.160 rg 48.0 139.0 Td (9. 'Vacation Freeze / Pause Membership' Button) Tj ET
+BT /F2 8.5 Tf 0.060 0.720 0.500 rg 440.0 139.0 Td ([Sells Yearly Plans]) Tj ET
+BT /F1 9.3 Tf 0.200 0.250 0.330 rg 48.0 124.0 Td (Members buying 6-Month or 1-Year plans get 15 Freeze Days. When traveling or sick, they) Tj ET
+BT /F1 9.3 Tf 0.200 0.250 0.330 rg 48.0 111.0 Td (tap 'Pause Membership' in the app and those days automatically extend their expiry date.) Tj ET
+BT /F2 9.2 Tf 0.050 0.400 0.250 rg 48.0 96.0 Td (Owner Benefit: Helps reception easily convince walk-ins to buy Rs.8,000-12,000 long-) Tj ET
+BT /F2 9.2 Tf 0.050 0.400 0.250 rg 48.0 83.0 Td (term plans upfront!) Tj ET
+endstream
+endobj
+9 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents 10 0 R >>
+endobj
+10 0 obj
+<< /Length 4715 >>
+stream
+0.060 0.720 0.500 rg 0.0 830.0 595.0 12.0 re f
+0.970 0.980 0.990 rg 36.0 704.0 523.0 86.0 re f
+0.900 0.550 0.050 rg 36.0 704.0 4.0 86.0 re f
+BT /F2 10.5 Tf 0.060 0.090 0.160 rg 48.0 775.0 Td (10. Monthly Gym Attendance Leaderboard & Workout Buddy Finder) Tj ET
+BT /F2 8.5 Tf 0.900 0.550 0.050 rg 440.0 775.0 Td ([Community Hook]) Tj ET
+BT /F1 9.3 Tf 0.200 0.250 0.330 rg 48.0 760.0 Td (Live leaderboard ranking the most consistent members of the month \('#1 Deepak - 24) Tj ET
+BT /F1 9.3 Tf 0.200 0.250 0.330 rg 48.0 747.0 Td (Days'\), plus optional tag showing who is training the same muscle group at the same) Tj ET
+BT /F1 9.3 Tf 0.200 0.250 0.330 rg 48.0 734.0 Td (hour.) Tj ET
+BT /F2 9.2 Tf 0.050 0.400 0.250 rg 48.0 719.0 Td (Member Benefit: Turns going to the gym into an addictive competition.) Tj ET
+0.060 0.090 0.160 rg 36.0 673.0 24.0 18.0 re f
+BT /F2 9.5 Tf 0.060 0.720 0.500 rg 41.0 678.0 Td (03) Tj ET
+BT /F2 12.5 Tf 0.060 0.090 0.160 rg 68.0 678.0 Td (THE 3 ROLES INSIDE YOUR SINGLE FLUTTER APP) Tj ET
+0.850 0.880 0.920 rg 36.0 669.0 523.0 1.5 re f
+0.940 0.990 0.960 rg 36.0 518.0 523.0 141.0 re f
+0.060 0.720 0.500 rg 36.0 518.0 4.0 141.0 re f
+BT /F2 10.5 Tf 0.080 0.380 0.220 rg 48.0 643.0 Td (Role-Based Screens \(Switchable in Demo Mode\)) Tj ET
+BT /F1 9.3 Tf 0.100 0.250 0.180 rg 48.0 627.0 Td (- 1. Member View: Entrance QR Scanner, Plan Expiry Countdown, Live Gym Crowd Meter,) Tj ET
+BT /F1 9.3 Tf 0.100 0.250 0.180 rg 48.0 614.0 Td (  Machine QR Video Scanner, Ghost Progress Camera, VIP Meal Snap, Vacation Freeze & IG) Tj ET
+BT /F1 9.3 Tf 0.100 0.250 0.180 rg 48.0 601.0 Td (  Story PR Card.) Tj ET
+BT /F1 9.3 Tf 0.100 0.250 0.180 rg 48.0 585.0 Td (- 2. Trainer View: 1-Tap Review PT Client Meals, 15-Day Body Measurement Logger, 5-Day) Tj ET
+BT /F1 9.3 Tf 0.100 0.250 0.180 rg 48.0 572.0 Td (  Missing Member WhatsApp Rescue List, Whey Refill Due Alerts & Verify Member PRs.) Tj ET
+BT /F1 9.3 Tf 0.100 0.250 0.180 rg 48.0 556.0 Td (- 3. Gym Owner View: Today's Fee Collection & Expiring Members List, Live Crowd &) Tj ET
+BT /F1 9.3 Tf 0.100 0.250 0.180 rg 48.0 543.0 Td (  Attendance Graph, PT Upgrade Inquiries, Supplement Pre-Orders & 1-Tap Broadcast Push) Tj ET
+BT /F1 9.3 Tf 0.100 0.250 0.180 rg 48.0 530.0 Td (  Notification.) Tj ET
+0.060 0.090 0.160 rg 36.0 484.0 24.0 18.0 re f
+BT /F2 9.5 Tf 0.060 0.720 0.500 rg 41.0 489.0 Td (04) Tj ET
+BT /F2 12.5 Tf 0.060 0.090 0.160 rg 68.0 489.0 Td (YOUR INCOME MATH & 60-SECOND WALK-IN PITCH) Tj ET
+0.850 0.880 0.920 rg 36.0 480.0 523.0 1.5 re f
+0.940 0.990 0.960 rg 36.0 381.0 523.0 89.0 re f
+0.060 0.720 0.500 rg 36.0 381.0 4.0 89.0 re f
+BT /F2 10.5 Tf 0.080 0.380 0.220 rg 48.0 454.0 Td (How You Scale to Lakhs Per Month) Tj ET
+BT /F1 9.3 Tf 0.100 0.250 0.180 rg 48.0 438.0 Td (- Month 1 \(5 Local Gyms\): Rs.75,000 Setup Cash + Rs.15,000/month recurring.) Tj ET
+BT /F1 9.3 Tf 0.100 0.250 0.180 rg 48.0 422.0 Td (- Month 3 \(20 City Gyms\): Rs.3,00,000 Setup Cash + Rs.60,000/month recurring.) Tj ET
+BT /F1 9.3 Tf 0.100 0.250 0.180 rg 48.0 406.0 Td (- Month 6 \(50 Regional Gyms\): Rs.7,50,000 Setup Cash + Rs.1,50,000/month recurring every) Tj ET
+BT /F1 9.3 Tf 0.100 0.250 0.180 rg 48.0 393.0 Td (  single month!) Tj ET
+0.940 0.990 0.960 rg 36.0 201.0 523.0 170.0 re f
+0.060 0.720 0.500 rg 36.0 201.0 4.0 170.0 re f
+BT /F2 10.5 Tf 0.080 0.380 0.220 rg 48.0 355.0 Td (Your 60-Second Walk-In Pitch \(Between 11:00 AM - 4:00 PM at Any Gym\)) Tj ET
+BT /F1 9.3 Tf 0.100 0.250 0.180 rg 48.0 339.0 Td (- "Bro, I built a Smart Gym App for top gyms in our city. Unlike generic apps that give) Tj ET
+BT /F1 9.3 Tf 0.100 0.250 0.180 rg 48.0 326.0 Td (  free diet charts and hurt your trainers' Personal Training sales, this app is built to) Tj ET
+BT /F1 9.3 Tf 0.100 0.250 0.180 rg 48.0 313.0 Td (  INCREASE your PT sales, supplement sales, and stop late fee payments.") Tj ET
+BT /F1 9.3 Tf 0.100 0.250 0.180 rg 48.0 297.0 Td (- "1\) Members scan a QR at the door - if their fee expired, it turns RED for instant UPI) Tj ET
+BT /F1 9.3 Tf 0.100 0.250 0.180 rg 48.0 284.0 Td (  renewal and powers a Live Gym Crowd Meter.") Tj ET
+BT /F1 9.3 Tf 0.100 0.250 0.180 rg 48.0 268.0 Td (- "2\) We put Smart QR Stickers on your machines showing 15-second posture videos of YOUR) Tj ET
+BT /F1 9.3 Tf 0.100 0.250 0.180 rg 48.0 255.0 Td (  trainers.") Tj ET
+BT /F1 9.3 Tf 0.100 0.250 0.180 rg 48.0 239.0 Td (- "3\) VIP Plate Snap, 15-Day Body Checks, and 25-Day Whey Refill Alerts convert your) Tj ET
+BT /F1 9.3 Tf 0.100 0.250 0.180 rg 48.0 226.0 Td (  Rs.1,500 members into Rs.5,000 Personal Training clients. Look at my phone - I already) Tj ET
+BT /F1 9.3 Tf 0.100 0.250 0.180 rg 48.0 213.0 Td (  loaded your gym's name inside. Let's test it for 7 days!") Tj ET
+endstream
+endobj
+xref
+0 11
+0000000000 65535 f 
+0000000015 00000 n 
+0000000064 00000 n 
+0000000133 00000 n 
+0000000230 00000 n 
+0000000332 00000 n 
+0000000468 00000 n 
+0000005578 00000 n 
+0000005714 00000 n 
+0000011916 00000 n 
+0000012053 00000 n 
+trailer
+<< /Size 11 /Root 1 0 R >>
+startxref
+16821
+%%EOF
