@@ -6,6 +6,7 @@ import '../../../../core/widgets/cred_neopop_widgets.dart';
 import '../../../../shared_bloc/smart_gym_bloc.dart';
 import '../../../../shared_bloc/smart_gym_event.dart';
 import '../../../../shared_bloc/smart_gym_state.dart';
+import '../../shared/qr_scanner_screen.dart';
 
 class TrainerAbsentRadarScreen extends StatelessWidget {
   const TrainerAbsentRadarScreen({super.key});
@@ -104,9 +105,18 @@ class TrainerAbsentRadarScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return BlocBuilder<SmartGymBloc, SmartGymState>(
       builder: (context, state) {
-        return ListView(
-          physics: const BouncingScrollPhysics(),
-          padding: const EdgeInsets.fromLTRB(20, 10, 20, 32),
+        return RefreshIndicator(
+          color: AppTheme.trainerCyan,
+          backgroundColor: const Color(0xFF1A1E29),
+          onRefresh: () async {
+            context.read<SmartGymBloc>().add(const RefreshGymDataEvent());
+            await Future<void>.delayed(const Duration(milliseconds: 450));
+          },
+          child: ListView(
+            physics: const AlwaysScrollableScrollPhysics(
+              parent: BouncingScrollPhysics(),
+            ),
+            padding: const EdgeInsets.fromLTRB(20, 10, 20, 32),
           children: [
             // 1. Trainer Morning Duty Check-In
             const Text(
@@ -162,11 +172,42 @@ class TrainerAbsentRadarScreen extends StatelessWidget {
                             backgroundColor:
                                 AppTheme.accent.withValues(alpha: 0.16),
                           ),
-                          onPressed: () {
+                          onPressed: () async {
                             HapticFeedback.mediumImpact();
-                            context
-                                .read<SmartGymBloc>()
-                                .add(MarkTrainerDutyCheckInEvent(i));
+                            final bloc = context.read<SmartGymBloc>();
+                            if (bloc.firestoreService == null) {
+                              bloc.add(MarkTrainerDutyCheckInEvent(i));
+                              return;
+                            }
+                            final raw = await Navigator.of(context).push<String>(
+                              MaterialPageRoute(
+                                builder: (_) => const QrScannerScreen(
+                                  title: 'Duty QR Check-In',
+                                  subtitle:
+                                      'Scan the Reception Duty QR at your gym desk.',
+                                  accentColor: AppTheme.accent,
+                                ),
+                              ),
+                            );
+                            if (raw == null || !context.mounted) return;
+                            final uri = Uri.tryParse(raw);
+                            final scannedGymId =
+                                uri?.queryParameters['gymId'] ?? '';
+                            if (uri?.scheme == 'smartgym' &&
+                                uri?.host == 'duty' &&
+                                scannedGymId == state.currentGym.id) {
+                              bloc.add(MarkTrainerDutyCheckInEvent(i));
+                            } else {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  backgroundColor: Color(0xFFFF6B6B),
+                                  content: Text(
+                                    'Wrong QR! Please scan your gym\'s Reception Duty QR.',
+                                    style: TextStyle(fontWeight: FontWeight.w700),
+                                  ),
+                                ),
+                              );
+                            }
                           },
                           child: const Text(
                             'Scan Duty QR',
@@ -354,6 +395,7 @@ class TrainerAbsentRadarScreen extends StatelessWidget {
               );
             }),
           ],
+          ),
         );
       },
     );

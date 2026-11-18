@@ -7,7 +7,9 @@ import '../../shared_bloc/smart_gym_bloc.dart';
 import '../../shared_bloc/smart_gym_event.dart';
 import '../../shared_bloc/smart_gym_state.dart';
 import 'auth/partner_login_screen.dart';
+import 'auth/partner_onboarding_screen.dart';
 import 'owner/owner_shell_screen.dart';
+import 'owner/owner_team_qr_sheet.dart';
 import 'trainer/trainer_shell_screen.dart';
 
 class PartnerAppRoot extends StatelessWidget {
@@ -17,8 +19,30 @@ class PartnerAppRoot extends StatelessWidget {
   Widget build(BuildContext context) {
     return BlocBuilder<SmartGymBloc, SmartGymState>(
       builder: (context, state) {
+        if (state.isAuthChecking) {
+          return const Scaffold(
+            backgroundColor: AppTheme.scaffoldBg,
+            body: Center(
+              child: CircularProgressIndicator(color: AppTheme.ownerGold),
+            ),
+          );
+        }
+
+        if (state.needsOnboarding) {
+          return const PartnerOnboardingScreen();
+        }
+
         if (!state.isPartnerLoggedIn) {
           return const PartnerLoginScreen();
+        }
+
+        if (state.gyms.isEmpty) {
+          return const Scaffold(
+            backgroundColor: AppTheme.scaffoldBg,
+            body: Center(
+              child: CircularProgressIndicator(color: AppTheme.ownerGold),
+            ),
+          );
         }
 
         final isOwner = state.partnerRole == PartnerRole.owner;
@@ -94,7 +118,39 @@ class PartnerAppRoot extends StatelessWidget {
                           ],
                         ),
                       ),
-                      const SizedBox(width: 10),
+                      if (isOwner) ...[
+                        const SizedBox(width: 8),
+                        IconButton(
+                          tooltip: 'Team & Gym QRs',
+                          style: IconButton.styleFrom(
+                            backgroundColor:
+                                AppTheme.ownerGold.withValues(alpha: 0.14),
+                            foregroundColor: AppTheme.ownerGold,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                          ),
+                          onPressed: () {
+                            HapticFeedback.selectionClick();
+                            showModalBottomSheet(
+                              context: context,
+                              isScrollControlled: true,
+                              backgroundColor: const Color(0xFF1A1E29),
+                              shape: const RoundedRectangleBorder(
+                                borderRadius: BorderRadius.vertical(
+                                  top: Radius.circular(24),
+                                ),
+                              ),
+                              builder: (_) => BlocProvider.value(
+                                value: context.read<SmartGymBloc>(),
+                                child: const OwnerTeamQrSheet(),
+                              ),
+                            );
+                          },
+                          icon: const Icon(Icons.qr_code_2_rounded, size: 19),
+                        ),
+                      ],
+                      const SizedBox(width: 8),
                       OutlinedButton.icon(
                         style: OutlinedButton.styleFrom(
                           side: const BorderSide(color: Colors.white24),

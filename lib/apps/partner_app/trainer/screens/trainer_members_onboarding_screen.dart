@@ -290,9 +290,18 @@ class TrainerMembersOnboardingScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return BlocBuilder<SmartGymBloc, SmartGymState>(
       builder: (context, state) {
-        return ListView(
-          physics: const BouncingScrollPhysics(),
-          padding: const EdgeInsets.fromLTRB(20, 10, 20, 32),
+        return RefreshIndicator(
+          color: AppTheme.trainerCyan,
+          backgroundColor: const Color(0xFF1A1E29),
+          onRefresh: () async {
+            context.read<SmartGymBloc>().add(const RefreshGymDataEvent());
+            await Future<void>.delayed(const Duration(milliseconds: 450));
+          },
+          child: ListView(
+            physics: const AlwaysScrollableScrollPhysics(
+              parent: BouncingScrollPhysics(),
+            ),
+            padding: const EdgeInsets.fromLTRB(20, 10, 20, 32),
           children: [
             // Quick Onboarding Actions for Floor Trainer
             CredStaggeredItem(
@@ -502,7 +511,8 @@ class TrainerMembersOnboardingScreen extends StatelessWidget {
                 ),
               );
             }),
-          ],
+            ],
+          ),
         );
       },
     );

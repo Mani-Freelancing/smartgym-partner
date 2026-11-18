@@ -1,18 +1,507 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/material.dart';
 import '../../domain/models/gym_member.dart';
 import '../../domain/models/gym_tenant.dart';
 import '../../domain/models/machine_guide.dart';
 import '../../domain/models/meal_review_item.dart';
 import '../../domain/models/missing_member.dart';
+import '../../domain/models/trainer_join_request.dart';
 import '../../domain/models/trainer_profile.dart';
 import '../../domain/models/walk_in_enquiry.dart';
+
+class PhoneLookupResult {
+  final String phone;
+  final String role;
+  final String gymId;
+  final String name;
+
+  const PhoneLookupResult({
+    required this.phone,
+    required this.role,
+    required this.gymId,
+    required this.name,
+  });
+}
 
 class FirestoreService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
   User? get currentUser => _auth.currentUser;
+
+  Future<void> signOut() => _auth.signOut();
+
+  Future<PhoneLookupResult?> lookupPhone(String phone) async {
+    final doc = await _db.collection('phone_index').doc(phone).get();
+    if (!doc.exists || doc.data() == null) return null;
+    final data = doc.data()!;
+    return PhoneLookupResult(
+      phone: phone,
+      role: (data['role'] ?? 'owner') as String,
+      gymId: (data['gymId'] ?? '') as String,
+      name: (data['name'] ?? '') as String,
+    );
+  }
+
+  Stream<PhoneLookupResult?> watchPhoneLookup(String phone) {
+    return _db.collection('phone_index').doc(phone).snapshots().map((doc) {
+      if (!doc.exists || doc.data() == null) return null;
+      final data = doc.data()!;
+      return PhoneLookupResult(
+        phone: phone,
+        role: (data['role'] ?? 'owner') as String,
+        gymId: (data['gymId'] ?? '') as String,
+        name: (data['name'] ?? '') as String,
+      );
+    });
+  }
+
+  /// Creates a brand-new gym tenant and binds the owner's phone in `phone_index`
+  /// in a single atomic batch.
+  Future<String> createNewGym({
+    required String gymName,
+    required String area,
+    required String ownerName,
+    required String ownerPhone,
+    int monthlyFee = 1500,
+    int ptFee = 6000,
+  }) async {
+    final slug = gymName
+        .toLowerCase()
+        .replaceAll(RegExp(r'[^a-z0-9]+'), '_')
+        .replaceAll(RegExp(r'^_+|_+$'), '');
+    final shortTs =
+        (DateTime.now().millisecondsSinceEpoch % 100000).toString();
+    final gymId = '${slug.isEmpty ? 'gym' : slug}_$shortTs';
+    final uid = _auth.currentUser?.uid ?? '';
+
+    final batch = _db.batch();
+    final gymRef = _db.collection('gyms').doc(gymId);
+    batch.set(gymRef, {
+      'id': gymId,
+      'name': gymName.trim(),
+      'area': area.trim(),
+      'headTrainer': ownerName.trim(),
+      'monthlyFee': monthlyFee,
+      'ptFee': ptFee,
+      'activeCrowd': 0,
+      'maxCapacity': 60,
+      'ownerUid': uid,
+      'createdAt': FieldValue.serverTimestamp(),
+    });
+
+    final phoneRef = _db.collection('phone_index').doc(ownerPhone);
+    batch.set(phoneRef, {
+      'phone': ownerPhone,
+      'role': 'owner',
+      'gymId': gymId,
+      'uid': uid,
+      'name': ownerName.trim(),
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+
+    await batch.commit();
+    return gymId;
+  }
+
+  /// Owner adds a trainer to their gym and registers their phone in `phone_index`.
+  Future<void> addTrainerToGym({
+    required String gymId,
+    required String name,
+    required String phone,
+    String specialty = 'Floor & Transformation Coach',
+  }) async {
+    final trainerId = 'tr_${DateTime.now().millisecondsSinceEpoch}';
+    final batch = _db.batch();
+    batch.set(
+      _db.collection('gyms').doc(gymId).collection('trainers').doc(trainerId),
+      {
+        'id': trainerId,
+        'name': name.trim(),
+        'phone': phone.trim(),
+        'specialty': specialty.trim(),
+        'morningCheckInTime': 'Not Checked In',
+        'isOnDuty': false,
+        'commissionPercent': 50,
+      },
+    );
+    batch.set(
+      _db.collection('phone_index').doc(phone.trim()),
+      {
+        'phone': phone.trim(),
+        'role': 'trainer',
+        'gymId': gymId,
+        'uid': '',
+        'name': name.trim(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      },
+    );
+    await batch.commit();
+  }
+
+  /// Returns an active staff invite code for `gymId`, creating one if needed.
+  Future<String> ensureActiveInviteCode(String gymId, String gymName) async {
+    final invitesRef = _db.collection('gyms').doc(gymId).collection('invites');
+    final existing =
+        await invitesRef.where('active', isEqualTo: true).limit(1).get();
+    if (existing.docs.isNotEmpty) {
+      return existing.docs.first.id;
+    }
+    final code = 'INV${(DateTime.now().millisecondsSinceEpoch % 1000000)}';
+    await invitesRef.doc(code).set({
+      'code': code,
+      'gymId': gymId,
+      'gymName': gymName,
+      'active': true,
+      'createdByUid': _auth.currentUser?.uid ?? '',
+      'createdAt': FieldValue.serverTimestamp(),
+    });
+    return code;
+  }
+
+  /// Trainer submits a join request after scanning the Owner's Staff Invite QR.
+  /// Owner must approve this request before the trainer gains access.
+  Future<String> submitTrainerJoinRequest({
+    required String gymId,
+    required String inviteCode,
+    required String trainerName,
+    required String trainerPhone,
+  }) async {
+    final inviteDoc = await _db
+        .collection('gyms')
+        .doc(gymId)
+        .collection('invites')
+        .doc(inviteCode)
+        .get();
+    if (!inviteDoc.exists || (inviteDoc.data()?['active'] != true)) {
+      throw Exception('Invalid or expired gym invite QR.');
+    }
+
+    final gymName = (inviteDoc.data()?['gymName'] ?? 'this gym') as String;
+    final uid = _auth.currentUser?.uid ?? '';
+    final requestId = uid.isNotEmpty
+        ? uid
+        : 'req_${DateTime.now().millisecondsSinceEpoch}';
+
+    final batch = _db.batch();
+    batch.set(
+      _db
+          .collection('gyms')
+          .doc(gymId)
+          .collection('trainer_requests')
+          .doc(requestId),
+      {
+        'id': requestId,
+        'name': trainerName.trim(),
+        'phone': trainerPhone,
+        'uid': uid,
+        'inviteCode': inviteCode,
+        'status': 'pending',
+        'createdAt': FieldValue.serverTimestamp(),
+      },
+    );
+    batch.set(
+      _db.collection('pending_requests').doc(trainerPhone),
+      {
+        'phone': trainerPhone,
+        'gymId': gymId,
+        'gymName': gymName,
+        'uid': uid,
+        'updatedAt': FieldValue.serverTimestamp(),
+      },
+    );
+    await batch.commit();
+    return gymName;
+  }
+
+  /// Checks if the current trainer phone has a pending approval request.
+  Future<String?> lookupPendingGymName(String phone) async {
+    try {
+      final doc = await _db.collection('pending_requests').doc(phone).get();
+      if (!doc.exists || doc.data() == null) return null;
+      final data = doc.data()!;
+      final gymId = (data['gymId'] ?? '') as String;
+      final gymName = (data['gymName'] ?? '') as String;
+      if (gymId.isEmpty) return null;
+      // Also verify the request doc in trainer_requests still exists (wasn't rejected)
+      final uid = _auth.currentUser?.uid ?? '';
+      if (uid.isNotEmpty) {
+        final reqDoc = await _db
+            .collection('gyms')
+            .doc(gymId)
+            .collection('trainer_requests')
+            .doc(uid)
+            .get();
+        if (!reqDoc.exists) {
+          await _db.collection('pending_requests').doc(phone).delete();
+          return null;
+        }
+      }
+      return gymName.isEmpty ? 'this gym' : gymName;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> clearPendingRequest(String phone) async {
+    try {
+      final pendingDoc =
+          await _db.collection('pending_requests').doc(phone).get();
+      final gymId = (pendingDoc.data()?['gymId'] ?? '') as String;
+      final uid = _auth.currentUser?.uid ?? '';
+      if (gymId.isNotEmpty && uid.isNotEmpty) {
+        await _db
+            .collection('gyms')
+            .doc(gymId)
+            .collection('trainer_requests')
+            .doc(uid)
+            .delete();
+      }
+      await _db.collection('pending_requests').doc(phone).delete();
+    } catch (_) {}
+  }
+
+  Stream<List<TrainerJoinRequest>> watchTrainerRequests(String gymId) {
+    return _db
+        .collection('gyms')
+        .doc(gymId)
+        .collection('trainer_requests')
+        .snapshots()
+        .map(
+          (snap) => snap.docs.map((doc) {
+            final d = doc.data();
+            return TrainerJoinRequest(
+              id: doc.id,
+              name: (d['name'] ?? '') as String,
+              phone: (d['phone'] ?? '') as String,
+              uid: (d['uid'] ?? '') as String,
+              inviteCode: (d['inviteCode'] ?? '') as String,
+              status: (d['status'] ?? 'pending') as String,
+            );
+          }).toList(),
+        );
+  }
+
+  /// Owner approves a pending trainer request: creates trainer + phone_index and deletes request.
+  Future<void> approveTrainerRequest({
+    required String gymId,
+    required TrainerJoinRequest request,
+  }) async {
+    final trainerId = request.uid.isNotEmpty
+        ? request.uid
+        : 'tr_${DateTime.now().millisecondsSinceEpoch}';
+    final batch = _db.batch();
+    batch.set(
+      _db.collection('phone_index').doc(request.phone),
+      {
+        'phone': request.phone,
+        'role': 'trainer',
+        'gymId': gymId,
+        'uid': request.uid,
+        'name': request.name,
+        'updatedAt': FieldValue.serverTimestamp(),
+      },
+    );
+    batch.set(
+      _db.collection('gyms').doc(gymId).collection('trainers').doc(trainerId),
+      {
+        'id': trainerId,
+        'name': request.name,
+        'phone': request.phone,
+        'specialty': 'Floor & Transformation Coach',
+        'morningCheckInTime': 'Not Checked In',
+        'isOnDuty': false,
+        'commissionPercent': 50,
+      },
+    );
+    batch.delete(
+      _db
+          .collection('gyms')
+          .doc(gymId)
+          .collection('trainer_requests')
+          .doc(request.id),
+    );
+    await batch.commit();
+  }
+
+  Future<void> rejectTrainerRequest({
+    required String gymId,
+    required String requestId,
+  }) async {
+    await _db
+        .collection('gyms')
+        .doc(gymId)
+        .collection('trainer_requests')
+        .doc(requestId)
+        .delete();
+  }
+
+  Stream<GymTenant?> watchGym(String gymId) {
+    return _db.collection('gyms').doc(gymId).snapshots().map((doc) {
+      if (!doc.exists || doc.data() == null) return null;
+      final d = doc.data()!;
+      return GymTenant(
+        id: doc.id,
+        name: (d['name'] ?? '') as String,
+        area: (d['area'] ?? '') as String,
+        headTrainer: (d['headTrainer'] ?? '') as String,
+        brandColor: const Color(0xFFE5C158),
+        activeCrowd: (d['activeCrowd'] as num?)?.toInt() ?? 0,
+        maxCapacity: (d['maxCapacity'] as num?)?.toInt() ?? 60,
+        monthlyFee: (d['monthlyFee'] as num?)?.toInt() ?? 1500,
+        ptFee: (d['ptFee'] as num?)?.toInt() ?? 6000,
+      );
+    });
+  }
+
+  Stream<List<GymMember>> watchMembers(String gymId) {
+    return _db
+        .collection('gyms')
+        .doc(gymId)
+        .collection('members')
+        .snapshots()
+        .map(
+          (snap) => snap.docs.map((doc) {
+            final d = doc.data();
+            return GymMember(
+              id: doc.id,
+              name: (d['name'] ?? '') as String,
+              phone: (d['phone'] ?? '') as String,
+              planTitle: (d['planTitle'] ?? '') as String,
+              feePaid: (d['feePaid'] as num?)?.toInt() ?? 0,
+              joinedDate: (d['joinedDate'] ?? '') as String,
+              expiryDate: (d['expiryDate'] ?? '') as String,
+              daysLeft: (d['daysLeft'] as num?)?.toInt() ?? 0,
+              assignedTrainer: (d['assignedTrainer'] as String?)?.isEmpty ?? true
+                  ? null
+                  : d['assignedTrainer'] as String,
+              isPtClient: (d['isPtClient'] ?? false) as bool,
+              addedByTrainer: (d['addedByTrainer'] ?? '') as String,
+              currentWeightKg:
+                  (d['currentWeightKg'] as num?)?.toDouble() ?? 70.0,
+            );
+          }).toList(),
+        );
+  }
+
+  Stream<List<TrainerProfile>> watchTrainers(String gymId) {
+    return _db
+        .collection('gyms')
+        .doc(gymId)
+        .collection('trainers')
+        .snapshots()
+        .map(
+          (snap) => snap.docs.map((doc) {
+            final d = doc.data();
+            return TrainerProfile(
+              id: doc.id,
+              name: (d['name'] ?? '') as String,
+              phone: (d['phone'] ?? '') as String,
+              specialty: (d['specialty'] ?? '') as String,
+              morningCheckInTime: (d['morningCheckInTime'] ?? '') as String,
+              isOnDuty: (d['isOnDuty'] ?? false) as bool,
+              commissionPercent:
+                  (d['commissionPercent'] as num?)?.toInt() ?? 50,
+            );
+          }).toList(),
+        );
+  }
+
+  Stream<List<WalkInEnquiry>> watchEnquiries(String gymId) {
+    return _db
+        .collection('gyms')
+        .doc(gymId)
+        .collection('enquiries')
+        .snapshots()
+        .map(
+          (snap) => snap.docs.map((doc) {
+            final d = doc.data();
+            return WalkInEnquiry(
+              id: doc.id,
+              name: (d['name'] ?? '') as String,
+              phone: (d['phone'] ?? '') as String,
+              interestedPlan: (d['interestedPlan'] ?? '') as String,
+              loggedByTrainer: (d['loggedByTrainer'] ?? '') as String,
+              timeLabel: (d['timeLabel'] ?? '') as String,
+              converted: (d['converted'] ?? false) as bool,
+            );
+          }).toList(),
+        );
+  }
+
+  Stream<List<MachineGuide>> watchMachines(String gymId) {
+    return _db
+        .collection('gyms')
+        .doc(gymId)
+        .collection('machines')
+        .snapshots()
+        .map(
+          (snap) => snap.docs.map((doc) {
+            final d = doc.data();
+            return MachineGuide(
+              code: (d['code'] ?? doc.id) as String,
+              name: (d['name'] ?? '') as String,
+              muscle: (d['muscle'] ?? '') as String,
+              mistakeTip: (d['mistakeTip'] ?? '') as String,
+            );
+          }).toList(),
+        );
+  }
+
+  Stream<List<MealReviewItem>> watchMeals(String gymId) {
+    return _db
+        .collection('gyms')
+        .doc(gymId)
+        .collection('meals')
+        .snapshots()
+        .map(
+          (snap) => snap.docs.map((doc) {
+            final d = doc.data();
+            return MealReviewItem(
+              id: doc.id,
+              memberName: (d['memberName'] ?? '') as String,
+              timeLabel: (d['timeLabel'] ?? '') as String,
+              mealDescription: (d['mealDescription'] ?? '') as String,
+              macros: (d['macros'] ?? '') as String,
+              trainerFeedback: (d['trainerFeedback'] ?? '') as String,
+            );
+          }).toList(),
+        );
+  }
+
+  Stream<List<MissingMember>> watchMissingMembers(String gymId) {
+    return _db
+        .collection('gyms')
+        .doc(gymId)
+        .collection('missing')
+        .snapshots()
+        .map(
+          (snap) => snap.docs.map((d) {
+            final data = d.data();
+            return MissingMember(
+              id: d.id,
+              name: (data['name'] ?? '') as String,
+              daysMissing: (data['daysMissing'] as num?)?.toInt() ?? 5,
+              planName: (data['planName'] ?? '') as String,
+              lastMuscleTrained: (data['lastMuscleTrained'] ?? '') as String,
+              contacted: (data['contacted'] ?? false) as bool,
+            );
+          }).toList(),
+        );
+  }
+
+  Future<void> markMissingMemberContacted(
+    String gymId,
+    String missingId,
+  ) async {
+    await _db
+        .collection('gyms')
+        .doc(gymId)
+        .collection('missing')
+        .doc(missingId)
+        .update({'contacted': true});
+  }
 
   /// Ensures default gym data exists in Firestore under `gyms/{gym.id}`
   /// so first-time logins have live cloud records ready to read and update.
@@ -105,6 +594,48 @@ class FirestoreService {
     await batch.commit();
   }
 
+  Future<void> removeTrainerFromGym({
+    required String gymId,
+    required String trainerId,
+    required String phone,
+  }) async {
+    await _db
+        .collection('gyms')
+        .doc(gymId)
+        .collection('trainers')
+        .doc(trainerId)
+        .delete();
+    final trimmedPhone = phone.trim();
+    if (trimmedPhone.isNotEmpty) {
+      final phoneRef = _db.collection('phone_index').doc(trimmedPhone);
+      final snap = await phoneRef.get();
+      if (snap.exists && snap.data()?['role'] == 'trainer') {
+        await phoneRef.delete();
+      }
+    }
+  }
+
+  Future<void> removeMemberFromGym({
+    required String gymId,
+    required String memberId,
+    required String phone,
+  }) async {
+    await _db
+        .collection('gyms')
+        .doc(gymId)
+        .collection('members')
+        .doc(memberId)
+        .delete();
+    final trimmedPhone = phone.trim();
+    if (trimmedPhone.isNotEmpty) {
+      final phoneRef = _db.collection('phone_index').doc(trimmedPhone);
+      final snap = await phoneRef.get();
+      if (snap.exists && snap.data()?['role'] == 'member') {
+        await phoneRef.delete();
+      }
+    }
+  }
+
   Future<void> addMember(String gymId, GymMember member) async {
     await _db
         .collection('gyms')
@@ -120,7 +651,7 @@ class FirestoreService {
       'joinedDate': member.joinedDate,
       'expiryDate': member.expiryDate,
       'daysLeft': member.daysLeft,
-      'assignedTrainer': member.assignedTrainer,
+      'assignedTrainer': member.assignedTrainer ?? '',
       'isPtClient': member.isPtClient,
       'addedByTrainer': member.addedByTrainer,
       'currentWeightKg': member.currentWeightKg,
@@ -217,14 +748,17 @@ class FirestoreService {
     required String gymId,
     String? name,
   }) async {
-    await _db.collection('phone_index').doc(phone).set({
+    final docRef = _db.collection('phone_index').doc(phone);
+    final existing = await docRef.get();
+    if (existing.exists) return;
+    await docRef.set({
       'phone': phone,
       'role': role,
       'gymId': gymId,
       'uid': _auth.currentUser?.uid ?? '',
       'name': name ?? '',
       'updatedAt': FieldValue.serverTimestamp(),
-    }, SetOptions(merge: true));
+    });
   }
 
   Future<List<MissingMember>> fetchMissingMembers(String gymId) async {

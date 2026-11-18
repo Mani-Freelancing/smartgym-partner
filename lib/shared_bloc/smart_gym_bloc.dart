@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../data/repositories/gym_repository.dart';
 import '../data/services/firestore_service.dart';
@@ -6,6 +7,8 @@ import '../domain/models/gym_tenant.dart';
 import '../domain/models/machine_guide.dart';
 import '../domain/models/meal_review_item.dart';
 import '../domain/models/missing_member.dart';
+import '../domain/models/partner_role.dart';
+import '../domain/models/trainer_join_request.dart';
 import '../domain/models/trainer_profile.dart';
 import '../domain/models/walk_in_enquiry.dart';
 import 'smart_gym_event.dart';
@@ -15,20 +18,64 @@ class SmartGymBloc extends Bloc<SmartGymEvent, SmartGymState> {
   final GymRepository repository;
   final FirestoreService? firestoreService;
 
+  StreamSubscription<GymTenant?>? _gymSub;
+  StreamSubscription<List<GymMember>>? _membersSub;
+  StreamSubscription<List<TrainerProfile>>? _trainersSub;
+  StreamSubscription<List<WalkInEnquiry>>? _enquiriesSub;
+  StreamSubscription<List<MachineGuide>>? _machinesSub;
+  StreamSubscription<List<MealReviewItem>>? _mealsSub;
+  StreamSubscription<List<MissingMember>>? _missingSub;
+  StreamSubscription<List<TrainerJoinRequest>>? _requestsSub;
+  StreamSubscription<PhoneLookupResult?>? _phoneSub;
+
   SmartGymBloc({
     required this.repository,
     this.firestoreService,
   }) : super(
-          SmartGymState(
-            gyms: repository.getInitialGyms(),
-            members: repository.getInitialMembers(),
-            trainers: repository.getInitialTrainers(),
-            enquiries: repository.getInitialEnquiries(),
-            machineGuides: repository.getMachineGuides(),
-            mealQueue: repository.getInitialMealQueue(),
-            missingMembers: repository.getInitialMissingMembers(),
-          ),
+          firestoreService == null
+              ? SmartGymState(
+                  gyms: repository.getInitialGyms(),
+                  members: repository.getInitialMembers(),
+                  trainers: repository.getInitialTrainers(),
+                  enquiries: repository.getInitialEnquiries(),
+                  machineGuides: repository.getMachineGuides(),
+                  mealQueue: repository.getInitialMealQueue(),
+                  missingMembers: repository.getInitialMissingMembers(),
+                )
+              : const SmartGymState(
+                  isAuthChecking: true,
+                  gyms: [],
+                  members: [],
+                  trainers: [],
+                  enquiries: [],
+                  machineGuides: [],
+                  mealQueue: [],
+                  missingMembers: [],
+                ),
         ) {
+    on<CheckAuthSessionEvent>(_onCheckAuthSession);
+    on<RefreshGymDataEvent>(_onRefreshGymData);
+    on<CreateNewGymOnboardingEvent>(_onCreateNewGymOnboarding);
+    on<AddTrainerToGymEvent>(_onAddTrainerToGym);
+    on<JoinGymWithInviteQrEvent>(_onJoinGymWithInviteQr);
+    on<RemoveTrainerFromGymEvent>(_onRemoveTrainerFromGym);
+    on<RemoveMemberFromGymEvent>(_onRemoveMemberFromGym);
+    on<SyncGymTenantEvent>(_onSyncGymTenant);
+    on<SyncMembersEvent>((e, emit) => emit(state.copyWith(members: e.members)));
+    on<SyncTrainersEvent>(
+        (e, emit) => emit(state.copyWith(trainers: e.trainers)));
+    on<SyncEnquiriesEvent>(
+        (e, emit) => emit(state.copyWith(enquiries: e.enquiries)));
+    on<SyncMachinesEvent>(
+        (e, emit) => emit(state.copyWith(machineGuides: e.machines)));
+    on<SyncMealsEvent>((e, emit) => emit(state.copyWith(mealQueue: e.meals)));
+    on<SyncMissingMembersEvent>(
+        (e, emit) => emit(state.copyWith(missingMembers: e.missingMembers)));
+    on<SyncTrainerRequestsEvent>(
+        (e, emit) => emit(state.copyWith(trainerRequests: e.requests)));
+    on<ApproveTrainerRequestEvent>(_onApproveTrainerRequest);
+    on<RejectTrainerRequestEvent>(_onRejectTrainerRequest);
+    on<CancelPendingRequestEvent>(_onCancelPendingRequest);
     on<SelectGymTenantEvent>(_onSelectGymTenant);
     on<CustomizeCurrentGymEvent>(_onCustomizeCurrentGym);
     on<SwitchPartnerRoleEvent>(_onSwitchPartnerRole);
@@ -49,6 +96,327 @@ class SmartGymBloc extends Bloc<SmartGymEvent, SmartGymState> {
     on<ToggleVacationFreezeEvent>(_onToggleVacationFreeze);
     on<ReviewClientMealEvent>(_onReviewClientMeal);
     on<RescueMissingMemberEvent>(_onRescueMissingMember);
+
+    if (firestoreService != null) {
+      add(const CheckAuthSessionEvent());
+    }
+  }
+
+  Future<void> _cancelSubscriptions() async {
+    final oldSubs = [
+      _gymSub,
+      _membersSub,
+      _trainersSub,
+      _enquiriesSub,
+      _machinesSub,
+      _mealsSub,
+      _missingSub,
+      _requestsSub,
+      _phoneSub,
+    ];
+    _gymSub = null;
+    _membersSub = null;
+    _trainersSub = null;
+    _enquiriesSub = null;
+    _machinesSub = null;
+    _mealsSub = null;
+    _missingSub = null;
+    _requestsSub = null;
+    _phoneSub = null;
+    await Future.wait(
+      oldSubs.whereType<StreamSubscription<dynamic>>().map((s) => s.cancel()),
+    );
+  }
+
+  void _subscribeToGym(String gymId) {
+    final fs = firestoreService;
+    if (fs == null || gymId.isEmpty) return;
+    _cancelSubscriptions();
+    _gymSub = fs.watchGym(gymId).listen((gym) {
+      if (gym != null) add(SyncGymTenantEvent(gym));
+    });
+    _membersSub =
+        fs.watchMembers(gymId).listen((list) => add(SyncMembersEvent(list)));
+    _trainersSub =
+        fs.watchTrainers(gymId).listen((list) => add(SyncTrainersEvent(list)));
+    _enquiriesSub = fs
+        .watchEnquiries(gymId)
+        .listen((list) => add(SyncEnquiriesEvent(list)));
+    _machinesSub =
+        fs.watchMachines(gymId).listen((list) => add(SyncMachinesEvent(list)));
+    _mealsSub =
+        fs.watchMeals(gymId).listen((list) => add(SyncMealsEvent(list)));
+    _missingSub = fs
+        .watchMissingMembers(gymId)
+        .listen((list) => add(SyncMissingMembersEvent(list)));
+    _requestsSub = fs.watchTrainerRequests(gymId).listen(
+          (list) => add(SyncTrainerRequestsEvent(list)),
+          onError: (_) {},
+        );
+    final phone = fs.currentUser?.phoneNumber ?? '';
+    if (phone.isNotEmpty) {
+      _phoneSub = fs.watchPhoneLookup(phone).listen(
+        (lookup) {
+          if (lookup == null) {
+            add(const LogoutPartnerEvent());
+          }
+        },
+        onError: (_) {},
+      );
+    }
+  }
+
+  @override
+  Future<void> close() async {
+    await _cancelSubscriptions();
+    return super.close();
+  }
+
+  Future<void> _onRefreshGymData(
+    RefreshGymDataEvent event,
+    Emitter<SmartGymState> emit,
+  ) async {
+    final fs = firestoreService;
+    if (fs == null) return;
+    final phone = fs.currentUser?.phoneNumber ?? '';
+    if (phone.isNotEmpty) {
+      try {
+        final lookup = await fs.lookupPhone(phone);
+        if (lookup == null || lookup.gymId.isEmpty) {
+          add(const LogoutPartnerEvent());
+          return;
+        }
+      } catch (_) {}
+    }
+    final gymId = state.currentGym.id;
+    if (gymId.isNotEmpty) {
+      _subscribeToGym(gymId);
+    }
+  }
+
+  void _onSyncGymTenant(
+    SyncGymTenantEvent event,
+    Emitter<SmartGymState> emit,
+  ) {
+    final existingIndex = state.gyms.indexWhere((g) => g.id == event.gym.id);
+    if (existingIndex == -1) {
+      emit(state.copyWith(gyms: [event.gym], selectedGymIndex: 0));
+    } else {
+      final updated = List<GymTenant>.from(state.gyms);
+      updated[existingIndex] = event.gym;
+      emit(state.copyWith(gyms: updated));
+    }
+  }
+
+  Future<void> _onCheckAuthSession(
+    CheckAuthSessionEvent event,
+    Emitter<SmartGymState> emit,
+  ) async {
+    final fs = firestoreService;
+    if (fs == null) {
+      emit(state.copyWith(isAuthChecking: false));
+      return;
+    }
+    final user = fs.currentUser;
+    final phone = user?.phoneNumber ?? '';
+    if (user == null || phone.isEmpty) {
+      emit(state.copyWith(
+        isAuthChecking: false,
+        isPartnerLoggedIn: false,
+        needsOnboarding: false,
+      ));
+      return;
+    }
+    try {
+      final lookup = await fs.lookupPhone(phone);
+      if (lookup == null || lookup.gymId.isEmpty) {
+        final pendingGymName = await fs.lookupPendingGymName(phone);
+        emit(state.copyWith(
+          isAuthChecking: false,
+          isPartnerLoggedIn: false,
+          needsOnboarding: true,
+          authenticatedPhone: phone,
+          pendingApprovalGymName: pendingGymName,
+          clearPendingApproval: pendingGymName == null,
+        ));
+        return;
+      }
+      _subscribeToGym(lookup.gymId);
+      emit(state.copyWith(
+        isAuthChecking: false,
+        isPartnerLoggedIn: true,
+        needsOnboarding: false,
+        authenticatedPhone: phone,
+        partnerRole: lookup.role == 'trainer'
+            ? PartnerRole.trainer
+            : PartnerRole.owner,
+        loggedInTrainerName: lookup.name.isEmpty ? 'Partner' : lookup.name,
+      ));
+    } catch (_) {
+      emit(state.copyWith(
+        isAuthChecking: false,
+        isPartnerLoggedIn: false,
+      ));
+    }
+  }
+
+  Future<void> _onCreateNewGymOnboarding(
+    CreateNewGymOnboardingEvent event,
+    Emitter<SmartGymState> emit,
+  ) async {
+    final fs = firestoreService;
+    if (fs == null) return;
+    emit(state.copyWith(isOnboardingBusy: true, clearAuthError: true));
+    try {
+      final phone =
+          state.authenticatedPhone.isNotEmpty ? state.authenticatedPhone : (fs.currentUser?.phoneNumber ?? '');
+      final gymId = await fs.createNewGym(
+        gymName: event.gymName,
+        area: event.area,
+        ownerName: event.ownerName,
+        ownerPhone: phone,
+        monthlyFee: event.monthlyFee,
+        ptFee: event.ptFee,
+      );
+      _subscribeToGym(gymId);
+      emit(state.copyWith(
+        isOnboardingBusy: false,
+        needsOnboarding: false,
+        isPartnerLoggedIn: true,
+        partnerRole: PartnerRole.owner,
+        loggedInTrainerName: event.ownerName.trim(),
+      ));
+    } catch (e) {
+      emit(state.copyWith(
+        isOnboardingBusy: false,
+        authError: 'Could not register gym: $e',
+      ));
+    }
+  }
+
+  Future<void> _onAddTrainerToGym(
+    AddTrainerToGymEvent event,
+    Emitter<SmartGymState> emit,
+  ) async {
+    final fs = firestoreService;
+    if (fs == null || state.currentGym.id.isEmpty) return;
+    await fs.addTrainerToGym(
+      gymId: state.currentGym.id,
+      name: event.name,
+      phone: event.phone,
+      specialty: event.specialty,
+    );
+  }
+
+  Future<void> _onJoinGymWithInviteQr(
+    JoinGymWithInviteQrEvent event,
+    Emitter<SmartGymState> emit,
+  ) async {
+    final fs = firestoreService;
+    if (fs == null) return;
+    emit(state.copyWith(isOnboardingBusy: true, clearAuthError: true));
+    try {
+      final phone = state.authenticatedPhone.isNotEmpty
+          ? state.authenticatedPhone
+          : (fs.currentUser?.phoneNumber ?? '');
+      final gymName = await fs.submitTrainerJoinRequest(
+        gymId: event.gymId,
+        inviteCode: event.inviteCode,
+        trainerName: event.trainerName,
+        trainerPhone: phone,
+      );
+      emit(state.copyWith(
+        isOnboardingBusy: false,
+        needsOnboarding: true,
+        isPartnerLoggedIn: false,
+        pendingApprovalGymName: gymName,
+      ));
+    } catch (e) {
+      emit(state.copyWith(
+        isOnboardingBusy: false,
+        authError: 'Could not send join request: $e',
+      ));
+    }
+  }
+
+  Future<void> _onApproveTrainerRequest(
+    ApproveTrainerRequestEvent event,
+    Emitter<SmartGymState> emit,
+  ) async {
+    final fs = firestoreService;
+    if (fs == null || state.currentGym.id.isEmpty) return;
+    await fs.approveTrainerRequest(
+      gymId: state.currentGym.id,
+      request: event.request,
+    );
+  }
+
+  Future<void> _onRejectTrainerRequest(
+    RejectTrainerRequestEvent event,
+    Emitter<SmartGymState> emit,
+  ) async {
+    final fs = firestoreService;
+    if (fs == null || state.currentGym.id.isEmpty) return;
+    await fs.rejectTrainerRequest(
+      gymId: state.currentGym.id,
+      requestId: event.requestId,
+    );
+  }
+
+  Future<void> _onCancelPendingRequest(
+    CancelPendingRequestEvent event,
+    Emitter<SmartGymState> emit,
+  ) async {
+    final fs = firestoreService;
+    final phone = state.authenticatedPhone.isNotEmpty
+        ? state.authenticatedPhone
+        : (fs?.currentUser?.phoneNumber ?? '');
+    if (fs != null && phone.isNotEmpty) {
+      await fs.clearPendingRequest(phone);
+    }
+    emit(state.copyWith(clearPendingApproval: true));
+  }
+
+  Future<void> _onRemoveTrainerFromGym(
+    RemoveTrainerFromGymEvent event,
+    Emitter<SmartGymState> emit,
+  ) async {
+    final updated =
+        state.trainers.where((t) => t.id != event.trainerId).toList();
+    final logEntry =
+        'Trainer • ${event.trainerName}${event.phone.isNotEmpty ? ' (${event.phone})' : ''}';
+    emit(state.copyWith(
+      trainers: updated,
+      removedLog: [logEntry, ...state.removedLog],
+    ));
+    _syncAsync(
+      () => firestoreService!.removeTrainerFromGym(
+        gymId: state.currentGym.id,
+        trainerId: event.trainerId,
+        phone: event.phone,
+      ),
+    );
+  }
+
+  Future<void> _onRemoveMemberFromGym(
+    RemoveMemberFromGymEvent event,
+    Emitter<SmartGymState> emit,
+  ) async {
+    final updated =
+        state.members.where((m) => m.id != event.memberId).toList();
+    final logEntry =
+        'Member • ${event.memberName}${event.phone.isNotEmpty ? ' (${event.phone})' : ''}';
+    emit(state.copyWith(
+      members: updated,
+      removedLog: [logEntry, ...state.removedLog],
+    ));
+    _syncAsync(
+      () => firestoreService!.removeMemberFromGym(
+        gymId: state.currentGym.id,
+        memberId: event.memberId,
+        phone: event.phone,
+      ),
+    );
   }
 
   void _syncAsync(Future<void> Function() task) {
@@ -86,40 +454,85 @@ class SmartGymBloc extends Bloc<SmartGymEvent, SmartGymState> {
     emit(state.copyWith(partnerRole: event.role));
   }
 
-  void _onLoginPartner(
+  Future<void> _onLoginPartner(
     LoginPartnerEvent event,
     Emitter<SmartGymState> emit,
-  ) {
-    emit(
-      state.copyWith(
-        isPartnerLoggedIn: true,
-        partnerRole: event.role,
-        loggedInTrainerName: event.trainerName ?? state.currentGym.headTrainer,
-      ),
-    );
-    _syncAsync(() async {
-      await firestoreService!.seedGymIfEmpty(
-        gym: state.currentGym,
-        trainers: state.trainers,
-        members: state.members,
-        enquiries: state.enquiries,
-        machines: state.machineGuides,
-        meals: state.mealQueue,
+  ) async {
+    final fs = firestoreService;
+    if (fs == null) {
+      // Offline / widget-test mode
+      emit(
+        state.copyWith(
+          isPartnerLoggedIn: true,
+          partnerRole: event.role,
+          loggedInTrainerName: event.trainerName ?? state.currentGym.headTrainer,
+        ),
       );
-      await firestoreService!.registerPhoneLookup(
-        phone: event.phone,
-        role: event.role.name,
-        gymId: state.currentGym.id,
-        name: event.trainerName ?? 'Gym Owner',
+      return;
+    }
+
+    emit(state.copyWith(isAuthChecking: true, clearAuthError: true));
+    try {
+      final lookup = await fs.lookupPhone(event.phone);
+      if (lookup == null || lookup.gymId.isEmpty) {
+        final pendingGymName = await fs.lookupPendingGymName(event.phone);
+        emit(state.copyWith(
+          isAuthChecking: false,
+          isPartnerLoggedIn: false,
+          needsOnboarding: true,
+          authenticatedPhone: event.phone,
+          pendingApprovalGymName: pendingGymName,
+          clearPendingApproval: pendingGymName == null,
+        ));
+        return;
+      }
+      _subscribeToGym(lookup.gymId);
+      emit(
+        state.copyWith(
+          isAuthChecking: false,
+          isPartnerLoggedIn: true,
+          needsOnboarding: false,
+          authenticatedPhone: event.phone,
+          partnerRole: lookup.role == 'trainer'
+              ? PartnerRole.trainer
+              : PartnerRole.owner,
+          loggedInTrainerName: lookup.name.isEmpty ? 'Partner' : lookup.name,
+        ),
       );
-    });
+    } catch (e) {
+      emit(state.copyWith(
+        isAuthChecking: false,
+        authError: 'Could not verify account: $e',
+      ));
+    }
   }
 
-  void _onLogoutPartner(
+  Future<void> _onLogoutPartner(
     LogoutPartnerEvent event,
     Emitter<SmartGymState> emit,
-  ) {
-    emit(state.copyWith(isPartnerLoggedIn: false));
+  ) async {
+    await _cancelSubscriptions();
+    if (firestoreService != null) {
+      try {
+        await firestoreService!.signOut();
+      } catch (_) {}
+      emit(
+        state.copyWith(
+          isPartnerLoggedIn: false,
+          needsOnboarding: false,
+          authenticatedPhone: '',
+          gyms: const [],
+          members: const [],
+          trainers: const [],
+          enquiries: const [],
+          machineGuides: const [],
+          mealQueue: const [],
+          missingMembers: const [],
+        ),
+      );
+    } else {
+      emit(state.copyWith(isPartnerLoggedIn: false));
+    }
   }
 
   void _onAddNewGymMember(
@@ -349,8 +762,14 @@ class SmartGymBloc extends Bloc<SmartGymEvent, SmartGymState> {
     Emitter<SmartGymState> emit,
   ) {
     final updatedMembers = List<MissingMember>.from(state.missingMembers);
-    updatedMembers[event.memberIndex] =
-        updatedMembers[event.memberIndex].copyWith(contacted: true);
+    final missing = updatedMembers[event.memberIndex];
+    updatedMembers[event.memberIndex] = missing.copyWith(contacted: true);
     emit(state.copyWith(missingMembers: updatedMembers));
+    _syncAsync(
+      () => firestoreService!.markMissingMemberContacted(
+        state.currentGym.id,
+        missing.id,
+      ),
+    );
   }
 }

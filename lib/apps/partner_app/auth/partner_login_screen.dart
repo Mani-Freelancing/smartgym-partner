@@ -20,7 +20,7 @@ class PartnerLoginScreen extends StatefulWidget {
 
 class _PartnerLoginScreenState extends State<PartnerLoginScreen>
     with SingleTickerProviderStateMixin {
-  PartnerRole _selectedRole = PartnerRole.owner;
+  final PartnerRole _selectedRole = PartnerRole.owner;
   final TextEditingController _phoneCtrl = TextEditingController();
   final TextEditingController _otpCtrl = TextEditingController();
   late final AnimationController _pulseCtrl;
@@ -359,39 +359,6 @@ class _PartnerLoginScreenState extends State<PartnerLoginScreen>
                         ),
                       ),
                       if (!_otpSent) ...[
-                        Container(
-                          padding: const EdgeInsets.all(4),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF12151D),
-                            borderRadius: BorderRadius.circular(14),
-                            border: Border.all(color: Colors.white12),
-                          ),
-                          child: Row(
-                            children: [
-                              _buildRoleSegment(
-                                label: 'Gym Owner',
-                                icon: Icons.workspace_premium_rounded,
-                                selected: isOwner,
-                                activeColor: AppTheme.ownerGold,
-                                onTap: () => setState(() {
-                                  _selectedRole = PartnerRole.owner;
-                                  _errorText = null;
-                                }),
-                              ),
-                              _buildRoleSegment(
-                                label: 'Trainer',
-                                icon: Icons.sports_mma_rounded,
-                                selected: !isOwner,
-                                activeColor: AppTheme.trainerCyan,
-                                onTap: () => setState(() {
-                                  _selectedRole = PartnerRole.trainer;
-                                  _errorText = null;
-                                }),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 20),
                         const Text(
                           'Mobile Number',
                           style: TextStyle(
@@ -622,54 +589,6 @@ class _PartnerLoginScreenState extends State<PartnerLoginScreen>
           ),
         );
       },
-    );
-  }
-
-  Widget _buildRoleSegment({
-    required String label,
-    required IconData icon,
-    required bool selected,
-    required Color activeColor,
-    required VoidCallback onTap,
-  }) {
-    return Expanded(
-      child: GestureDetector(
-        onTap: () {
-          HapticFeedback.selectionClick();
-          onTap();
-        },
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
-          padding: const EdgeInsets.symmetric(vertical: 11),
-          decoration: BoxDecoration(
-            color: selected ? activeColor : Colors.transparent,
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                icon,
-                size: 16,
-                color: selected ? Colors.black : Colors.white54,
-              ),
-              const SizedBox(width: 6),
-              Flexible(
-                child: Text(
-                  label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w800,
-                    color: selected ? Colors.black : Colors.white60,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
     );
   }
 }

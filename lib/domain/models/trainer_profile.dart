@@ -3,6 +3,7 @@ import 'package:equatable/equatable.dart';
 class TrainerProfile extends Equatable {
   final String id;
   final String name;
+  final String phone;
   final String specialty;
   final String? morningCheckInTime;
   final bool isOnDuty;
@@ -11,6 +12,7 @@ class TrainerProfile extends Equatable {
   const TrainerProfile({
     required this.id,
     required this.name,
+    this.phone = '',
     required this.specialty,
     this.morningCheckInTime,
     required this.isOnDuty,
@@ -24,6 +26,7 @@ class TrainerProfile extends Equatable {
     return TrainerProfile(
       id: id,
       name: name,
+      phone: phone,
       specialty: specialty,
       morningCheckInTime: morningCheckInTime ?? this.morningCheckInTime,
       isOnDuty: isOnDuty ?? this.isOnDuty,
@@ -35,6 +38,7 @@ class TrainerProfile extends Equatable {
   List<Object?> get props => [
         id,
         name,
+        phone,
         specialty,
         morningCheckInTime,
         isOnDuty,

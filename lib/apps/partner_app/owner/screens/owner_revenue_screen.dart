@@ -4,6 +4,7 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/cred_neopop_widgets.dart';
 import '../../../../domain/models/gym_member.dart';
 import '../../../../shared_bloc/smart_gym_bloc.dart';
+import '../../../../shared_bloc/smart_gym_event.dart';
 import '../../../../shared_bloc/smart_gym_state.dart';
 
 class OwnerRevenueScreen extends StatelessWidget {
@@ -27,9 +28,18 @@ class OwnerRevenueScreen extends StatelessWidget {
         final pendingEnquiries =
             state.enquiries.where((e) => !e.converted).length;
 
-        return ListView(
-          physics: const BouncingScrollPhysics(),
-          padding: const EdgeInsets.fromLTRB(20, 10, 20, 32),
+        return RefreshIndicator(
+          color: AppTheme.ownerGold,
+          backgroundColor: const Color(0xFF1A1E29),
+          onRefresh: () async {
+            context.read<SmartGymBloc>().add(const RefreshGymDataEvent());
+            await Future<void>.delayed(const Duration(milliseconds: 450));
+          },
+          child: ListView(
+            physics: const AlwaysScrollableScrollPhysics(
+              parent: BouncingScrollPhysics(),
+            ),
+            padding: const EdgeInsets.fromLTRB(20, 10, 20, 32),
           children: [
             // 1. CEO Revenue & Active Member Summary Card
             CredStaggeredItem(
@@ -209,6 +219,19 @@ class OwnerRevenueScreen extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 10),
+            if (state.members.isEmpty)
+              CredMetalCard(
+                glowColor: AppTheme.ownerGold,
+                padding: const EdgeInsets.all(20),
+                child: const Text(
+                  'No gym members added yet.\nOnce your trainers add paid members or convert walk-in leads, they will appear here live.',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: Colors.white70,
+                    height: 1.45,
+                  ),
+                ),
+              ),
             ...List.generate(state.members.length, (i) {
               final GymMember m = state.members[i];
               return CredStaggeredItem(
@@ -246,6 +269,90 @@ class OwnerRevenueScreen extends StatelessWidget {
                                 fontSize: 15,
                                 color: AppTheme.accent,
                               ),
+                            ),
+                            PopupMenuButton<String>(
+                              icon: const Icon(
+                                Icons.more_vert_rounded,
+                                color: Colors.white54,
+                                size: 20,
+                              ),
+                              color: const Color(0xFF1A1E29),
+                              onSelected: (val) async {
+                                if (val != 'remove') return;
+                                final confirm = await showDialog<bool>(
+                                  context: context,
+                                  builder: (ctx) => AlertDialog(
+                                    backgroundColor: const Color(0xFF1A1E29),
+                                    title: Text(
+                                      'Remove ${m.name}?',
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.w800,
+                                      ),
+                                    ),
+                                    content: const Text(
+                                      'This will remove this member from your gym directory and database.',
+                                      style: TextStyle(color: Colors.white70),
+                                    ),
+                                    actions: [
+                                      TextButton(
+                                        onPressed: () =>
+                                            Navigator.pop(ctx, false),
+                                        child: const Text('Cancel'),
+                                      ),
+                                      FilledButton(
+                                        style: FilledButton.styleFrom(
+                                          backgroundColor: AppTheme.danger,
+                                        ),
+                                        onPressed: () =>
+                                            Navigator.pop(ctx, true),
+                                        child: const Text('Remove'),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                                if (confirm == true && context.mounted) {
+                                  context.read<SmartGymBloc>().add(
+                                        RemoveMemberFromGymEvent(
+                                          memberId: m.id,
+                                          phone: m.phone,
+                                          memberName: m.name,
+                                        ),
+                                      );
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      backgroundColor: const Color(0xFF1A1E29),
+                                      content: Text(
+                                        '${m.name} removed from gym.',
+                                        style: const TextStyle(
+                                            color: Colors.white),
+                                      ),
+                                    ),
+                                  );
+                                }
+                              },
+                              itemBuilder: (_) => const [
+                                PopupMenuItem<String>(
+                                  value: 'remove',
+                                  child: Row(
+                                    children: [
+                                      Icon(
+                                        Icons.person_remove_rounded,
+                                        color: AppTheme.danger,
+                                        size: 18,
+                                      ),
+                                      SizedBox(width: 8),
+                                      Text(
+                                        'Remove Member',
+                                        style: TextStyle(
+                                          color: AppTheme.danger,
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
                             ),
                           ],
                         ),
@@ -288,7 +395,8 @@ class OwnerRevenueScreen extends StatelessWidget {
                 ),
               );
             }),
-          ],
+            ],
+          ),
         );
       },
     );

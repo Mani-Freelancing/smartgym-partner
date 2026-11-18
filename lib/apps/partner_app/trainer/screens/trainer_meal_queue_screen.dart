@@ -81,9 +81,18 @@ class TrainerMealQueueScreen extends StatelessWidget {
     return BlocBuilder<SmartGymBloc, SmartGymState>(
       builder: (context, state) {
         final ptClients = state.ptMembers;
-        return ListView(
-          physics: const BouncingScrollPhysics(),
-          padding: const EdgeInsets.fromLTRB(20, 10, 20, 32),
+        return RefreshIndicator(
+          color: AppTheme.trainerCyan,
+          backgroundColor: const Color(0xFF1A1E29),
+          onRefresh: () async {
+            context.read<SmartGymBloc>().add(const RefreshGymDataEvent());
+            await Future<void>.delayed(const Duration(milliseconds: 450));
+          },
+          child: ListView(
+            physics: const AlwaysScrollableScrollPhysics(
+              parent: BouncingScrollPhysics(),
+            ),
+            padding: const EdgeInsets.fromLTRB(20, 10, 20, 32),
           children: [
             const Text(
               '1-TAP VIP MEAL PLATE REVIEW QUEUE',
@@ -257,6 +266,7 @@ class TrainerMealQueueScreen extends StatelessWidget {
               );
             }),
           ],
+          ),
         );
       },
     );

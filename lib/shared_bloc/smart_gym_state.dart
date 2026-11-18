@@ -1,17 +1,24 @@
 import 'package:equatable/equatable.dart';
+import 'package:flutter/material.dart';
 import '../domain/models/gym_member.dart';
 import '../domain/models/gym_tenant.dart';
 import '../domain/models/machine_guide.dart';
 import '../domain/models/meal_review_item.dart';
 import '../domain/models/missing_member.dart';
 import '../domain/models/partner_role.dart';
+import '../domain/models/trainer_join_request.dart';
 import '../domain/models/trainer_profile.dart';
 import '../domain/models/walk_in_enquiry.dart';
 
 class SmartGymState extends Equatable {
   final List<GymTenant> gyms;
   final int selectedGymIndex;
+  final bool isAuthChecking;
   final bool isPartnerLoggedIn;
+  final bool needsOnboarding;
+  final bool isOnboardingBusy;
+  final String authenticatedPhone;
+  final String? authError;
   final PartnerRole partnerRole;
   final String loggedInTrainerName;
   final List<GymMember> members;
@@ -27,13 +34,21 @@ class SmartGymState extends Equatable {
   final List<MachineGuide> machineGuides;
   final List<MealReviewItem> mealQueue;
   final List<MissingMember> missingMembers;
+  final List<TrainerJoinRequest> trainerRequests;
+  final String? pendingApprovalGymName;
+  final List<String> removedLog;
 
   const SmartGymState({
     required this.gyms,
     this.selectedGymIndex = 0,
+    this.isAuthChecking = false,
     this.isPartnerLoggedIn = false,
+    this.needsOnboarding = false,
+    this.isOnboardingBusy = false,
+    this.authenticatedPhone = '',
+    this.authError,
     this.partnerRole = PartnerRole.owner,
-    this.loggedInTrainerName = 'Coach Karthik Reddy',
+    this.loggedInTrainerName = '',
     required this.members,
     required this.trainers,
     required this.enquiries,
@@ -47,16 +62,34 @@ class SmartGymState extends Equatable {
     required this.machineGuides,
     required this.mealQueue,
     required this.missingMembers,
+    this.trainerRequests = const [],
+    this.pendingApprovalGymName,
+    this.removedLog = const [],
   });
 
-  GymTenant get currentGym => gyms[selectedGymIndex];
+  static const GymTenant emptyGym = GymTenant(
+    id: '',
+    name: 'SmartGym Partner',
+    area: '',
+    headTrainer: '',
+    brandColor: Color(0xFFE5C158),
+    activeCrowd: 0,
+    maxCapacity: 60,
+    monthlyFee: 1500,
+    ptFee: 6000,
+  );
+
+  GymTenant get currentGym =>
+      (gyms.isNotEmpty && selectedGymIndex < gyms.length)
+          ? gyms[selectedGymIndex]
+          : emptyGym;
 
   int get liveCrowd =>
-      (currentGym.activeCrowd + crowdDelta).clamp(4, currentGym.maxCapacity);
+      (currentGym.activeCrowd + crowdDelta).clamp(0, currentGym.maxCapacity);
 
-  // Computed Owner CEO metrics
+  // Computed Owner CEO metrics (100% live from real members)
   int get totalMonthlyRevenue =>
-      457000 + members.fold<int>(0, (sum, m) => sum + m.feePaid);
+      members.fold<int>(0, (sum, m) => sum + m.feePaid);
 
   int get activeMembersCount => members.where((m) => !m.isExpired).length;
 
@@ -69,7 +102,13 @@ class SmartGymState extends Equatable {
   SmartGymState copyWith({
     List<GymTenant>? gyms,
     int? selectedGymIndex,
+    bool? isAuthChecking,
     bool? isPartnerLoggedIn,
+    bool? needsOnboarding,
+    bool? isOnboardingBusy,
+    String? authenticatedPhone,
+    String? authError,
+    bool clearAuthError = false,
     PartnerRole? partnerRole,
     String? loggedInTrainerName,
     List<GymMember>? members,
@@ -85,11 +124,20 @@ class SmartGymState extends Equatable {
     List<MachineGuide>? machineGuides,
     List<MealReviewItem>? mealQueue,
     List<MissingMember>? missingMembers,
+    List<TrainerJoinRequest>? trainerRequests,
+    String? pendingApprovalGymName,
+    bool clearPendingApproval = false,
+    List<String>? removedLog,
   }) {
     return SmartGymState(
       gyms: gyms ?? this.gyms,
       selectedGymIndex: selectedGymIndex ?? this.selectedGymIndex,
+      isAuthChecking: isAuthChecking ?? this.isAuthChecking,
       isPartnerLoggedIn: isPartnerLoggedIn ?? this.isPartnerLoggedIn,
+      needsOnboarding: needsOnboarding ?? this.needsOnboarding,
+      isOnboardingBusy: isOnboardingBusy ?? this.isOnboardingBusy,
+      authenticatedPhone: authenticatedPhone ?? this.authenticatedPhone,
+      authError: clearAuthError ? null : (authError ?? this.authError),
       partnerRole: partnerRole ?? this.partnerRole,
       loggedInTrainerName: loggedInTrainerName ?? this.loggedInTrainerName,
       members: members ?? this.members,
@@ -105,6 +153,11 @@ class SmartGymState extends Equatable {
       machineGuides: machineGuides ?? this.machineGuides,
       mealQueue: mealQueue ?? this.mealQueue,
       missingMembers: missingMembers ?? this.missingMembers,
+      trainerRequests: trainerRequests ?? this.trainerRequests,
+      pendingApprovalGymName: clearPendingApproval
+          ? null
+          : (pendingApprovalGymName ?? this.pendingApprovalGymName),
+      removedLog: removedLog ?? this.removedLog,
     );
   }
 
@@ -112,7 +165,12 @@ class SmartGymState extends Equatable {
   List<Object?> get props => [
         gyms,
         selectedGymIndex,
+        isAuthChecking,
         isPartnerLoggedIn,
+        needsOnboarding,
+        isOnboardingBusy,
+        authenticatedPhone,
+        authError,
         partnerRole,
         loggedInTrainerName,
         members,
@@ -128,5 +186,8 @@ class SmartGymState extends Equatable {
         machineGuides,
         mealQueue,
         missingMembers,
+        trainerRequests,
+        pendingApprovalGymName,
+        removedLog,
       ];
 }

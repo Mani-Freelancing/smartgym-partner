@@ -1,5 +1,13 @@
 import 'package:equatable/equatable.dart';
+import '../domain/models/gym_member.dart';
+import '../domain/models/gym_tenant.dart';
+import '../domain/models/machine_guide.dart';
+import '../domain/models/meal_review_item.dart';
+import '../domain/models/missing_member.dart';
 import '../domain/models/partner_role.dart';
+import '../domain/models/trainer_join_request.dart';
+import '../domain/models/trainer_profile.dart';
+import '../domain/models/walk_in_enquiry.dart';
 
 sealed class SmartGymEvent extends Equatable {
   const SmartGymEvent();
@@ -218,4 +226,177 @@ class RescueMissingMemberEvent extends SmartGymEvent {
 
   @override
   List<Object?> get props => [memberIndex];
+}
+
+// --- LIVE FIRESTORE AUTH, ONBOARDING & STREAM SYNC EVENTS ---
+
+class CheckAuthSessionEvent extends SmartGymEvent {
+  const CheckAuthSessionEvent();
+}
+
+class RefreshGymDataEvent extends SmartGymEvent {
+  const RefreshGymDataEvent();
+}
+
+class CreateNewGymOnboardingEvent extends SmartGymEvent {
+  final String gymName;
+  final String area;
+  final String ownerName;
+  final int monthlyFee;
+  final int ptFee;
+
+  const CreateNewGymOnboardingEvent({
+    required this.gymName,
+    required this.area,
+    required this.ownerName,
+    this.monthlyFee = 1500,
+    this.ptFee = 6000,
+  });
+
+  @override
+  List<Object?> get props => [gymName, area, ownerName, monthlyFee, ptFee];
+}
+
+class AddTrainerToGymEvent extends SmartGymEvent {
+  final String name;
+  final String phone;
+  final String specialty;
+
+  const AddTrainerToGymEvent({
+    required this.name,
+    required this.phone,
+    this.specialty = 'Floor & Transformation Coach',
+  });
+
+  @override
+  List<Object?> get props => [name, phone, specialty];
+}
+
+class JoinGymWithInviteQrEvent extends SmartGymEvent {
+  final String gymId;
+  final String inviteCode;
+  final String trainerName;
+
+  const JoinGymWithInviteQrEvent({
+    required this.gymId,
+    required this.inviteCode,
+    required this.trainerName,
+  });
+
+  @override
+  List<Object?> get props => [gymId, inviteCode, trainerName];
+}
+
+class RemoveTrainerFromGymEvent extends SmartGymEvent {
+  final String trainerId;
+  final String phone;
+  final String trainerName;
+
+  const RemoveTrainerFromGymEvent({
+    required this.trainerId,
+    required this.phone,
+    required this.trainerName,
+  });
+
+  @override
+  List<Object?> get props => [trainerId, phone, trainerName];
+}
+
+class RemoveMemberFromGymEvent extends SmartGymEvent {
+  final String memberId;
+  final String phone;
+  final String memberName;
+
+  const RemoveMemberFromGymEvent({
+    required this.memberId,
+    required this.phone,
+    required this.memberName,
+  });
+
+  @override
+  List<Object?> get props => [memberId, phone, memberName];
+}
+
+class SyncGymTenantEvent extends SmartGymEvent {
+  final GymTenant gym;
+  const SyncGymTenantEvent(this.gym);
+
+  @override
+  List<Object?> get props => [gym];
+}
+
+class SyncMembersEvent extends SmartGymEvent {
+  final List<GymMember> members;
+  const SyncMembersEvent(this.members);
+
+  @override
+  List<Object?> get props => [members];
+}
+
+class SyncTrainersEvent extends SmartGymEvent {
+  final List<TrainerProfile> trainers;
+  const SyncTrainersEvent(this.trainers);
+
+  @override
+  List<Object?> get props => [trainers];
+}
+
+class SyncEnquiriesEvent extends SmartGymEvent {
+  final List<WalkInEnquiry> enquiries;
+  const SyncEnquiriesEvent(this.enquiries);
+
+  @override
+  List<Object?> get props => [enquiries];
+}
+
+class SyncMachinesEvent extends SmartGymEvent {
+  final List<MachineGuide> machines;
+  const SyncMachinesEvent(this.machines);
+
+  @override
+  List<Object?> get props => [machines];
+}
+
+class SyncMealsEvent extends SmartGymEvent {
+  final List<MealReviewItem> meals;
+  const SyncMealsEvent(this.meals);
+
+  @override
+  List<Object?> get props => [meals];
+}
+
+class SyncMissingMembersEvent extends SmartGymEvent {
+  final List<MissingMember> missingMembers;
+  const SyncMissingMembersEvent(this.missingMembers);
+
+  @override
+  List<Object?> get props => [missingMembers];
+}
+
+class SyncTrainerRequestsEvent extends SmartGymEvent {
+  final List<TrainerJoinRequest> requests;
+  const SyncTrainerRequestsEvent(this.requests);
+
+  @override
+  List<Object?> get props => [requests];
+}
+
+class ApproveTrainerRequestEvent extends SmartGymEvent {
+  final TrainerJoinRequest request;
+  const ApproveTrainerRequestEvent(this.request);
+
+  @override
+  List<Object?> get props => [request];
+}
+
+class RejectTrainerRequestEvent extends SmartGymEvent {
+  final String requestId;
+  const RejectTrainerRequestEvent(this.requestId);
+
+  @override
+  List<Object?> get props => [requestId];
+}
+
+class CancelPendingRequestEvent extends SmartGymEvent {
+  const CancelPendingRequestEvent();
 }
