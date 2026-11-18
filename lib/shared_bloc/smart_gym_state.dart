@@ -6,6 +6,7 @@ import '../domain/models/machine_guide.dart';
 import '../domain/models/meal_review_item.dart';
 import '../domain/models/missing_member.dart';
 import '../domain/models/partner_role.dart';
+import '../domain/models/removed_record.dart';
 import '../domain/models/trainer_join_request.dart';
 import '../domain/models/trainer_profile.dart';
 import '../domain/models/walk_in_enquiry.dart';
@@ -36,7 +37,7 @@ class SmartGymState extends Equatable {
   final List<MissingMember> missingMembers;
   final List<TrainerJoinRequest> trainerRequests;
   final String? pendingApprovalGymName;
-  final List<String> removedLog;
+  final List<RemovedRecord> removedRecords;
 
   const SmartGymState({
     required this.gyms,
@@ -64,7 +65,7 @@ class SmartGymState extends Equatable {
     required this.missingMembers,
     this.trainerRequests = const [],
     this.pendingApprovalGymName,
-    this.removedLog = const [],
+    this.removedRecords = const [],
   });
 
   static const GymTenant emptyGym = GymTenant(
@@ -127,7 +128,7 @@ class SmartGymState extends Equatable {
     List<TrainerJoinRequest>? trainerRequests,
     String? pendingApprovalGymName,
     bool clearPendingApproval = false,
-    List<String>? removedLog,
+    List<RemovedRecord>? removedRecords,
   }) {
     return SmartGymState(
       gyms: gyms ?? this.gyms,
@@ -157,7 +158,7 @@ class SmartGymState extends Equatable {
       pendingApprovalGymName: clearPendingApproval
           ? null
           : (pendingApprovalGymName ?? this.pendingApprovalGymName),
-      removedLog: removedLog ?? this.removedLog,
+      removedRecords: removedRecords ?? this.removedRecords,
     );
   }
 
@@ -188,6 +189,6 @@ class SmartGymState extends Equatable {
         missingMembers,
         trainerRequests,
         pendingApprovalGymName,
-        removedLog,
+        removedRecords,
       ];
 }

@@ -13,6 +13,9 @@ class GymMember extends Equatable {
   final bool isPtClient;
   final String addedByTrainer;
   final double currentWeightKg;
+  final String paymentMode;
+  final String paymentReference;
+  final String paymentProofBase64;
 
   const GymMember({
     required this.id,
@@ -27,6 +30,9 @@ class GymMember extends Equatable {
     required this.isPtClient,
     required this.addedByTrainer,
     this.currentWeightKg = 74.0,
+    this.paymentMode = 'Cash',
+    this.paymentReference = '',
+    this.paymentProofBase64 = '',
   });
 
   bool get isExpired => daysLeft <= 0;
@@ -54,6 +60,9 @@ class GymMember extends Equatable {
       isPtClient: isPtClient ?? this.isPtClient,
       addedByTrainer: addedByTrainer,
       currentWeightKg: currentWeightKg ?? this.currentWeightKg,
+      paymentMode: paymentMode,
+      paymentReference: paymentReference,
+      paymentProofBase64: paymentProofBase64,
     );
   }
 
@@ -71,5 +80,8 @@ class GymMember extends Equatable {
         isPtClient,
         addedByTrainer,
         currentWeightKg,
+        paymentMode,
+        paymentReference,
+        paymentProofBase64,
       ];
 }

@@ -48,6 +48,7 @@ rules_version = '2';
 //   - isOnDuty: bool (required)
 //   - commissionPercent: number (required, >= 0, <= 100)
 //   - inviteCode: string (optional, 4..64 chars)
+//   - shiftSlot: string (optional, 0..60 chars)
 //
 // Collection: gyms/{gymId}/invites/{inviteCode}
 // Document ID: Invite code string
@@ -83,6 +84,9 @@ rules_version = '2';
 //   - isPtClient: bool (required)
 //   - addedByTrainer: string (required, 0..100 chars)
 //   - currentWeightKg: number (required, >= 10, <= 500)
+//   - paymentMode: string (optional, "Cash" | "Online")
+//   - paymentReference: string (optional, 0..64 chars)
+//   - paymentProofBase64: string (optional, 0..150000 chars)
 //   - createdAt: timestamp (optional, immutable)
 //
 // Collection: gyms/{gymId}/enquiries/{enquiryId}
@@ -120,6 +124,15 @@ rules_version = '2';
 //   - planName: string (required, 0..100 chars)
 //   - lastMuscleTrained: string (required, 0..100 chars)
 //   - contacted: bool (required)
+//
+// Collection: gyms/{gymId}/removed_logs/{logId}
+// Fields:
+//   - id: string (required, 1..128 chars)
+//   - type: string (required, "trainer" | "member")
+//   - name: string (required, 1..100 chars)
+//   - phone: string (required, 0..20 chars)
+//   - details: string (required, 0..200 chars)
+//   - removedAt: timestamp (optional)
 //
 // ===============================================================
 
@@ -292,7 +305,7 @@ service cloud.firestore {
              ]) &&
              hasOnlyAllowedFields([
                'id', 'name', 'phone', 'specialty', 'morningCheckInTime',
-               'isOnDuty', 'commissionPercent', 'inviteCode'
+               'isOnDuty', 'commissionPercent', 'inviteCode', 'shiftSlot'
              ]) &&
              isValidOptionalString(data, 'id', 1, 64) &&
              isValidString(data.name, 1, 100) &&
@@ -301,7 +314,8 @@ service cloud.firestore {
              isValidString(data.morningCheckInTime, 0, 30) &&
              data.isOnDuty is bool &&
              data.commissionPercent is number && data.commissionPercent >= 0 && data.commissionPercent <= 100 &&
-             isValidOptionalString(data, 'inviteCode', 4, 64);
+             isValidOptionalString(data, 'inviteCode', 4, 64) &&
+             isValidOptionalString(data, 'shiftSlot', 0, 60);
     }
 
     function isValidInvite(data, gymId) {
@@ -337,7 +351,8 @@ service cloud.firestore {
              hasOnlyAllowedFields([
                'id', 'name', 'phone', 'planTitle', 'feePaid', 'joinedDate',
                'expiryDate', 'daysLeft', 'assignedTrainer', 'isPtClient',
-               'addedByTrainer', 'currentWeightKg', 'createdAt'
+               'addedByTrainer', 'currentWeightKg', 'paymentMode',
+               'paymentReference', 'paymentProofBase64', 'createdAt'
              ]) &&
              isValidOptionalString(data, 'id', 1, 64) &&
              isValidString(data.name, 1, 100) &&
@@ -351,6 +366,9 @@ service cloud.firestore {
              data.isPtClient is bool &&
              isValidString(data.addedByTrainer, 0, 100) &&
              data.currentWeightKg is number && data.currentWeightKg >= 10 && data.currentWeightKg <= 500 &&
+             (!('paymentMode' in data) || (data.paymentMode is string && data.paymentMode in ['Cash', 'Online'])) &&
+             isValidOptionalString(data, 'paymentReference', 0, 64) &&
+             isValidOptionalString(data, 'paymentProofBase64', 0, 150000) &&
              isValidOptionalTimestamp(data, 'createdAt');
     }
 
@@ -406,6 +424,17 @@ service cloud.firestore {
              isValidString(data.planName, 0, 100) &&
              isValidString(data.lastMuscleTrained, 0, 100) &&
              data.contacted is bool;
+    }
+
+    function isValidRemovedLog(data) {
+      return hasRequiredFields(['id', 'type', 'name', 'phone', 'details']) &&
+             hasOnlyAllowedFields(['id', 'type', 'name', 'phone', 'details', 'removedAt']) &&
+             isValidString(data.id, 1, 128) &&
+             data.type in ['trainer', 'member'] &&
+             isValidString(data.name, 1, 100) &&
+             isValidString(data.phone, 0, 20) &&
+             isValidString(data.details, 0, 200) &&
+             isValidOptionalTimestamp(data, 'removedAt');
     }
 
     // ===============================================================
@@ -605,6 +634,15 @@ service cloud.firestore {
 
         allow delete: if isGymOwner(gymId) ||
                          (hasPhone() && resource.data.phone == userPhone());
+      }
+
+      // Removed trainers & members audit logs subcollection
+      match /removed_logs/{logId} {
+        allow read: if isGymOwner(gymId);
+
+        allow create: if isGymOwner(gymId) && isValidRemovedLog(request.resource.data);
+
+        allow delete: if isGymOwner(gymId);
       }
     }
 

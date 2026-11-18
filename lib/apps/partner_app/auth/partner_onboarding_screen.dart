@@ -520,33 +520,13 @@ class _PartnerOnboardingScreenState extends State<PartnerOnboardingScreen> {
                             ),
                           ),
                           const SizedBox(height: 10),
-                          SizedBox(
-                            height: 46,
-                            child: OutlinedButton.icon(
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: AppTheme.trainerCyan,
-                                side: const BorderSide(
-                                    color: AppTheme.trainerCyan),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(14),
-                                ),
-                              ),
-                              onPressed: state.isOnboardingBusy
-                                  ? null
-                                  : () {
-                                      HapticFeedback.selectionClick();
-                                      context
-                                          .read<SmartGymBloc>()
-                                          .add(const CheckAuthSessionEvent());
-                                    },
-                              icon: const Icon(Icons.refresh_rounded, size: 18),
-                              label: const Text(
-                                'CHECK PHONE INVITE STATUS',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.w900,
-                                  letterSpacing: 0.7,
-                                ),
-                              ),
+                          const Text(
+                            'Or ask your Owner to add your phone — it will open automatically.',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: Colors.white54,
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.w600,
                             ),
                           ),
                         ],

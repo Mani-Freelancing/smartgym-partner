@@ -8,6 +8,7 @@ import '../domain/models/machine_guide.dart';
 import '../domain/models/meal_review_item.dart';
 import '../domain/models/missing_member.dart';
 import '../domain/models/partner_role.dart';
+import '../domain/models/removed_record.dart';
 import '../domain/models/trainer_join_request.dart';
 import '../domain/models/trainer_profile.dart';
 import '../domain/models/walk_in_enquiry.dart';
@@ -27,6 +28,8 @@ class SmartGymBloc extends Bloc<SmartGymEvent, SmartGymState> {
   StreamSubscription<List<MissingMember>>? _missingSub;
   StreamSubscription<List<TrainerJoinRequest>>? _requestsSub;
   StreamSubscription<PhoneLookupResult?>? _phoneSub;
+  StreamSubscription<PhoneLookupResult?>? _onboardingPhoneSub;
+  StreamSubscription<List<RemovedRecord>>? _removedSub;
 
   SmartGymBloc({
     required this.repository,
@@ -76,6 +79,9 @@ class SmartGymBloc extends Bloc<SmartGymEvent, SmartGymState> {
     on<ApproveTrainerRequestEvent>(_onApproveTrainerRequest);
     on<RejectTrainerRequestEvent>(_onRejectTrainerRequest);
     on<CancelPendingRequestEvent>(_onCancelPendingRequest);
+    on<SyncRemovedRecordsEvent>(
+        (e, emit) => emit(state.copyWith(removedRecords: e.records)));
+    on<UpdateGymSettingsEvent>(_onUpdateGymSettings);
     on<SelectGymTenantEvent>(_onSelectGymTenant);
     on<CustomizeCurrentGymEvent>(_onCustomizeCurrentGym);
     on<SwitchPartnerRoleEvent>(_onSwitchPartnerRole);
@@ -113,6 +119,8 @@ class SmartGymBloc extends Bloc<SmartGymEvent, SmartGymState> {
       _missingSub,
       _requestsSub,
       _phoneSub,
+      _onboardingPhoneSub,
+      _removedSub,
     ];
     _gymSub = null;
     _membersSub = null;
@@ -123,6 +131,8 @@ class SmartGymBloc extends Bloc<SmartGymEvent, SmartGymState> {
     _missingSub = null;
     _requestsSub = null;
     _phoneSub = null;
+    _onboardingPhoneSub = null;
+    _removedSub = null;
     await Future.wait(
       oldSubs.whereType<StreamSubscription<dynamic>>().map((s) => s.cancel()),
     );
@@ -151,6 +161,10 @@ class SmartGymBloc extends Bloc<SmartGymEvent, SmartGymState> {
         .listen((list) => add(SyncMissingMembersEvent(list)));
     _requestsSub = fs.watchTrainerRequests(gymId).listen(
           (list) => add(SyncTrainerRequestsEvent(list)),
+          onError: (_) {},
+        );
+    _removedSub = fs.watchRemovedLogs(gymId).listen(
+          (list) => add(SyncRemovedRecordsEvent(list)),
           onError: (_) {},
         );
     final phone = fs.currentUser?.phoneNumber ?? '';
@@ -208,6 +222,22 @@ class SmartGymBloc extends Bloc<SmartGymEvent, SmartGymState> {
     }
   }
 
+  void _watchOnboardingApproval(String phone) {
+    final fs = firestoreService;
+    if (fs == null || phone.isEmpty) return;
+    _onboardingPhoneSub?.cancel();
+    _onboardingPhoneSub = fs.watchPhoneLookup(phone).listen(
+      (lookup) {
+        if (lookup != null && lookup.gymId.isNotEmpty) {
+          _onboardingPhoneSub?.cancel();
+          _onboardingPhoneSub = null;
+          add(const CheckAuthSessionEvent());
+        }
+      },
+      onError: (_) {},
+    );
+  }
+
   Future<void> _onCheckAuthSession(
     CheckAuthSessionEvent event,
     Emitter<SmartGymState> emit,
@@ -231,6 +261,7 @@ class SmartGymBloc extends Bloc<SmartGymEvent, SmartGymState> {
       final lookup = await fs.lookupPhone(phone);
       if (lookup == null || lookup.gymId.isEmpty) {
         final pendingGymName = await fs.lookupPendingGymName(phone);
+        _watchOnboardingApproval(phone);
         emit(state.copyWith(
           isAuthChecking: false,
           isPartnerLoggedIn: false,
@@ -305,6 +336,7 @@ class SmartGymBloc extends Bloc<SmartGymEvent, SmartGymState> {
       name: event.name,
       phone: event.phone,
       specialty: event.specialty,
+      shiftSlot: event.shiftSlot,
     );
   }
 
@@ -383,17 +415,24 @@ class SmartGymBloc extends Bloc<SmartGymEvent, SmartGymState> {
   ) async {
     final updated =
         state.trainers.where((t) => t.id != event.trainerId).toList();
-    final logEntry =
-        'Trainer • ${event.trainerName}${event.phone.isNotEmpty ? ' (${event.phone})' : ''}';
+    final record = RemovedRecord(
+      id: 'rem_${DateTime.now().millisecondsSinceEpoch}',
+      type: 'trainer',
+      name: event.trainerName,
+      phone: event.phone,
+      details: event.details,
+    );
     emit(state.copyWith(
       trainers: updated,
-      removedLog: [logEntry, ...state.removedLog],
+      removedRecords: [record, ...state.removedRecords],
     ));
     _syncAsync(
       () => firestoreService!.removeTrainerFromGym(
         gymId: state.currentGym.id,
         trainerId: event.trainerId,
         phone: event.phone,
+        name: event.trainerName,
+        details: event.details,
       ),
     );
   }
@@ -404,17 +443,51 @@ class SmartGymBloc extends Bloc<SmartGymEvent, SmartGymState> {
   ) async {
     final updated =
         state.members.where((m) => m.id != event.memberId).toList();
-    final logEntry =
-        'Member • ${event.memberName}${event.phone.isNotEmpty ? ' (${event.phone})' : ''}';
+    final record = RemovedRecord(
+      id: 'rem_${DateTime.now().millisecondsSinceEpoch}',
+      type: 'member',
+      name: event.memberName,
+      phone: event.phone,
+      details: event.details,
+    );
     emit(state.copyWith(
       members: updated,
-      removedLog: [logEntry, ...state.removedLog],
+      removedRecords: [record, ...state.removedRecords],
     ));
     _syncAsync(
       () => firestoreService!.removeMemberFromGym(
         gymId: state.currentGym.id,
         memberId: event.memberId,
         phone: event.phone,
+        name: event.memberName,
+        details: event.details,
+      ),
+    );
+  }
+
+  Future<void> _onUpdateGymSettings(
+    UpdateGymSettingsEvent event,
+    Emitter<SmartGymState> emit,
+  ) async {
+    if (state.gyms.isEmpty) return;
+    final current = state.currentGym;
+    final updatedGyms = List<GymTenant>.from(state.gyms);
+    updatedGyms[state.selectedGymIndex] = current.copyWith(
+      name: event.name.trim().isEmpty ? current.name : event.name.trim(),
+      area: event.area.trim().isEmpty ? current.area : event.area.trim(),
+      monthlyFee: event.monthlyFee,
+      ptFee: event.ptFee,
+      maxCapacity: event.maxCapacity,
+    );
+    emit(state.copyWith(gyms: updatedGyms));
+    _syncAsync(
+      () => firestoreService!.updateGymSettings(
+        gymId: current.id,
+        name: event.name,
+        area: event.area,
+        monthlyFee: event.monthlyFee,
+        ptFee: event.ptFee,
+        maxCapacity: event.maxCapacity,
       ),
     );
   }
@@ -476,6 +549,7 @@ class SmartGymBloc extends Bloc<SmartGymEvent, SmartGymState> {
       final lookup = await fs.lookupPhone(event.phone);
       if (lookup == null || lookup.gymId.isEmpty) {
         final pendingGymName = await fs.lookupPendingGymName(event.phone);
+        _watchOnboardingApproval(event.phone);
         emit(state.copyWith(
           isAuthChecking: false,
           isPartnerLoggedIn: false,
@@ -528,6 +602,8 @@ class SmartGymBloc extends Bloc<SmartGymEvent, SmartGymState> {
           machineGuides: const [],
           mealQueue: const [],
           missingMembers: const [],
+          trainerRequests: const [],
+          removedRecords: const [],
         ),
       );
     } else {
@@ -545,12 +621,16 @@ class SmartGymBloc extends Bloc<SmartGymEvent, SmartGymState> {
       phone: event.phone.trim(),
       planTitle: event.planTitle,
       feePaid: event.feePaid,
-      joinedDate: 'Just Now',
-      expiryDate: '${event.daysValid}d from today',
+      joinedDate: event.joinedDate ?? 'Just Now',
+      expiryDate: event.expiryDate ?? '${event.daysValid}d from today',
       daysLeft: event.daysValid,
       assignedTrainer: event.assignedTrainer,
       isPtClient: event.isPtClient,
       addedByTrainer: event.addedByTrainer,
+      currentWeightKg: event.currentWeightKg,
+      paymentMode: event.paymentMode,
+      paymentReference: event.paymentReference,
+      paymentProofBase64: event.paymentProofBase64,
     );
     final updated = [newMember, ...state.members];
     emit(state.copyWith(members: updated));

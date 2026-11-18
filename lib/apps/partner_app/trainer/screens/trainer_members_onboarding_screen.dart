@@ -1,6 +1,8 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:image_picker/image_picker.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/cred_neopop_widgets.dart';
 import '../../../../domain/models/gym_member.dart';
@@ -12,193 +14,889 @@ class TrainerMembersOnboardingScreen extends StatelessWidget {
   const TrainerMembersOnboardingScreen({super.key});
 
   void _showAddMemberSheet(BuildContext context, SmartGymState state) {
+    final bloc = context.read<SmartGymBloc>();
+    final messenger = ScaffoldMessenger.of(context);
     final nameCtrl = TextEditingController();
     final phoneCtrl = TextEditingController();
-    int selectedPlanIdx = 0;
-    String selectedTrainer = state.loggedInTrainerName;
+    final amountCtrl =
+        TextEditingController(text: state.currentGym.monthlyFee.toString());
+    final joinDateCtrl = TextEditingController();
+    final picker = ImagePicker();
 
-    final plans = [
-      {
-        'title': '1-Month Regular',
-        'fee': state.currentGym.monthlyFee,
-        'days': 30,
-        'isPt': false,
-      },
-      {
-        'title': '6-Month Pro Plan',
-        'fee': state.currentGym.monthlyFee * 5,
-        'days': 180,
-        'isPt': false,
-      },
-      {
-        'title': 'Personal Training VIP',
-        'fee': state.currentGym.ptFee,
-        'days': 30,
-        'isPt': true,
-      },
+    int months = 1;
+    bool isPt = false;
+    bool amountEdited = false;
+    String paymentMode = 'Cash';
+    String proofBase64 = '';
+    Uint8List? proofBytes;
+    DateTime joiningDate = DateTime.now();
+    String selectedTrainer = state.loggedInTrainerName;
+    String? errorText;
+
+    const monthNames = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
     ];
+    String fmtDate(DateTime d) =>
+        '${d.day.toString().padLeft(2, '0')} ${monthNames[d.month - 1]} ${d.year}';
+    joinDateCtrl.text = fmtDate(joiningDate);
+
+    void recalcFee() {
+      if (amountEdited) return;
+      final perMo =
+          isPt ? state.currentGym.ptFee : state.currentGym.monthlyFee;
+      amountCtrl.text = (perMo * months).toString();
+    }
 
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: AppTheme.cardSurface,
+      backgroundColor: const Color(0xFF1A1E29),
+      sheetAnimationStyle: const AnimationStyle(
+        duration: Duration(milliseconds: 340),
+        reverseDuration: Duration(milliseconds: 240),
+        curve: Curves.easeOutCubic,
+      ),
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setModalState) {
-          final currentPlan = plans[selectedPlanIdx];
-          final isPt = currentPlan['isPt'] as bool;
-          return Padding(
-            padding: EdgeInsets.fromLTRB(
-              20,
-              20,
-              20,
-              MediaQuery.of(ctx).viewInsets.bottom + 24,
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'ONBOARD NEW GYM CUSTOMER',
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: 1.4,
-                    color: AppTheme.accent,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                const Text(
-                  'Instantly syncs to Owner Revenue & PT Commission Split',
-                  style: TextStyle(fontSize: 12, color: Colors.white60),
-                ),
-                const SizedBox(height: 14),
-                TextField(
-                  controller: nameCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'Customer Full Name',
-                    border: OutlineInputBorder(),
-                    isDense: true,
-                  ),
-                ),
-                const SizedBox(height: 10),
-                TextField(
-                  controller: phoneCtrl,
-                  keyboardType: TextInputType.phone,
-                  decoration: const InputDecoration(
-                    labelText: 'Phone Number',
-                    border: OutlineInputBorder(),
-                    isDense: true,
-                  ),
-                ),
-                const SizedBox(height: 14),
-                const Text(
-                  'SELECT MEMBERSHIP PLAN',
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: 1.2,
-                    color: Colors.white54,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: List.generate(plans.length, (i) {
-                    final p = plans[i];
-                    final sel = i == selectedPlanIdx;
-                    return ChoiceChip(
-                      label: Text('${p['title']} (₹${p['fee']})'),
-                      selected: sel,
-                      selectedColor: AppTheme.accent,
-                      labelStyle: TextStyle(
-                        color: sel ? Colors.black : Colors.white,
-                        fontWeight: FontWeight.w800,
-                        fontSize: 12,
+          final expiryDate = DateTime(
+            joiningDate.year,
+            joiningDate.month + months,
+            joiningDate.day,
+          );
+          final now = DateTime.now();
+          final today = DateTime(now.year, now.month, now.day);
+          final daysLeft = expiryDate.difference(today).inDays;
+          final feePreview = int.tryParse(amountCtrl.text.trim()) ?? 0;
+
+          return DraggableScrollableSheet(
+            initialChildSize: 0.88,
+            minChildSize: 0.55,
+            maxChildSize: 0.94,
+            expand: false,
+            builder: (_, scrollCtrl) => Padding(
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.of(ctx).viewInsets.bottom,
+              ),
+              child: ListView(
+                controller: scrollCtrl,
+                padding: const EdgeInsets.fromLTRB(20, 14, 20, 28),
+                children: [
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 4,
+                      margin: const EdgeInsets.only(bottom: 16),
+                      decoration: BoxDecoration(
+                        color: Colors.white12,
+                        borderRadius: BorderRadius.circular(99),
                       ),
-                      onSelected: (_) =>
-                          setModalState(() => selectedPlanIdx = i),
-                    );
-                  }),
-                ),
-                if (isPt) ...[
+                    ),
+                  ),
+                  Row(
+                    children: [
+                      Container(
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          color: AppTheme.trainerCyan.withValues(alpha: 0.16),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Icon(
+                          Icons.person_add_alt_1_rounded,
+                          color: AppTheme.trainerCyan,
+                          size: 20,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      const Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Enroll Paid Customer',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 18,
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                            SizedBox(height: 2),
+                            Text(
+                              'Syncs live to Owner Revenue & Member Directory',
+                              style: TextStyle(
+                                color: Colors.white54,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  CredMetalCard(
+                    glowColor:
+                        isPt ? AppTheme.champagne : AppTheme.trainerCyan,
+                    padding: const EdgeInsets.all(16),
+                    borderRadius: 18,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              isPt ? 'PT VIP PLAN' : 'REGULAR PLAN',
+                              style: TextStyle(
+                                color: isPt
+                                    ? AppTheme.champagne
+                                    : AppTheme.trainerCyan,
+                                fontSize: 10,
+                                fontWeight: FontWeight.w900,
+                                letterSpacing: 1.3,
+                              ),
+                            ),
+                            Text(
+                              '₹$feePreview',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 22,
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          '$months ${months == 1 ? 'Month' : 'Months'} • ${fmtDate(joiningDate)} → ${fmtDate(expiryDate)} ($daysLeft days)',
+                          style: const TextStyle(
+                            color: Colors.white70,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: nameCtrl,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w700,
+                    ),
+                    decoration: InputDecoration(
+                      labelText: 'Customer Full Name',
+                      hintText: 'e.g. Karthikeya Rao',
+                      hintStyle: const TextStyle(
+                        color: Colors.white24,
+                        fontWeight: FontWeight.w400,
+                      ),
+                      prefixIcon: const Icon(
+                        Icons.person_outline_rounded,
+                        color: AppTheme.trainerCyan,
+                        size: 19,
+                      ),
+                      filled: true,
+                      fillColor: const Color(0xFF12151C),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(14),
+                        borderSide: BorderSide.none,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  TextField(
+                    controller: phoneCtrl,
+                    keyboardType: TextInputType.phone,
+                    maxLength: 10,
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 1.0,
+                    ),
+                    decoration: InputDecoration(
+                      counterText: '',
+                      prefixText: '+91 ',
+                      prefixStyle: const TextStyle(
+                        color: AppTheme.trainerCyan,
+                        fontWeight: FontWeight.w800,
+                      ),
+                      labelText: 'Mobile Number',
+                      hintText: '98480 32910',
+                      hintStyle: const TextStyle(
+                        color: Colors.white24,
+                        fontWeight: FontWeight.w400,
+                      ),
+                      prefixIcon: const Icon(
+                        Icons.phone_android_rounded,
+                        color: AppTheme.trainerCyan,
+                        size: 19,
+                      ),
+                      filled: true,
+                      fillColor: const Color(0xFF12151C),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(14),
+                        borderSide: BorderSide.none,
+                      ),
+                    ),
+                  ),
                   const SizedBox(height: 14),
                   const Text(
-                    'ASSIGN PERSONAL TRAINER',
+                    'PLAN DURATION (MONTHS)',
                     style: TextStyle(
                       fontSize: 10,
                       fontWeight: FontWeight.w900,
-                      letterSpacing: 1.2,
-                      color: AppTheme.champagne,
+                      letterSpacing: 1.3,
+                      color: Colors.white54,
                     ),
                   ),
                   const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: state.trainers.map((t) {
-                      final sel = t.name == selectedTrainer;
-                      return ChoiceChip(
-                        label: Text(t.name),
-                        selected: sel,
-                        selectedColor: AppTheme.champagne,
-                        labelStyle: TextStyle(
-                          color: sel ? Colors.black : Colors.white,
-                          fontWeight: FontWeight.w800,
-                          fontSize: 12,
+                  Row(
+                    children: [1, 3, 6, 12].map((m) {
+                      final sel = months == m;
+                      return Expanded(
+                        child: Padding(
+                          padding: EdgeInsets.only(right: m == 12 ? 0 : 8),
+                          child: GestureDetector(
+                            onTap: () {
+                              HapticFeedback.selectionClick();
+                              setModalState(() {
+                                months = m;
+                                recalcFee();
+                              });
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(vertical: 10),
+                              decoration: BoxDecoration(
+                                color: sel
+                                    ? AppTheme.trainerCyan
+                                        .withValues(alpha: 0.18)
+                                    : const Color(0xFF12151C),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: sel
+                                      ? AppTheme.trainerCyan
+                                      : Colors.white12,
+                                ),
+                              ),
+                              child: Text(
+                                '${m}M',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  color: sel
+                                      ? AppTheme.trainerCyan
+                                      : Colors.white70,
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 12.5,
+                                ),
+                              ),
+                            ),
+                          ),
                         ),
-                        onSelected: (_) =>
-                            setModalState(() => selectedTrainer = t.name),
                       );
                     }).toList(),
                   ),
-                ],
-                const SizedBox(height: 20),
-                CredNeoPopButton(
-                  label:
-                      'Add Customer & Collect ₹${currentPlan['fee']}',
-                  icon: Icons.person_add_alt_1_rounded,
-                  color: AppTheme.accent,
-                  onTap: () {
-                    final name = nameCtrl.text.trim().isEmpty
-                        ? 'Karthikeya Rao'
-                        : nameCtrl.text.trim();
-                    final phone = phoneCtrl.text.trim().isEmpty
-                        ? '+91 98480 32910'
-                        : phoneCtrl.text.trim();
-
-                    context.read<SmartGymBloc>().add(
-                          AddNewGymMemberEvent(
-                            name: name,
-                            phone: phone,
-                            planTitle: currentPlan['title'] as String,
-                            feePaid: currentPlan['fee'] as int,
-                            daysValid: currentPlan['days'] as int,
-                            isPtClient: isPt,
-                            assignedTrainer: isPt ? selectedTrainer : null,
-                            addedByTrainer: state.loggedInTrainerName,
+                  const SizedBox(height: 10),
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF12151C),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: Colors.white12),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          'Custom Months',
+                          style: TextStyle(
+                            color: Colors.white70,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
                           ),
-                        );
-                    Navigator.pop(ctx);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        backgroundColor: const Color(0xFF141822),
-                        behavior: SnackBarBehavior.floating,
-                        content: Text(
-                          '✅ $name added! Owner Revenue increased by ₹${currentPlan['fee']}',
+                        ),
+                        Row(
+                          children: [
+                            IconButton(
+                              onPressed: months > 1
+                                  ? () {
+                                      HapticFeedback.selectionClick();
+                                      setModalState(() {
+                                        months--;
+                                        recalcFee();
+                                      });
+                                    }
+                                  : null,
+                              icon: const Icon(
+                                Icons.remove_circle_outline_rounded,
+                                color: AppTheme.trainerCyan,
+                              ),
+                            ),
+                            SizedBox(
+                              width: 32,
+                              child: Text(
+                                '$months',
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                            ),
+                            IconButton(
+                              onPressed: months < 36
+                                  ? () {
+                                      HapticFeedback.selectionClick();
+                                      setModalState(() {
+                                        months++;
+                                        recalcFee();
+                                      });
+                                    }
+                                  : null,
+                              icon: const Icon(
+                                Icons.add_circle_outline_rounded,
+                                color: AppTheme.trainerCyan,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: amountCtrl,
+                          keyboardType: TextInputType.number,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.digitsOnly,
+                          ],
+                          onChanged: (_) =>
+                              setModalState(() => amountEdited = true),
                           style: const TextStyle(
-                            color: AppTheme.accent,
+                            color: Colors.white,
                             fontWeight: FontWeight.w800,
+                          ),
+                          decoration: InputDecoration(
+                            labelText: 'Amount Paid (₹)',
+                            prefixIcon: const Icon(
+                              Icons.currency_rupee_rounded,
+                              color: AppTheme.trainerCyan,
+                              size: 18,
+                            ),
+                            filled: true,
+                            fillColor: const Color(0xFF12151C),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(14),
+                              borderSide: BorderSide.none,
+                            ),
                           ),
                         ),
                       ),
-                    );
-                  },
-                ),
-              ],
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: TextField(
+                          controller: joinDateCtrl,
+                          readOnly: true,
+                          onTap: () async {
+                            HapticFeedback.selectionClick();
+                            final picked = await showDatePicker(
+                              context: ctx,
+                              initialDate: joiningDate,
+                              firstDate: DateTime.now()
+                                  .subtract(const Duration(days: 365)),
+                              lastDate: DateTime.now()
+                                  .add(const Duration(days: 365)),
+                              builder: (context, child) => Theme(
+                                data: ThemeData.dark().copyWith(
+                                  colorScheme: const ColorScheme.dark(
+                                    primary: AppTheme.trainerCyan,
+                                    onPrimary: Colors.black,
+                                    surface: Color(0xFF1A1E29),
+                                    onSurface: Colors.white,
+                                  ),
+                                ),
+                                child: child!,
+                              ),
+                            );
+                            if (picked != null) {
+                              setModalState(() {
+                                joiningDate = picked;
+                                joinDateCtrl.text = fmtDate(picked);
+                              });
+                            }
+                          },
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 13,
+                          ),
+                          decoration: InputDecoration(
+                            labelText: 'Joining Date',
+                            suffixIcon: const Icon(
+                              Icons.calendar_today_rounded,
+                              color: AppTheme.trainerCyan,
+                              size: 17,
+                            ),
+                            filled: true,
+                            fillColor: const Color(0xFF12151C),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(14),
+                              borderSide: BorderSide.none,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF12151C),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: Column(
+                      children: [
+                        SwitchListTile(
+                          contentPadding: EdgeInsets.zero,
+                          activeThumbColor: AppTheme.champagne,
+                          title: const Text(
+                            'Personal Training (PT VIP)',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 13.5,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                          value: isPt,
+                          onChanged: (v) {
+                            HapticFeedback.selectionClick();
+                            setModalState(() {
+                              isPt = v;
+                              recalcFee();
+                            });
+                          },
+                        ),
+                        if (isPt && state.trainers.isNotEmpty)
+                          Wrap(
+                            spacing: 6,
+                            runSpacing: 6,
+                            children: state.trainers.map((t) {
+                              final sel = t.name == selectedTrainer;
+                              return ChoiceChip(
+                                label: Text(t.name),
+                                selected: sel,
+                                selectedColor: AppTheme.champagne,
+                                backgroundColor: const Color(0xFF1A1E29),
+                                labelStyle: TextStyle(
+                                  color: sel ? Colors.black : Colors.white70,
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 11.5,
+                                ),
+                                onSelected: (_) => setModalState(
+                                  () => selectedTrainer = t.name,
+                                ),
+                              );
+                            }).toList(),
+                          ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  const Text(
+                    'PAYMENT MODE & PROOF',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 1.3,
+                      color: Colors.white54,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: () {
+                            HapticFeedback.selectionClick();
+                            setModalState(() {
+                              paymentMode = 'Cash';
+                              errorText = null;
+                            });
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            decoration: BoxDecoration(
+                              color: paymentMode == 'Cash'
+                                  ? AppTheme.accent.withValues(alpha: 0.16)
+                                  : const Color(0xFF12151C),
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(
+                                color: paymentMode == 'Cash'
+                                    ? AppTheme.accent
+                                    : Colors.white12,
+                                width: paymentMode == 'Cash' ? 1.5 : 1,
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.payments_rounded,
+                                  size: 16,
+                                  color: paymentMode == 'Cash'
+                                      ? AppTheme.accent
+                                      : Colors.white54,
+                                ),
+                                const SizedBox(width: 6),
+                                Text(
+                                  'Cash',
+                                  style: TextStyle(
+                                    color: paymentMode == 'Cash'
+                                        ? AppTheme.accent
+                                        : Colors.white70,
+                                    fontWeight: FontWeight.w800,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: () {
+                            HapticFeedback.selectionClick();
+                            setModalState(() {
+                              paymentMode = 'Online';
+                              errorText = null;
+                            });
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            decoration: BoxDecoration(
+                              color: paymentMode == 'Online'
+                                  ? AppTheme.ownerGold.withValues(alpha: 0.16)
+                                  : const Color(0xFF12151C),
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(
+                                color: paymentMode == 'Online'
+                                    ? AppTheme.ownerGold
+                                    : Colors.white12,
+                                width: paymentMode == 'Online' ? 1.5 : 1,
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.qr_code_2_rounded,
+                                  size: 16,
+                                  color: paymentMode == 'Online'
+                                      ? AppTheme.ownerGold
+                                      : Colors.white54,
+                                ),
+                                const SizedBox(width: 6),
+                                Text(
+                                  'Online / UPI',
+                                  style: TextStyle(
+                                    color: paymentMode == 'Online'
+                                        ? AppTheme.ownerGold
+                                        : Colors.white70,
+                                    fontWeight: FontWeight.w800,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (paymentMode == 'Online') ...[
+                    const SizedBox(height: 10),
+                    InkWell(
+                      onTap: () async {
+                        HapticFeedback.selectionClick();
+                        final source = await showModalBottomSheet<ImageSource>(
+                          context: ctx,
+                          backgroundColor: const Color(0xFF1A1E29),
+                          shape: const RoundedRectangleBorder(
+                            borderRadius: BorderRadius.vertical(
+                              top: Radius.circular(22),
+                            ),
+                          ),
+                          builder: (sCtx) => SafeArea(
+                            child: Padding(
+                              padding:
+                                  const EdgeInsets.fromLTRB(20, 16, 20, 16),
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    'Upload Payment Proof',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w900,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 10),
+                                  ListTile(
+                                    leading: const Icon(
+                                      Icons.camera_alt_rounded,
+                                      color: AppTheme.ownerGold,
+                                    ),
+                                    title: const Text(
+                                      'Take Photo (Camera)',
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.w800,
+                                      ),
+                                    ),
+                                    subtitle: const Text(
+                                      'Snap customer\'s payment screen directly',
+                                      style: TextStyle(
+                                        color: Colors.white54,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                    onTap: () =>
+                                        Navigator.pop(sCtx, ImageSource.camera),
+                                  ),
+                                  ListTile(
+                                    leading: const Icon(
+                                      Icons.photo_library_rounded,
+                                      color: AppTheme.trainerCyan,
+                                    ),
+                                    title: const Text(
+                                      'Choose from Gallery',
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.w800,
+                                      ),
+                                    ),
+                                    onTap: () => Navigator.pop(
+                                      sCtx,
+                                      ImageSource.gallery,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        );
+                        if (source == null) return;
+                        final picked = await picker.pickImage(
+                          source: source,
+                          maxWidth: 480,
+                          imageQuality: 50,
+                        );
+                        if (picked == null) return;
+                        final bytes = await picked.readAsBytes();
+                        final encoded = base64Encode(bytes);
+                        if (encoded.length > 140000) {
+                          setModalState(() {
+                            errorText =
+                                'Screenshot too large. Pick a smaller image.';
+                          });
+                          return;
+                        }
+                        setModalState(() {
+                          proofBytes = bytes;
+                          proofBase64 = encoded;
+                          errorText = null;
+                        });
+                      },
+                      borderRadius: BorderRadius.circular(14),
+                      child: Container(
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF12151C),
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(
+                            color: proofBytes != null
+                                ? AppTheme.accent.withValues(alpha: 0.5)
+                                : AppTheme.ownerGold.withValues(alpha: 0.4),
+                          ),
+                        ),
+                        child: proofBytes != null
+                            ? Row(
+                                children: [
+                                  ClipRRect(
+                                    borderRadius: BorderRadius.circular(8),
+                                    child: Image.memory(
+                                      proofBytes!,
+                                      width: 48,
+                                      height: 48,
+                                      fit: BoxFit.cover,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  const Expanded(
+                                    child: Text(
+                                      'Payment Screenshot Attached',
+                                      style: TextStyle(
+                                        color: AppTheme.accent,
+                                        fontWeight: FontWeight.w800,
+                                        fontSize: 12.5,
+                                      ),
+                                    ),
+                                  ),
+                                  const Icon(
+                                    Icons.check_circle_rounded,
+                                    color: AppTheme.accent,
+                                  ),
+                                ],
+                              )
+                            : const Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.upload_file_rounded,
+                                    color: AppTheme.ownerGold,
+                                    size: 19,
+                                  ),
+                                  SizedBox(width: 8),
+                                  Text(
+                                    'UPLOAD PAYMENT SCREENSHOT',
+                                    style: TextStyle(
+                                      color: AppTheme.ownerGold,
+                                      fontWeight: FontWeight.w900,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                      ),
+                    ),
+                  ],
+                  if (errorText != null) ...[
+                    const SizedBox(height: 10),
+                    Text(
+                      errorText!,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        color: AppTheme.danger,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 18),
+                  SizedBox(
+                    height: 50,
+                    child: ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.trainerCyan,
+                        foregroundColor: Colors.black,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                      ),
+                      onPressed: () {
+                        final name = nameCtrl.text.trim();
+                        final digits =
+                            phoneCtrl.text.replaceAll(RegExp(r'\D'), '');
+                        final fee = int.tryParse(amountCtrl.text.trim());
+                        if (name.isEmpty || digits.length != 10) {
+                          HapticFeedback.heavyImpact();
+                          setModalState(() {
+                            errorText =
+                                'Enter customer name and 10-digit mobile number.';
+                          });
+                          return;
+                        }
+                        if (fee == null || fee < 0) {
+                          HapticFeedback.heavyImpact();
+                          setModalState(() {
+                            errorText = 'Enter a valid amount.';
+                          });
+                          return;
+                        }
+                        if (paymentMode == 'Online' && proofBase64.isEmpty) {
+                          HapticFeedback.heavyImpact();
+                          setModalState(() {
+                            errorText =
+                                'Please upload payment screenshot for Online payment.';
+                          });
+                          return;
+                        }
+                        final planLabel =
+                            '$months ${months == 1 ? 'Month' : 'Months'} ${isPt ? 'PT VIP' : 'Regular'}';
+                        HapticFeedback.mediumImpact();
+                        bloc.add(
+                          AddNewGymMemberEvent(
+                            name: name,
+                            phone: '+91$digits',
+                            planTitle: planLabel,
+                            feePaid: fee,
+                            daysValid: daysLeft,
+                            isPtClient: isPt,
+                            assignedTrainer: isPt ? selectedTrainer : null,
+                            addedByTrainer: state.loggedInTrainerName,
+                            joinedDate: fmtDate(joiningDate),
+                            expiryDate: fmtDate(expiryDate),
+                            paymentMode: paymentMode,
+                            paymentProofBase64:
+                                paymentMode == 'Online' ? proofBase64 : '',
+                          ),
+                        );
+                        Navigator.pop(ctx);
+                        messenger.showSnackBar(
+                          SnackBar(
+                            backgroundColor: const Color(0xFF141822),
+                            behavior: SnackBarBehavior.floating,
+                            content: Text(
+                              '✅ $name added! Owner Revenue increased by ₹$fee',
+                              style: const TextStyle(
+                                color: AppTheme.accent,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                      icon: const Icon(Icons.verified_rounded, size: 19),
+                      label: Text(
+                        'ADD CUSTOMER & COLLECT ₹$feePreview',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 0.7,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           );
         },
@@ -207,81 +905,282 @@ class TrainerMembersOnboardingScreen extends StatelessWidget {
   }
 
   void _showAddEnquiryDialog(BuildContext context, SmartGymState state) {
+    final bloc = context.read<SmartGymBloc>();
+    final messenger = ScaffoldMessenger.of(context);
     final nameCtrl = TextEditingController();
     final phoneCtrl = TextEditingController();
     final planCtrl = TextEditingController(text: '3-Month Weight Loss + PT');
+    String? errorText;
 
-    showDialog(
+    const planPresets = [
+      '1-Month Regular',
+      '3-Month Weight Loss + PT',
+      '6-Month Transformation',
+      'Personal Training VIP',
+    ];
+
+    showModalBottomSheet(
       context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: AppTheme.cardSurface,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text(
-          'Log Walk-In Enquiry',
-          style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900),
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: nameCtrl,
-              decoration: const InputDecoration(
-                labelText: 'Visitor Name',
-                border: OutlineInputBorder(),
-                isDense: true,
-              ),
-            ),
-            const SizedBox(height: 10),
-            TextField(
-              controller: phoneCtrl,
-              decoration: const InputDecoration(
-                labelText: 'Phone Number',
-                border: OutlineInputBorder(),
-                isDense: true,
-              ),
-            ),
-            const SizedBox(height: 10),
-            TextField(
-              controller: planCtrl,
-              decoration: const InputDecoration(
-                labelText: 'Interested Plan / Goal',
-                border: OutlineInputBorder(),
-                isDense: true,
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel'),
+      isScrollControlled: true,
+      backgroundColor: const Color(0xFF1A1E29),
+      sheetAnimationStyle: const AnimationStyle(
+        duration: Duration(milliseconds: 340),
+        reverseDuration: Duration(milliseconds: 240),
+        curve: Curves.easeOutCubic,
+      ),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setModalState) => Padding(
+          padding: EdgeInsets.fromLTRB(
+            20,
+            14,
+            20,
+            MediaQuery.of(ctx).viewInsets.bottom + 24,
           ),
-          FilledButton(
-            style: FilledButton.styleFrom(
-              backgroundColor: AppTheme.champagne,
-              foregroundColor: Colors.black,
-            ),
-            onPressed: () {
-              context.read<SmartGymBloc>().add(
-                    AddWalkInEnquiryEvent(
-                      name: nameCtrl.text.trim().isEmpty
-                          ? 'Harish Reddy (Walk-In)'
-                          : nameCtrl.text.trim(),
-                      phone: phoneCtrl.text.trim().isEmpty
-                          ? '+91 90102 33445'
-                          : phoneCtrl.text.trim(),
-                      interestedPlan: planCtrl.text.trim(),
-                      loggedByTrainer: state.loggedInTrainerName,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    margin: const EdgeInsets.only(bottom: 18),
+                    decoration: BoxDecoration(
+                      color: Colors.white12,
+                      borderRadius: BorderRadius.circular(99),
                     ),
-                  );
-              Navigator.pop(ctx);
-            },
-            child: const Text(
-              'Save Enquiry',
-              style: TextStyle(fontWeight: FontWeight.w900),
+                  ),
+                ),
+                Row(
+                  children: [
+                    Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: AppTheme.champagne.withValues(alpha: 0.16),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(
+                        Icons.person_search_rounded,
+                        color: AppTheme.champagne,
+                        size: 20,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    const Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Log Walk-In Enquiry',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 17.5,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                          SizedBox(height: 2),
+                          Text(
+                            'Track visitor leads & convert them in 1 tap later',
+                            style: TextStyle(
+                              color: Colors.white54,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 18),
+                TextField(
+                  controller: nameCtrl,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w700,
+                  ),
+                  decoration: InputDecoration(
+                    labelText: 'Visitor Name',
+                    hintText: 'e.g. Harish Reddy',
+                    hintStyle: const TextStyle(
+                      color: Colors.white24,
+                      fontWeight: FontWeight.w400,
+                    ),
+                    prefixIcon: const Icon(
+                      Icons.person_outline_rounded,
+                      color: AppTheme.champagne,
+                      size: 19,
+                    ),
+                    filled: true,
+                    fillColor: const Color(0xFF12151C),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(14),
+                      borderSide: BorderSide.none,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: phoneCtrl,
+                  keyboardType: TextInputType.phone,
+                  maxLength: 10,
+                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1.0,
+                  ),
+                  decoration: InputDecoration(
+                    counterText: '',
+                    prefixText: '+91 ',
+                    prefixStyle: const TextStyle(
+                      color: AppTheme.champagne,
+                      fontWeight: FontWeight.w800,
+                    ),
+                    labelText: 'Mobile Number',
+                    hintText: '90102 33445',
+                    hintStyle: const TextStyle(
+                      color: Colors.white24,
+                      fontWeight: FontWeight.w400,
+                    ),
+                    prefixIcon: const Icon(
+                      Icons.phone_android_rounded,
+                      color: AppTheme.champagne,
+                      size: 19,
+                    ),
+                    filled: true,
+                    fillColor: const Color(0xFF12151C),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(14),
+                      borderSide: BorderSide.none,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: planCtrl,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w700,
+                  ),
+                  decoration: InputDecoration(
+                    labelText: 'Interested Plan / Goal',
+                    prefixIcon: const Icon(
+                      Icons.track_changes_rounded,
+                      color: AppTheme.champagne,
+                      size: 19,
+                    ),
+                    filled: true,
+                    fillColor: const Color(0xFF12151C),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(14),
+                      borderSide: BorderSide.none,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: planPresets.map((p) {
+                    return ActionChip(
+                      backgroundColor: const Color(0xFF12151C),
+                      side: BorderSide(
+                        color: AppTheme.champagne.withValues(alpha: 0.35),
+                      ),
+                      label: Text(
+                        p,
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      onPressed: () {
+                        HapticFeedback.selectionClick();
+                        setModalState(() => planCtrl.text = p);
+                      },
+                    );
+                  }).toList(),
+                ),
+                if (errorText != null) ...[
+                  const SizedBox(height: 10),
+                  Text(
+                    errorText!,
+                    style: const TextStyle(
+                      color: AppTheme.danger,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 18),
+                SizedBox(
+                  height: 50,
+                  child: ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.champagne,
+                      foregroundColor: Colors.black,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                    ),
+                    onPressed: () {
+                      final name = nameCtrl.text.trim();
+                      final digits =
+                          phoneCtrl.text.replaceAll(RegExp(r'\D'), '');
+                      if (name.isEmpty || digits.length != 10) {
+                        HapticFeedback.heavyImpact();
+                        setModalState(() {
+                          errorText =
+                              'Enter visitor name and valid 10-digit mobile number.';
+                        });
+                        return;
+                      }
+                      HapticFeedback.mediumImpact();
+                      bloc.add(
+                        AddWalkInEnquiryEvent(
+                          name: name,
+                          phone: '+91$digits',
+                          interestedPlan: planCtrl.text.trim().isEmpty
+                              ? '1-Month Regular'
+                              : planCtrl.text.trim(),
+                          loggedByTrainer: state.loggedInTrainerName,
+                        ),
+                      );
+                      Navigator.pop(ctx);
+                      messenger.showSnackBar(
+                        SnackBar(
+                          backgroundColor: const Color(0xFF141822),
+                          behavior: SnackBarBehavior.floating,
+                          content: Text(
+                            'Walk-in lead "$name" logged!',
+                            style: const TextStyle(
+                              color: AppTheme.champagne,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.bookmark_add_rounded, size: 19),
+                    label: const Text(
+                      'SAVE WALK-IN ENQUIRY',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 0.9,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
-        ],
+        ),
       ),
     );
   }

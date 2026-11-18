@@ -179,7 +179,7 @@ class OwnerOrdersLeadsScreen extends StatelessWidget {
                                     ),
                                   ),
                                   Text(
-                                    trainer.specialty,
+                                    '${trainer.specialty} • ${trainer.shiftSlot}',
                                     style: const TextStyle(
                                       fontSize: 11.5,
                                       color: Colors.white54,
@@ -260,6 +260,7 @@ class OwnerOrdersLeadsScreen extends StatelessWidget {
                                           trainerId: trainer.id,
                                           phone: trainer.phone,
                                           trainerName: trainer.name,
+                                          details: trainer.specialty,
                                         ),
                                       );
                                   ScaffoldMessenger.of(context).showSnackBar(
@@ -449,11 +450,11 @@ class OwnerOrdersLeadsScreen extends StatelessWidget {
                 ),
               );
             }),
-            if (state.removedLog.isNotEmpty) ...[
+            if (state.removedRecords.isNotEmpty) ...[
               const SizedBox(height: 16),
-              const Text(
-                'RECENTLY REMOVED',
-                style: TextStyle(
+              Text(
+                'REMOVED STAFF & MEMBERS (${state.removedRecords.length})',
+                style: const TextStyle(
                   fontSize: 10.5,
                   fontWeight: FontWeight.w900,
                   letterSpacing: 1.5,
@@ -461,7 +462,7 @@ class OwnerOrdersLeadsScreen extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 8),
-              ...state.removedLog.map(
+              ...state.removedRecords.map(
                 (entry) => Padding(
                   padding: const EdgeInsets.only(bottom: 8),
                   child: CredMetalCard(
@@ -476,25 +477,48 @@ class OwnerOrdersLeadsScreen extends StatelessWidget {
                         const Icon(
                           Icons.person_remove_rounded,
                           color: AppTheme.danger,
-                          size: 16,
+                          size: 18,
                         ),
                         const SizedBox(width: 10),
                         Expanded(
-                          child: Text(
-                            entry,
-                            style: const TextStyle(
-                              color: Colors.white70,
-                              fontSize: 12.5,
-                              fontWeight: FontWeight.w700,
-                            ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                entry.name,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 13.5,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                '${entry.phone.isNotEmpty ? '${entry.phone} • ' : ''}${entry.details}',
+                                style: const TextStyle(
+                                  color: Colors.white60,
+                                  fontSize: 11.5,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
-                        const Text(
-                          'REMOVED',
-                          style: TextStyle(
-                            color: AppTheme.danger,
-                            fontSize: 10,
-                            fontWeight: FontWeight.w900,
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppTheme.danger.withValues(alpha: 0.14),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            entry.type.toUpperCase(),
+                            style: const TextStyle(
+                              color: AppTheme.danger,
+                              fontSize: 9.5,
+                              fontWeight: FontWeight.w900,
+                            ),
                           ),
                         ),
                       ],

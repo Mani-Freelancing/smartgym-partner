@@ -5,6 +5,7 @@ import '../domain/models/machine_guide.dart';
 import '../domain/models/meal_review_item.dart';
 import '../domain/models/missing_member.dart';
 import '../domain/models/partner_role.dart';
+import '../domain/models/removed_record.dart';
 import '../domain/models/trainer_join_request.dart';
 import '../domain/models/trainer_profile.dart';
 import '../domain/models/walk_in_enquiry.dart';
@@ -77,6 +78,12 @@ class AddNewGymMemberEvent extends SmartGymEvent {
   final bool isPtClient;
   final String? assignedTrainer;
   final String addedByTrainer;
+  final String? joinedDate;
+  final String? expiryDate;
+  final double currentWeightKg;
+  final String paymentMode;
+  final String paymentReference;
+  final String paymentProofBase64;
 
   const AddNewGymMemberEvent({
     required this.name,
@@ -87,6 +94,12 @@ class AddNewGymMemberEvent extends SmartGymEvent {
     required this.isPtClient,
     this.assignedTrainer,
     required this.addedByTrainer,
+    this.joinedDate,
+    this.expiryDate,
+    this.currentWeightKg = 70.0,
+    this.paymentMode = 'Cash',
+    this.paymentReference = '',
+    this.paymentProofBase64 = '',
   });
 
   @override
@@ -99,6 +112,12 @@ class AddNewGymMemberEvent extends SmartGymEvent {
         isPtClient,
         assignedTrainer,
         addedByTrainer,
+        joinedDate,
+        expiryDate,
+        currentWeightKg,
+        paymentMode,
+        paymentReference,
+        paymentProofBase64,
       ];
 }
 
@@ -261,15 +280,17 @@ class AddTrainerToGymEvent extends SmartGymEvent {
   final String name;
   final String phone;
   final String specialty;
+  final String shiftSlot;
 
   const AddTrainerToGymEvent({
     required this.name,
     required this.phone,
     this.specialty = 'Floor & Transformation Coach',
+    this.shiftSlot = 'Morning (6–10 AM)',
   });
 
   @override
-  List<Object?> get props => [name, phone, specialty];
+  List<Object?> get props => [name, phone, specialty, shiftSlot];
 }
 
 class JoinGymWithInviteQrEvent extends SmartGymEvent {
@@ -291,30 +312,34 @@ class RemoveTrainerFromGymEvent extends SmartGymEvent {
   final String trainerId;
   final String phone;
   final String trainerName;
+  final String details;
 
   const RemoveTrainerFromGymEvent({
     required this.trainerId,
     required this.phone,
     required this.trainerName,
+    this.details = 'Floor Trainer',
   });
 
   @override
-  List<Object?> get props => [trainerId, phone, trainerName];
+  List<Object?> get props => [trainerId, phone, trainerName, details];
 }
 
 class RemoveMemberFromGymEvent extends SmartGymEvent {
   final String memberId;
   final String phone;
   final String memberName;
+  final String details;
 
   const RemoveMemberFromGymEvent({
     required this.memberId,
     required this.phone,
     required this.memberName,
+    this.details = 'Gym Member',
   });
 
   @override
-  List<Object?> get props => [memberId, phone, memberName];
+  List<Object?> get props => [memberId, phone, memberName, details];
 }
 
 class SyncGymTenantEvent extends SmartGymEvent {
@@ -399,4 +424,31 @@ class RejectTrainerRequestEvent extends SmartGymEvent {
 
 class CancelPendingRequestEvent extends SmartGymEvent {
   const CancelPendingRequestEvent();
+}
+
+class SyncRemovedRecordsEvent extends SmartGymEvent {
+  final List<RemovedRecord> records;
+  const SyncRemovedRecordsEvent(this.records);
+
+  @override
+  List<Object?> get props => [records];
+}
+
+class UpdateGymSettingsEvent extends SmartGymEvent {
+  final String name;
+  final String area;
+  final int monthlyFee;
+  final int ptFee;
+  final int maxCapacity;
+
+  const UpdateGymSettingsEvent({
+    required this.name,
+    required this.area,
+    required this.monthlyFee,
+    required this.ptFee,
+    required this.maxCapacity,
+  });
+
+  @override
+  List<Object?> get props => [name, area, monthlyFee, ptFee, maxCapacity];
 }

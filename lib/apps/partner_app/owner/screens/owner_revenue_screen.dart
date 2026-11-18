@@ -1,5 +1,8 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/cred_neopop_widgets.dart';
 import '../../../../domain/models/gym_member.dart';
@@ -7,8 +10,69 @@ import '../../../../shared_bloc/smart_gym_bloc.dart';
 import '../../../../shared_bloc/smart_gym_event.dart';
 import '../../../../shared_bloc/smart_gym_state.dart';
 
-class OwnerRevenueScreen extends StatelessWidget {
+class OwnerRevenueScreen extends StatefulWidget {
   const OwnerRevenueScreen({super.key});
+
+  @override
+  State<OwnerRevenueScreen> createState() => _OwnerRevenueScreenState();
+}
+
+class _OwnerRevenueScreenState extends State<OwnerRevenueScreen> {
+  final TextEditingController _searchCtrl = TextEditingController();
+  String _searchQuery = '';
+  String _selectedFilter = 'All';
+
+  static const _filters = ['All', 'Expiring', 'PT VIP', 'Online', 'Cash'];
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _sendWhatsAppReminder(
+    BuildContext context,
+    GymMember m,
+    String gymName,
+  ) async {
+    HapticFeedback.selectionClick();
+    final digits = m.phone.replaceAll(RegExp(r'\D'), '');
+    final phoneWithCode = digits.length == 10 ? '91$digits' : digits;
+    final statusText = m.isExpired
+        ? 'has expired'
+        : 'is expiring in ${m.daysLeft} day${m.daysLeft == 1 ? '' : 's'}';
+    final msg =
+        'Hi ${m.name}, your $gymName membership (${m.planTitle}) $statusText. Renew now to keep your fitness streak going!';
+    final uri = Uri.parse(
+      'https://wa.me/$phoneWithCode?text=${Uri.encodeComponent(msg)}',
+    );
+    final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (!launched && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          backgroundColor: AppTheme.danger,
+          content: Text('Could not open WhatsApp on this device.'),
+        ),
+      );
+    }
+  }
+
+  List<GymMember> _applyFilter(List<GymMember> all) {
+    return all.where((m) {
+      final matchesFilter = switch (_selectedFilter) {
+        'Expiring' => m.daysLeft <= 5,
+        'PT VIP' => m.isPtClient,
+        'Online' => m.paymentMode == 'Online',
+        'Cash' => m.paymentMode != 'Online',
+        _ => true,
+      };
+      if (!matchesFilter) return false;
+      if (_searchQuery.isEmpty) return true;
+      final q = _searchQuery.toLowerCase();
+      return m.name.toLowerCase().contains(q) ||
+          m.phone.toLowerCase().contains(q);
+    }).toList();
+  }
 
   String _formatInr(int amount) {
     final s = amount.toString();
@@ -179,6 +243,21 @@ class OwnerRevenueScreen extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(width: 8),
+                      IconButton(
+                        tooltip: 'Send WhatsApp Reminder',
+                        style: IconButton.styleFrom(
+                          backgroundColor:
+                              const Color(0xFF25D366).withValues(alpha: 0.16),
+                          foregroundColor: const Color(0xFF25D366),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                        onPressed: () =>
+                            _sendWhatsAppReminder(context, m, gym.name),
+                        icon: const Icon(Icons.chat_rounded, size: 17),
+                      ),
+                      const SizedBox(width: 6),
                       Container(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 10,
@@ -219,6 +298,81 @@ class OwnerRevenueScreen extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 10),
+            TextField(
+              controller: _searchCtrl,
+              onChanged: (v) => setState(() => _searchQuery = v.trim()),
+              style: const TextStyle(color: Colors.white, fontSize: 13.5),
+              decoration: InputDecoration(
+                hintText: 'Search members by name or phone...',
+                hintStyle: const TextStyle(color: Colors.white38, fontSize: 13),
+                prefixIcon: const Icon(
+                  Icons.search_rounded,
+                  color: AppTheme.ownerGold,
+                  size: 19,
+                ),
+                suffixIcon: _searchQuery.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(
+                          Icons.close_rounded,
+                          color: Colors.white54,
+                          size: 18,
+                        ),
+                        onPressed: () {
+                          _searchCtrl.clear();
+                          setState(() => _searchQuery = '');
+                        },
+                      )
+                    : null,
+                filled: true,
+                fillColor: const Color(0xFF1A1E29),
+                contentPadding: const EdgeInsets.symmetric(vertical: 10),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: const BorderSide(color: Colors.white12),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: const BorderSide(color: Colors.white12),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: const BorderSide(color: AppTheme.ownerGold),
+                ),
+              ),
+            ),
+            const SizedBox(height: 10),
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: _filters.map((f) {
+                  final sel = _selectedFilter == f;
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: ChoiceChip(
+                      label: Text(
+                        f,
+                        style: TextStyle(
+                          color: sel ? Colors.black : Colors.white70,
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      selected: sel,
+                      selectedColor: AppTheme.ownerGold,
+                      backgroundColor: const Color(0xFF1A1E29),
+                      side: BorderSide(
+                        color: sel ? AppTheme.ownerGold : Colors.white12,
+                      ),
+                      onSelected: (_) {
+                        HapticFeedback.selectionClick();
+                        setState(() => _selectedFilter = f);
+                      },
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
+            const SizedBox(height: 12),
             if (state.members.isEmpty)
               CredMetalCard(
                 glowColor: AppTheme.ownerGold,
@@ -231,9 +385,21 @@ class OwnerRevenueScreen extends StatelessWidget {
                     height: 1.45,
                   ),
                 ),
+              )
+            else if (_applyFilter(state.members).isEmpty)
+              CredMetalCard(
+                glowColor: AppTheme.ownerGold,
+                padding: const EdgeInsets.all(20),
+                child: const Text(
+                  'No members match your search or filter.',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: Colors.white70,
+                  ),
+                ),
               ),
-            ...List.generate(state.members.length, (i) {
-              final GymMember m = state.members[i];
+            ...List.generate(_applyFilter(state.members).length, (i) {
+              final GymMember m = _applyFilter(state.members)[i];
               return CredStaggeredItem(
                 index: i + 1,
                 child: Padding(
@@ -317,6 +483,7 @@ class OwnerRevenueScreen extends StatelessWidget {
                                           memberId: m.id,
                                           phone: m.phone,
                                           memberName: m.name,
+                                          details: '${m.planTitle} • ₹${m.feePaid}',
                                         ),
                                       );
                                   ScaffoldMessenger.of(context).showSnackBar(
@@ -387,6 +554,96 @@ class OwnerRevenueScreen extends StatelessWidget {
                                 ),
                               ),
                             ),
+                            const SizedBox(width: 6),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 7,
+                                vertical: 3,
+                              ),
+                              decoration: BoxDecoration(
+                                color: (m.paymentMode == 'Online'
+                                        ? AppTheme.ownerGold
+                                        : AppTheme.accent)
+                                    .withValues(alpha: 0.14),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Text(
+                                m.paymentMode.toUpperCase(),
+                                style: TextStyle(
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.w900,
+                                  color: m.paymentMode == 'Online'
+                                      ? AppTheme.ownerGold
+                                      : AppTheme.accent,
+                                ),
+                              ),
+                            ),
+                            if (m.paymentMode == 'Online' &&
+                                (m.paymentProofBase64.isNotEmpty ||
+                                    m.paymentReference.isNotEmpty)) ...[
+                              const SizedBox(width: 6),
+                              GestureDetector(
+                                onTap: () {
+                                  showDialog(
+                                    context: context,
+                                    builder: (ctx) => AlertDialog(
+                                      backgroundColor: const Color(0xFF1A1E29),
+                                      title: Text(
+                                        '${m.name} • Payment Proof',
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 15,
+                                          fontWeight: FontWeight.w900,
+                                        ),
+                                      ),
+                                      content: Column(
+                                        mainAxisSize: MainAxisSize.min,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          if (m.paymentReference.isNotEmpty)
+                                            Text(
+                                              'UTR / Ref: ${m.paymentReference}',
+                                              style: const TextStyle(
+                                                color: AppTheme.ownerGold,
+                                                fontSize: 13,
+                                                fontWeight: FontWeight.w800,
+                                              ),
+                                            ),
+                                          if (m.paymentProofBase64.isNotEmpty) ...[
+                                            const SizedBox(height: 10),
+                                            ClipRRect(
+                                              borderRadius:
+                                                  BorderRadius.circular(12),
+                                              child: Image.memory(
+                                                base64Decode(
+                                                    m.paymentProofBase64),
+                                                fit: BoxFit.contain,
+                                              ),
+                                            ),
+                                          ],
+                                        ],
+                                      ),
+                                      actions: [
+                                        TextButton(
+                                          onPressed: () => Navigator.pop(ctx),
+                                          child: const Text('Close'),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                },
+                                child: const Text(
+                                  'View Proof',
+                                  style: TextStyle(
+                                    fontSize: 10.5,
+                                    fontWeight: FontWeight.w900,
+                                    color: AppTheme.ownerGold,
+                                    decoration: TextDecoration.underline,
+                                  ),
+                                ),
+                              ),
+                            ],
                           ],
                         ),
                       ],

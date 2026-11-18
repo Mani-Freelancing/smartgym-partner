@@ -6,6 +6,7 @@ import '../../domain/models/gym_tenant.dart';
 import '../../domain/models/machine_guide.dart';
 import '../../domain/models/meal_review_item.dart';
 import '../../domain/models/missing_member.dart';
+import '../../domain/models/removed_record.dart';
 import '../../domain/models/trainer_join_request.dart';
 import '../../domain/models/trainer_profile.dart';
 import '../../domain/models/walk_in_enquiry.dart';
@@ -105,12 +106,30 @@ class FirestoreService {
     return gymId;
   }
 
+  Future<void> updateGymSettings({
+    required String gymId,
+    required String name,
+    required String area,
+    required int monthlyFee,
+    required int ptFee,
+    required int maxCapacity,
+  }) async {
+    await _db.collection('gyms').doc(gymId).update({
+      'name': name.trim(),
+      'area': area.trim(),
+      'monthlyFee': monthlyFee,
+      'ptFee': ptFee,
+      'maxCapacity': maxCapacity,
+    });
+  }
+
   /// Owner adds a trainer to their gym and registers their phone in `phone_index`.
   Future<void> addTrainerToGym({
     required String gymId,
     required String name,
     required String phone,
     String specialty = 'Floor & Transformation Coach',
+    String shiftSlot = 'Morning (6–10 AM)',
   }) async {
     final trainerId = 'tr_${DateTime.now().millisecondsSinceEpoch}';
     final batch = _db.batch();
@@ -121,6 +140,7 @@ class FirestoreService {
         'name': name.trim(),
         'phone': phone.trim(),
         'specialty': specialty.trim(),
+        'shiftSlot': shiftSlot.trim(),
         'morningCheckInTime': 'Not Checked In',
         'isOnDuty': false,
         'commissionPercent': 50,
@@ -380,6 +400,9 @@ class FirestoreService {
               addedByTrainer: (d['addedByTrainer'] ?? '') as String,
               currentWeightKg:
                   (d['currentWeightKg'] as num?)?.toDouble() ?? 70.0,
+              paymentMode: (d['paymentMode'] ?? 'Cash') as String,
+              paymentReference: (d['paymentReference'] ?? '') as String,
+              paymentProofBase64: (d['paymentProofBase64'] ?? '') as String,
             );
           }).toList(),
         );
@@ -399,6 +422,7 @@ class FirestoreService {
               name: (d['name'] ?? '') as String,
               phone: (d['phone'] ?? '') as String,
               specialty: (d['specialty'] ?? '') as String,
+              shiftSlot: (d['shiftSlot'] ?? 'Morning (6–10 AM)') as String,
               morningCheckInTime: (d['morningCheckInTime'] ?? '') as String,
               isOnDuty: (d['isOnDuty'] ?? false) as bool,
               commissionPercent:
@@ -594,10 +618,33 @@ class FirestoreService {
     await batch.commit();
   }
 
+  Stream<List<RemovedRecord>> watchRemovedLogs(String gymId) {
+    return _db
+        .collection('gyms')
+        .doc(gymId)
+        .collection('removed_logs')
+        .orderBy('removedAt', descending: true)
+        .snapshots()
+        .map(
+          (snap) => snap.docs.map((doc) {
+            final d = doc.data();
+            return RemovedRecord(
+              id: doc.id,
+              type: (d['type'] ?? 'member') as String,
+              name: (d['name'] ?? '') as String,
+              phone: (d['phone'] ?? '') as String,
+              details: (d['details'] ?? '') as String,
+            );
+          }).toList(),
+        );
+  }
+
   Future<void> removeTrainerFromGym({
     required String gymId,
     required String trainerId,
     required String phone,
+    required String name,
+    String details = 'Floor Trainer',
   }) async {
     await _db
         .collection('gyms')
@@ -613,12 +660,28 @@ class FirestoreService {
         await phoneRef.delete();
       }
     }
+    final logId = 'rem_${DateTime.now().millisecondsSinceEpoch}';
+    await _db
+        .collection('gyms')
+        .doc(gymId)
+        .collection('removed_logs')
+        .doc(logId)
+        .set({
+      'id': logId,
+      'type': 'trainer',
+      'name': name,
+      'phone': trimmedPhone,
+      'details': details,
+      'removedAt': FieldValue.serverTimestamp(),
+    });
   }
 
   Future<void> removeMemberFromGym({
     required String gymId,
     required String memberId,
     required String phone,
+    required String name,
+    String details = 'Gym Member',
   }) async {
     await _db
         .collection('gyms')
@@ -634,6 +697,20 @@ class FirestoreService {
         await phoneRef.delete();
       }
     }
+    final logId = 'rem_${DateTime.now().millisecondsSinceEpoch}';
+    await _db
+        .collection('gyms')
+        .doc(gymId)
+        .collection('removed_logs')
+        .doc(logId)
+        .set({
+      'id': logId,
+      'type': 'member',
+      'name': name,
+      'phone': trimmedPhone,
+      'details': details,
+      'removedAt': FieldValue.serverTimestamp(),
+    });
   }
 
   Future<void> addMember(String gymId, GymMember member) async {
@@ -655,6 +732,9 @@ class FirestoreService {
       'isPtClient': member.isPtClient,
       'addedByTrainer': member.addedByTrainer,
       'currentWeightKg': member.currentWeightKg,
+      'paymentMode': member.paymentMode,
+      'paymentReference': member.paymentReference,
+      'paymentProofBase64': member.paymentProofBase64,
       'createdAt': FieldValue.serverTimestamp(),
     });
   }

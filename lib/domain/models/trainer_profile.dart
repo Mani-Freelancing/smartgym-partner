@@ -5,6 +5,7 @@ class TrainerProfile extends Equatable {
   final String name;
   final String phone;
   final String specialty;
+  final String shiftSlot;
   final String? morningCheckInTime;
   final bool isOnDuty;
   final int commissionPercent;
@@ -14,6 +15,7 @@ class TrainerProfile extends Equatable {
     required this.name,
     this.phone = '',
     required this.specialty,
+    this.shiftSlot = 'Morning (6–10 AM)',
     this.morningCheckInTime,
     required this.isOnDuty,
     this.commissionPercent = 50,
@@ -28,6 +30,7 @@ class TrainerProfile extends Equatable {
       name: name,
       phone: phone,
       specialty: specialty,
+      shiftSlot: shiftSlot,
       morningCheckInTime: morningCheckInTime ?? this.morningCheckInTime,
       isOnDuty: isOnDuty ?? this.isOnDuty,
       commissionPercent: commissionPercent,
@@ -40,6 +43,7 @@ class TrainerProfile extends Equatable {
         name,
         phone,
         specialty,
+        shiftSlot,
         morningCheckInTime,
         isOnDuty,
         commissionPercent,

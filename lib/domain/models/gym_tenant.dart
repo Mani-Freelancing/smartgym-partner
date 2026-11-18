@@ -29,6 +29,9 @@ class GymTenant extends Equatable {
     String? area,
     String? headTrainer,
     int? activeCrowd,
+    int? maxCapacity,
+    int? monthlyFee,
+    int? ptFee,
   }) {
     return GymTenant(
       id: id,
@@ -37,9 +40,9 @@ class GymTenant extends Equatable {
       headTrainer: headTrainer ?? this.headTrainer,
       brandColor: brandColor,
       activeCrowd: activeCrowd ?? this.activeCrowd,
-      maxCapacity: maxCapacity,
-      monthlyFee: monthlyFee,
-      ptFee: ptFee,
+      maxCapacity: maxCapacity ?? this.maxCapacity,
+      monthlyFee: monthlyFee ?? this.monthlyFee,
+      ptFee: ptFee ?? this.ptFee,
     );
   }
 
