@@ -446,15 +446,20 @@ service cloud.firestore {
       allow read: if (hasPhone() && userPhone() == phone) ||
                      (isGymOwner(resource.data.gymId) && resource.data.role in ['trainer', 'member']);
 
-      // Owners can create trainer/member phone_index entries for their own gym (or their own owner entry if they own the gym doc).
+      // Owners can create trainer/member phone_index entries for their own gym (or their own owner entry if they own the gym doc);
+      // trainers can create member phone_index entries for their own gym when enrolling a new paid member.
       allow create: if isValidPhoneIndex(request.resource.data, phone) &&
-                       isGymOwner(request.resource.data.gymId) &&
                        (
-                         request.resource.data.role in ['trainer', 'member'] ||
-                         (request.resource.data.role == 'owner' &&
-                          hasPhone() &&
-                          userPhone() == phone &&
-                          isGymDocOwner(request.resource.data.gymId))
+                         (isGymOwner(request.resource.data.gymId) &&
+                          (
+                            request.resource.data.role in ['trainer', 'member'] ||
+                            (request.resource.data.role == 'owner' &&
+                             hasPhone() &&
+                             userPhone() == phone &&
+                             isGymDocOwner(request.resource.data.gymId))
+                          )) ||
+                         (isGymTrainer(request.resource.data.gymId) &&
+                          request.resource.data.role == 'member')
                        );
 
       // Owners can update trainer/member phone_index entries for their own gym without changing gymId or escalating to owner.

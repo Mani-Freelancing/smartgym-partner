@@ -30,6 +30,7 @@ class SmartGymBloc extends Bloc<SmartGymEvent, SmartGymState> {
   StreamSubscription<PhoneLookupResult?>? _phoneSub;
   StreamSubscription<PhoneLookupResult?>? _onboardingPhoneSub;
   StreamSubscription<List<RemovedRecord>>? _removedSub;
+  StreamSubscription<GymMember?>? _currentMemberSub;
 
   SmartGymBloc({
     required this.repository,
@@ -82,6 +83,9 @@ class SmartGymBloc extends Bloc<SmartGymEvent, SmartGymState> {
     on<SyncRemovedRecordsEvent>(
         (e, emit) => emit(state.copyWith(removedRecords: e.records)));
     on<UpdateGymSettingsEvent>(_onUpdateGymSettings);
+    on<SyncCurrentMemberEvent>(
+        (e, emit) => emit(state.copyWith(currentMember: e.member)));
+    on<SubmitCustomerMealEvent>(_onSubmitCustomerMeal);
     on<SelectGymTenantEvent>(_onSelectGymTenant);
     on<CustomizeCurrentGymEvent>(_onCustomizeCurrentGym);
     on<SwitchPartnerRoleEvent>(_onSwitchPartnerRole);
@@ -121,6 +125,7 @@ class SmartGymBloc extends Bloc<SmartGymEvent, SmartGymState> {
       _phoneSub,
       _onboardingPhoneSub,
       _removedSub,
+      _currentMemberSub,
     ];
     _gymSub = null;
     _membersSub = null;
@@ -133,6 +138,7 @@ class SmartGymBloc extends Bloc<SmartGymEvent, SmartGymState> {
     _phoneSub = null;
     _onboardingPhoneSub = null;
     _removedSub = null;
+    _currentMemberSub = null;
     await Future.wait(
       oldSubs.whereType<StreamSubscription<dynamic>>().map((s) => s.cancel()),
     );
@@ -142,23 +148,36 @@ class SmartGymBloc extends Bloc<SmartGymEvent, SmartGymState> {
     final fs = firestoreService;
     if (fs == null || gymId.isEmpty) return;
     _cancelSubscriptions();
-    _gymSub = fs.watchGym(gymId).listen((gym) {
-      if (gym != null) add(SyncGymTenantEvent(gym));
-    });
-    _membersSub =
-        fs.watchMembers(gymId).listen((list) => add(SyncMembersEvent(list)));
-    _trainersSub =
-        fs.watchTrainers(gymId).listen((list) => add(SyncTrainersEvent(list)));
-    _enquiriesSub = fs
-        .watchEnquiries(gymId)
-        .listen((list) => add(SyncEnquiriesEvent(list)));
-    _machinesSub =
-        fs.watchMachines(gymId).listen((list) => add(SyncMachinesEvent(list)));
-    _mealsSub =
-        fs.watchMeals(gymId).listen((list) => add(SyncMealsEvent(list)));
-    _missingSub = fs
-        .watchMissingMembers(gymId)
-        .listen((list) => add(SyncMissingMembersEvent(list)));
+    _gymSub = fs.watchGym(gymId).listen(
+          (gym) {
+            if (gym != null) add(SyncGymTenantEvent(gym));
+          },
+          onError: (_) {},
+        );
+    _membersSub = fs.watchMembers(gymId).listen(
+          (list) => add(SyncMembersEvent(list)),
+          onError: (_) {},
+        );
+    _trainersSub = fs.watchTrainers(gymId).listen(
+          (list) => add(SyncTrainersEvent(list)),
+          onError: (_) {},
+        );
+    _enquiriesSub = fs.watchEnquiries(gymId).listen(
+          (list) => add(SyncEnquiriesEvent(list)),
+          onError: (_) {},
+        );
+    _machinesSub = fs.watchMachines(gymId).listen(
+          (list) => add(SyncMachinesEvent(list)),
+          onError: (_) {},
+        );
+    _mealsSub = fs.watchMeals(gymId).listen(
+          (list) => add(SyncMealsEvent(list)),
+          onError: (_) {},
+        );
+    _missingSub = fs.watchMissingMembers(gymId).listen(
+          (list) => add(SyncMissingMembersEvent(list)),
+          onError: (_) {},
+        );
     _requestsSub = fs.watchTrainerRequests(gymId).listen(
           (list) => add(SyncTrainerRequestsEvent(list)),
           onError: (_) {},
@@ -169,6 +188,12 @@ class SmartGymBloc extends Bloc<SmartGymEvent, SmartGymState> {
         );
     final phone = fs.currentUser?.phoneNumber ?? '';
     if (phone.isNotEmpty) {
+      _currentMemberSub = fs.watchMemberByPhone(gymId, phone).listen(
+            (m) {
+              if (m != null) add(SyncCurrentMemberEvent(m));
+            },
+            onError: (_) {},
+          );
       _phoneSub = fs.watchPhoneLookup(phone).listen(
         (lookup) {
           if (lookup == null) {
@@ -594,6 +619,7 @@ class SmartGymBloc extends Bloc<SmartGymEvent, SmartGymState> {
         state.copyWith(
           isPartnerLoggedIn: false,
           needsOnboarding: false,
+          clearCurrentMember: true,
           authenticatedPhone: '',
           gyms: const [],
           members: const [],
@@ -757,6 +783,8 @@ class SmartGymBloc extends Bloc<SmartGymEvent, SmartGymState> {
     final nextScoops = state.wheyScoopsLeft > 1
         ? state.wheyScoopsLeft - 1
         : state.wheyScoopsLeft;
+    final nextCrowd = (state.currentGym.activeCrowd + 1)
+        .clamp(0, state.currentGym.maxCapacity);
     emit(
       state.copyWith(
         streakDays: state.streakDays + 1,
@@ -764,6 +792,40 @@ class SmartGymBloc extends Bloc<SmartGymEvent, SmartGymState> {
         wheyScoopsLeft: nextScoops,
       ),
     );
+    if (state.currentGym.id.isNotEmpty) {
+      _syncAsync(
+        () => firestoreService!.incrementGymCrowd(state.currentGym.id, nextCrowd),
+      );
+    }
+  }
+
+  void _onSubmitCustomerMeal(
+    SubmitCustomerMealEvent event,
+    Emitter<SmartGymState> emit,
+  ) {
+    final memberName =
+        state.currentMember?.name ?? state.loggedInTrainerName;
+    final phone = state.authenticatedPhone.isNotEmpty
+        ? state.authenticatedPhone
+        : (firestoreService?.currentUser?.phoneNumber ?? '');
+    final meal = MealReviewItem(
+      id: 'meal_${DateTime.now().millisecondsSinceEpoch}',
+      memberName: memberName.isEmpty ? 'Club Member' : memberName,
+      timeLabel: 'Just Now',
+      mealDescription: event.mealDescription.trim(),
+      macros: event.macros.trim(),
+      trainerFeedback: '',
+    );
+    emit(state.copyWith(mealQueue: [meal, ...state.mealQueue]));
+    if (state.currentGym.id.isNotEmpty) {
+      _syncAsync(
+        () => firestoreService!.submitMealSnap(
+          gymId: state.currentGym.id,
+          meal: meal,
+          memberPhone: phone,
+        ),
+      );
+    }
   }
 
   void _onRenewMembershipViaUpi(

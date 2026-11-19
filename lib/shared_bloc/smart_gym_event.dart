@@ -452,3 +452,24 @@ class UpdateGymSettingsEvent extends SmartGymEvent {
   @override
   List<Object?> get props => [name, area, monthlyFee, ptFee, maxCapacity];
 }
+
+class SyncCurrentMemberEvent extends SmartGymEvent {
+  final GymMember member;
+  const SyncCurrentMemberEvent(this.member);
+
+  @override
+  List<Object?> get props => [member];
+}
+
+class SubmitCustomerMealEvent extends SmartGymEvent {
+  final String mealDescription;
+  final String macros;
+
+  const SubmitCustomerMealEvent({
+    required this.mealDescription,
+    required this.macros,
+  });
+
+  @override
+  List<Object?> get props => [mealDescription, macros];
+}

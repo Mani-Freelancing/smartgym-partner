@@ -375,6 +375,67 @@ class FirestoreService {
     });
   }
 
+  Stream<GymMember?> watchMemberByPhone(String gymId, String phone) {
+    return _db
+        .collection('gyms')
+        .doc(gymId)
+        .collection('members')
+        .where('phone', isEqualTo: phone)
+        .limit(1)
+        .snapshots()
+        .map((snap) {
+      if (snap.docs.isEmpty) return null;
+      final doc = snap.docs.first;
+      final d = doc.data();
+      return GymMember(
+        id: doc.id,
+        name: (d['name'] ?? '') as String,
+        phone: (d['phone'] ?? '') as String,
+        planTitle: (d['planTitle'] ?? '') as String,
+        feePaid: (d['feePaid'] as num?)?.toInt() ?? 0,
+        joinedDate: (d['joinedDate'] ?? '') as String,
+        expiryDate: (d['expiryDate'] ?? '') as String,
+        daysLeft: (d['daysLeft'] as num?)?.toInt() ?? 0,
+        assignedTrainer: (d['assignedTrainer'] as String?)?.isEmpty ?? true
+            ? null
+            : d['assignedTrainer'] as String,
+        isPtClient: (d['isPtClient'] ?? false) as bool,
+        addedByTrainer: (d['addedByTrainer'] ?? '') as String,
+        currentWeightKg: (d['currentWeightKg'] as num?)?.toDouble() ?? 70.0,
+        paymentMode: (d['paymentMode'] ?? 'Cash') as String,
+        paymentReference: (d['paymentReference'] ?? '') as String,
+        paymentProofBase64: (d['paymentProofBase64'] ?? '') as String,
+      );
+    });
+  }
+
+  Future<void> submitMealSnap({
+    required String gymId,
+    required MealReviewItem meal,
+    required String memberPhone,
+  }) async {
+    await _db
+        .collection('gyms')
+        .doc(gymId)
+        .collection('meals')
+        .doc(meal.id)
+        .set({
+      'id': meal.id,
+      'memberName': meal.memberName,
+      'timeLabel': meal.timeLabel,
+      'mealDescription': meal.mealDescription,
+      'macros': meal.macros,
+      'trainerFeedback': meal.trainerFeedback,
+      'memberPhone': memberPhone,
+    });
+  }
+
+  Future<void> incrementGymCrowd(String gymId, int nextCrowd) async {
+    await _db.collection('gyms').doc(gymId).update({
+      'activeCrowd': nextCrowd,
+    });
+  }
+
   Stream<List<GymMember>> watchMembers(String gymId) {
     return _db
         .collection('gyms')
@@ -737,6 +798,14 @@ class FirestoreService {
       'paymentProofBase64': member.paymentProofBase64,
       'createdAt': FieldValue.serverTimestamp(),
     });
+    if (member.phone.trim().isNotEmpty) {
+      await registerPhoneLookup(
+        phone: member.phone.trim(),
+        role: 'member',
+        gymId: gymId,
+        name: member.name,
+      );
+    }
   }
 
   Future<void> addEnquiry(String gymId, WalkInEnquiry enquiry) async {
@@ -829,8 +898,12 @@ class FirestoreService {
     String? name,
   }) async {
     final docRef = _db.collection('phone_index').doc(phone);
-    final existing = await docRef.get();
-    if (existing.exists) return;
+    try {
+      final existing = await docRef.get();
+      if (existing.exists) return;
+    } catch (_) {
+      // Non-existent phone_index doc may fail read rule; proceed to create.
+    }
     await docRef.set({
       'phone': phone,
       'role': role,

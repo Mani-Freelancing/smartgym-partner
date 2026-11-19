@@ -38,6 +38,7 @@ class SmartGymState extends Equatable {
   final List<TrainerJoinRequest> trainerRequests;
   final String? pendingApprovalGymName;
   final List<RemovedRecord> removedRecords;
+  final GymMember? currentMember;
 
   const SmartGymState({
     required this.gyms,
@@ -66,6 +67,7 @@ class SmartGymState extends Equatable {
     this.trainerRequests = const [],
     this.pendingApprovalGymName,
     this.removedRecords = const [],
+    this.currentMember,
   });
 
   static const GymTenant emptyGym = GymTenant(
@@ -129,6 +131,8 @@ class SmartGymState extends Equatable {
     String? pendingApprovalGymName,
     bool clearPendingApproval = false,
     List<RemovedRecord>? removedRecords,
+    GymMember? currentMember,
+    bool clearCurrentMember = false,
   }) {
     return SmartGymState(
       gyms: gyms ?? this.gyms,
@@ -159,6 +163,8 @@ class SmartGymState extends Equatable {
           ? null
           : (pendingApprovalGymName ?? this.pendingApprovalGymName),
       removedRecords: removedRecords ?? this.removedRecords,
+      currentMember:
+          clearCurrentMember ? null : (currentMember ?? this.currentMember),
     );
   }
 
@@ -190,5 +196,6 @@ class SmartGymState extends Equatable {
         trainerRequests,
         pendingApprovalGymName,
         removedRecords,
+        currentMember,
       ];
 }
