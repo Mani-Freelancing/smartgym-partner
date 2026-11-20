@@ -134,6 +134,10 @@ rules_version = '2';
 //   - details: string (required, 0..200 chars)
 //   - removedAt: timestamp (optional)
 //
+// Collection: app_config/{docId}
+// Document ID: Config document key (e.g. "ai" for rotating Gemini API keys)
+// Access: Read-only for authenticated users; writes denied to clients (Admin SDK / Console only)
+//
 // ===============================================================
 
 service cloud.firestore {
@@ -145,6 +149,10 @@ service cloud.firestore {
 
     function isAuthenticated() {
       return request.auth != null;
+    }
+
+    function isSignedIn() {
+      return isAuthenticated();
     }
 
     function hasPhone() {
@@ -649,6 +657,14 @@ service cloud.firestore {
 
         allow delete: if isGymOwner(gymId);
       }
+    }
+
+    match /app_config/{docId} {
+      // Any authenticated user can read runtime app config (e.g. app_config/ai for rotating Gemini API keys).
+      allow read: if isSignedIn();
+
+      // Only Firebase Console / Admin SDK can write app_config.
+      allow write: if false;
     }
 
     // ===============================================================

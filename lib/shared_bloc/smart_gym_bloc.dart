@@ -93,6 +93,7 @@ class SmartGymBloc extends Bloc<SmartGymEvent, SmartGymState> {
     on<LoginPartnerEvent>(_onLoginPartner);
     on<LogoutPartnerEvent>(_onLogoutPartner);
     on<AddNewGymMemberEvent>(_onAddNewGymMember);
+    on<ImportBulkMembersEvent>(_onImportBulkMembers);
     on<AddWalkInEnquiryEvent>(_onAddWalkInEnquiry);
     on<ConvertEnquiryToMemberEvent>(_onConvertEnquiryToMember);
     on<MarkTrainerDutyCheckInEvent>(_onMarkTrainerDutyCheckIn);
@@ -664,6 +665,21 @@ class SmartGymBloc extends Bloc<SmartGymEvent, SmartGymState> {
     final updated = [newMember, ...state.members];
     emit(state.copyWith(members: updated));
     _syncAsync(() => firestoreService!.addMember(state.currentGym.id, newMember));
+  }
+
+  void _onImportBulkMembers(
+    ImportBulkMembersEvent event,
+    Emitter<SmartGymState> emit,
+  ) {
+    if (event.members.isEmpty) return;
+    final updated = [...event.members, ...state.members];
+    emit(state.copyWith(members: updated));
+    final gymId = state.currentGym.id;
+    _syncAsync(() async {
+      for (final m in event.members) {
+        await firestoreService!.addMember(gymId, m);
+      }
+    });
   }
 
   void _onAddWalkInEnquiry(

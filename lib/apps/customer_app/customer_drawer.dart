@@ -5,6 +5,7 @@ import '../../core/theme/app_theme.dart';
 import '../../shared_bloc/smart_gym_bloc.dart';
 import '../../shared_bloc/smart_gym_event.dart';
 import '../../shared_bloc/smart_gym_state.dart';
+import 'auth/customer_cinematic_intro.dart';
 
 class CustomerDrawer extends StatelessWidget {
   const CustomerDrawer({super.key});
@@ -149,6 +150,50 @@ class CustomerDrawer extends StatelessWidget {
                           context
                               .read<SmartGymBloc>()
                               .add(ToggleVacationFreezeEvent(v));
+                        },
+                      ),
+                      const Divider(color: Colors.white12, height: 20),
+                      ListTile(
+                        leading: Container(
+                          width: 38,
+                          height: 38,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFF6B2B).withValues(alpha: 0.16),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: const Icon(
+                            Icons.local_fire_department_rounded,
+                            color: Color(0xFFFF6B2B),
+                            size: 20,
+                          ),
+                        ),
+                        title: const Text(
+                          'Replay Power Intro',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        subtitle: const Text(
+                          'Preview the fire & power entrance',
+                          style: TextStyle(
+                            color: Colors.white54,
+                            fontSize: 12,
+                          ),
+                        ),
+                        onTap: () {
+                          Navigator.pop(context);
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (ctx) => CustomerCinematicIntro(
+                                gymName: gym.name,
+                                memberName: memberName,
+                                planTitle: planTitle,
+                                onFinished: () => Navigator.of(ctx).pop(),
+                              ),
+                            ),
+                          );
                         },
                       ),
                     ],

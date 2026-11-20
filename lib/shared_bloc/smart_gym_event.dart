@@ -473,3 +473,11 @@ class SubmitCustomerMealEvent extends SmartGymEvent {
   @override
   List<Object?> get props => [mealDescription, macros];
 }
+
+class ImportBulkMembersEvent extends SmartGymEvent {
+  final List<GymMember> members;
+  const ImportBulkMembersEvent(this.members);
+
+  @override
+  List<Object?> get props => [members];
+}

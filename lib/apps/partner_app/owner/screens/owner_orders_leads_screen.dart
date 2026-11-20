@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/cred_neopop_widgets.dart';
 import '../../../../domain/models/gym_member.dart';
@@ -10,6 +12,197 @@ import '../../../../shared_bloc/smart_gym_state.dart';
 
 class OwnerOrdersLeadsScreen extends StatelessWidget {
   const OwnerOrdersLeadsScreen({super.key});
+
+  Future<void> _sendEnquiryWhatsApp(
+    BuildContext context,
+    String gymName,
+    String memberName,
+    String phone,
+    String plan,
+  ) async {
+    final digits = phone.replaceAll(RegExp(r'\D'), '');
+    final waNumber = digits.length == 10 ? '91$digits' : digits;
+    if (waNumber.isEmpty) return;
+
+    final message = Uri.encodeComponent(
+      'Hi $memberName! Thanks for visiting $gymName. Your $plan spot & trial pass are ready this week—reply here if you want us to reserve it!',
+    );
+    final uri = Uri.parse('https://wa.me/$waNumber?text=$message');
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } else if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not open WhatsApp on this device')),
+      );
+    }
+  }
+
+  void _showAddEnquirySheet(BuildContext context, SmartGymState state) {
+    final bloc = context.read<SmartGymBloc>();
+    final messenger = ScaffoldMessenger.of(context);
+    final nameCtrl = TextEditingController();
+    final phoneCtrl = TextEditingController();
+    final plans = [
+      'Monthly (₹${state.currentGym.monthlyFee})',
+      '3 Months',
+      'Annual Plan',
+      'PT Plan (₹${state.currentGym.ptFee})',
+    ];
+    String selectedPlan = plans.first;
+    String? error;
+
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: const Color(0xFF1A1E29),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(26)),
+      ),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setModalState) => Padding(
+          padding: EdgeInsets.fromLTRB(
+            20,
+            16,
+            20,
+            MediaQuery.of(ctx).viewInsets.bottom + 24,
+          ),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const Text(
+                  'Log Walk-in Enquiry',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                const Text(
+                  'Save visitors who asked about fees so you never lose a conversion.',
+                  style: TextStyle(color: Colors.white54, fontSize: 12),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: nameCtrl,
+                  style: const TextStyle(color: Colors.white),
+                  decoration: InputDecoration(
+                    labelText: 'Visitor Name',
+                    hintText: 'e.g. Karthik',
+                    filled: true,
+                    fillColor: const Color(0xFF12151C),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(14),
+                      borderSide: BorderSide.none,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                TextField(
+                  controller: phoneCtrl,
+                  keyboardType: TextInputType.phone,
+                  maxLength: 10,
+                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                  style: const TextStyle(color: Colors.white),
+                  decoration: InputDecoration(
+                    counterText: '',
+                    prefixText: '+91 ',
+                    prefixStyle: const TextStyle(
+                      color: AppTheme.champagne,
+                      fontWeight: FontWeight.w800,
+                    ),
+                    labelText: 'Mobile Number',
+                    hintText: '9876543210',
+                    filled: true,
+                    fillColor: const Color(0xFF12151C),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(14),
+                      borderSide: BorderSide.none,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: plans.map((plan) {
+                    final active = selectedPlan == plan;
+                    return ChoiceChip(
+                      label: Text(
+                        plan,
+                        style: TextStyle(
+                          color: active ? Colors.black : Colors.white70,
+                          fontWeight: FontWeight.w800,
+                          fontSize: 12,
+                        ),
+                      ),
+                      selected: active,
+                      selectedColor: AppTheme.champagne,
+                      backgroundColor: const Color(0xFF12151C),
+                      onSelected: (_) =>
+                          setModalState(() => selectedPlan = plan),
+                    );
+                  }).toList(),
+                ),
+                if (error != null) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    error!,
+                    style: const TextStyle(color: AppTheme.danger, fontSize: 12),
+                  ),
+                ],
+                const SizedBox(height: 16),
+                SizedBox(
+                  height: 48,
+                  child: FilledButton(
+                    style: FilledButton.styleFrom(
+                      backgroundColor: AppTheme.champagne,
+                      foregroundColor: Colors.black,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                    ),
+                    onPressed: () {
+                      final name = nameCtrl.text.trim();
+                      final phone = phoneCtrl.text.trim();
+                      if (name.isEmpty || phone.length != 10) {
+                        setModalState(
+                          () => error = 'Enter visitor name & 10-digit mobile.',
+                        );
+                        return;
+                      }
+                      bloc.add(
+                        AddWalkInEnquiryEvent(
+                          name: name,
+                          phone: '+91$phone',
+                          interestedPlan: selectedPlan,
+                          loggedByTrainer: state.loggedInTrainerName.isEmpty
+                              ? 'Owner'
+                              : state.loggedInTrainerName,
+                        ),
+                      );
+                      Navigator.pop(ctx);
+                      messenger.showSnackBar(
+                        SnackBar(
+                          content: Text('Walk-in enquiry saved for $name'),
+                        ),
+                      );
+                    },
+                    child: const Text(
+                      'SAVE ENQUIRY',
+                      style: TextStyle(fontWeight: FontWeight.w900),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -379,17 +572,54 @@ class OwnerOrdersLeadsScreen extends StatelessWidget {
               );
             }),
             const SizedBox(height: 14),
-            const Text(
-              'WALK-IN ENQUIRIES LOGGED BY TRAINERS',
-              style: TextStyle(
-                fontSize: 10.5,
-                fontWeight: FontWeight.w900,
-                letterSpacing: 1.5,
-                color: Colors.white38,
-              ),
+            Row(
+              children: [
+                const Expanded(
+                  child: Text(
+                    'WALK-IN ENQUIRY CRM',
+                    style: TextStyle(
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 1.5,
+                      color: Colors.white38,
+                    ),
+                  ),
+                ),
+                TextButton.icon(
+                  onPressed: () => _showAddEnquirySheet(context, state),
+                  icon: const Icon(
+                    Icons.add_circle_outline_rounded,
+                    size: 16,
+                    color: AppTheme.champagne,
+                  ),
+                  label: const Text(
+                    'Add Enquiry',
+                    style: TextStyle(
+                      color: AppTheme.champagne,
+                      fontWeight: FontWeight.w900,
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: 10),
-            ...state.enquiries.map((enq) {
+            const SizedBox(height: 6),
+            if (state.enquiries.isEmpty)
+              CredMetalCard(
+                glowColor: AppTheme.champagne,
+                padding: const EdgeInsets.all(16),
+                borderRadius: 18,
+                child: const Text(
+                  'No walk-in enquiries yet.\nTap "+ Add Enquiry" whenever someone visits to ask fees.',
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    color: Colors.white60,
+                    height: 1.4,
+                  ),
+                ),
+              ),
+            ...List.generate(state.enquiries.length, (i) {
+              final enq = state.enquiries[i];
               return Padding(
                 padding: const EdgeInsets.only(bottom: 10),
                 child: CredMetalCard(
@@ -397,54 +627,139 @@ class OwnerOrdersLeadsScreen extends StatelessWidget {
                       enq.converted ? AppTheme.accent : AppTheme.champagne,
                   padding: const EdgeInsets.all(16),
                   borderRadius: 18,
-                  child: Row(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              enq.name,
-                              style: const TextStyle(
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  enq.name,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w900,
+                                    fontSize: 14.5,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                                const SizedBox(height: 3),
+                                Text(
+                                  '${enq.phone} • ${enq.interestedPlan}',
+                                  style: const TextStyle(
+                                    fontSize: 11.5,
+                                    color: Colors.white70,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  'Logged by ${enq.loggedByTrainer} • ${enq.timeLabel}',
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    color: Colors.white54,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: (enq.converted
+                                      ? AppTheme.accent
+                                      : AppTheme.champagne)
+                                  .withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(99),
+                            ),
+                            child: Text(
+                              enq.converted ? 'JOINED' : 'FOLLOW UP',
+                              style: TextStyle(
+                                fontSize: 10,
                                 fontWeight: FontWeight.w900,
-                                fontSize: 14,
-                                color: Colors.white,
+                                color: enq.converted
+                                    ? AppTheme.accent
+                                    : AppTheme.champagne,
                               ),
                             ),
-                            const SizedBox(height: 3),
-                            Text(
-                              '${enq.interestedPlan} • Logged by ${enq.loggedByTrainer}',
-                              style: const TextStyle(
-                                fontSize: 11.5,
-                                color: Colors.white60,
+                          ),
+                        ],
+                      ),
+                      if (!enq.converted) ...[
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: OutlinedButton.icon(
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: AppTheme.accent,
+                                  side: BorderSide(
+                                    color:
+                                        AppTheme.accent.withValues(alpha: 0.45),
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                ),
+                                onPressed: () => _sendEnquiryWhatsApp(
+                                  context,
+                                  state.currentGym.name,
+                                  enq.name,
+                                  enq.phone,
+                                  enq.interestedPlan,
+                                ),
+                                icon: const Icon(Icons.chat_rounded, size: 16),
+                                label: const Text(
+                                  'WhatsApp',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w800,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: FilledButton.icon(
+                                style: FilledButton.styleFrom(
+                                  backgroundColor: AppTheme.accent,
+                                  foregroundColor: Colors.black,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                ),
+                                onPressed: () {
+                                  HapticFeedback.mediumImpact();
+                                  context
+                                      .read<SmartGymBloc>()
+                                      .add(ConvertEnquiryToMemberEvent(i));
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                        '${enq.name} converted to active member!',
+                                      ),
+                                    ),
+                                  );
+                                },
+                                icon: const Icon(
+                                  Icons.check_circle_outline_rounded,
+                                  size: 16,
+                                ),
+                                label: const Text(
+                                  'Convert Paid',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w900,
+                                    fontSize: 12,
+                                  ),
+                                ),
                               ),
                             ),
                           ],
                         ),
-                      ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: (enq.converted
-                                  ? AppTheme.accent
-                                  : AppTheme.champagne)
-                              .withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(99),
-                        ),
-                        child: Text(
-                          enq.converted ? 'JOINED' : 'FOLLOW UP',
-                          style: TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w900,
-                            color: enq.converted
-                                ? AppTheme.accent
-                                : AppTheme.champagne,
-                          ),
-                        ),
-                      ),
+                      ],
                     ],
                   ),
                 ),

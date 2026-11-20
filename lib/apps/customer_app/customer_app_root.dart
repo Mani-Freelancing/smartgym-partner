@@ -6,6 +6,7 @@ import '../../core/theme/app_theme.dart';
 import '../../shared_bloc/smart_gym_bloc.dart';
 import '../../shared_bloc/smart_gym_event.dart';
 import '../../shared_bloc/smart_gym_state.dart';
+import 'auth/customer_cinematic_intro.dart';
 import 'auth/customer_login_screen.dart';
 import 'auth/customer_welcome_screen.dart';
 import 'customer_drawer.dart';
@@ -26,6 +27,7 @@ class _CustomerAppRootState extends State<CustomerAppRoot> {
   int _tabIndex = 0;
   bool _checkingIntro = true;
   bool _showIntro = false;
+  bool _showPowerCinematic = true;
 
   @override
   void initState() {
@@ -53,6 +55,12 @@ class _CustomerAppRootState extends State<CustomerAppRoot> {
     }
   }
 
+  void _markPowerCinematicSeen() {
+    if (mounted) {
+      setState(() => _showPowerCinematic = false);
+    }
+  }
+
   Future<void> _markIntroSeen() async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -76,10 +84,8 @@ class _CustomerAppRootState extends State<CustomerAppRoot> {
       builder: (context, state) {
         if (state.isAuthChecking || _checkingIntro) {
           return const Scaffold(
-            backgroundColor: AppTheme.scaffoldBg,
-            body: Center(
-              child: CircularProgressIndicator(color: AppTheme.trainerCyan),
-            ),
+            backgroundColor: Color(0xFF07090D),
+            body: SizedBox.expand(),
           );
         }
 
@@ -171,15 +177,36 @@ class _CustomerAppRootState extends State<CustomerAppRoot> {
 
         if (state.gyms.isEmpty) {
           return const Scaffold(
-            backgroundColor: AppTheme.scaffoldBg,
-            body: Center(
-              child: CircularProgressIndicator(color: AppTheme.trainerCyan),
-            ),
+            backgroundColor: Color(0xFF07090D),
+            body: SizedBox.expand(),
           );
         }
 
         final gym = state.currentGym;
-        return Scaffold(
+        return AnimatedSwitcher(
+          duration: const Duration(milliseconds: 520),
+          switchInCurve: Curves.easeOutCubic,
+          switchOutCurve: Curves.easeInCubic,
+          transitionBuilder: (child, anim) => FadeTransition(
+            opacity: anim,
+            child: ScaleTransition(
+              scale: Tween<double>(begin: 0.96, end: 1.0).animate(anim),
+              child: child,
+            ),
+          ),
+          child: _showPowerCinematic
+              ? CustomerCinematicIntro(
+                  key: const ValueKey('power_cinematic'),
+                  gymName: gym.name,
+                  memberName: state.currentMember?.name ?? 'Club Athlete',
+                  planTitle: state.currentMember?.planTitle ?? '1-Month Regular',
+                  onFinished: () {
+                    setState(() => _tabIndex = 0);
+                    _markPowerCinematicSeen();
+                  },
+                )
+              : Scaffold(
+                  key: const ValueKey('customer_home'),
           backgroundColor: AppTheme.scaffoldBg,
           drawer: const CustomerDrawer(),
           body: SafeArea(
@@ -319,6 +346,7 @@ class _CustomerAppRootState extends State<CustomerAppRoot> {
               ),
             ),
           ),
+        ),
         );
       },
     );

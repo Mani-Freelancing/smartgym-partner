@@ -7,6 +7,7 @@ import '../../../shared_bloc/smart_gym_event.dart';
 import '../../../shared_bloc/smart_gym_state.dart';
 import 'owner_add_member_screen.dart';
 import 'owner_qr_poster_screen.dart';
+import 'owner_register_import_screen.dart';
 
 class OwnerDrawer extends StatelessWidget {
   const OwnerDrawer({super.key});
@@ -727,6 +728,23 @@ class OwnerDrawer extends StatelessWidget {
                               builder: (_) => BlocProvider.value(
                                 value: context.read<SmartGymBloc>(),
                                 child: const OwnerAddMemberScreen(),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                      _DrawerItem(
+                        icon: Icons.document_scanner_rounded,
+                        color: AppTheme.trainerCyan,
+                        title: 'AI Register Photo Import',
+                        subtitle: 'Snap paper register or paste Excel',
+                        onTap: () {
+                          Navigator.pop(context);
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => BlocProvider.value(
+                                value: context.read<SmartGymBloc>(),
+                                child: const OwnerRegisterImportScreen(),
                               ),
                             ),
                           );
