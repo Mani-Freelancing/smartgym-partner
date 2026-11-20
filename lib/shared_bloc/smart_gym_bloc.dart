@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../data/repositories/gym_repository.dart';
 import '../data/services/firestore_service.dart';
@@ -519,7 +520,9 @@ class SmartGymBloc extends Bloc<SmartGymEvent, SmartGymState> {
 
   void _syncAsync(Future<void> Function() task) {
     if (firestoreService == null) return;
-    task().catchError((_) {});
+    task().catchError((Object e) {
+      debugPrint('Firestore sync error: $e');
+    });
   }
 
   void _onSelectGymTenant(

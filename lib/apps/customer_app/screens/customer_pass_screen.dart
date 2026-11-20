@@ -343,43 +343,6 @@ class _CustomerPassScreenState extends State<CustomerPassScreen>
                           fontWeight: FontWeight.w600,
                         ),
                       ),
-                      const Divider(height: 26, color: Colors.white12),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text(
-                                'VACATION FREEZE',
-                                style: TextStyle(
-                                  color: Colors.white54,
-                                  fontSize: 9.5,
-                                  fontWeight: FontWeight.w900,
-                                  letterSpacing: 1.1,
-                                ),
-                              ),
-                              Text(
-                                '${state.freezeDaysLeft} freeze days left',
-                                style: const TextStyle(
-                                  color: Colors.white70,
-                                  fontSize: 12,
-                                ),
-                              ),
-                            ],
-                          ),
-                          Switch(
-                            activeThumbColor: AppTheme.trainerCyan,
-                            value: state.isMembershipFrozen,
-                            onChanged: (v) {
-                              HapticFeedback.selectionClick();
-                              context
-                                  .read<SmartGymBloc>()
-                                  .add(ToggleVacationFreezeEvent(v));
-                            },
-                          ),
-                        ],
-                      ),
                     ],
                   ),
                 ),

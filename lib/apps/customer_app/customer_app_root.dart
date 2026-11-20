@@ -8,6 +8,7 @@ import '../../shared_bloc/smart_gym_event.dart';
 import '../../shared_bloc/smart_gym_state.dart';
 import 'auth/customer_login_screen.dart';
 import 'auth/customer_welcome_screen.dart';
+import 'customer_drawer.dart';
 import 'screens/customer_machines_screen.dart';
 import 'screens/customer_pass_screen.dart';
 import 'screens/customer_pt_diet_screen.dart';
@@ -180,6 +181,7 @@ class _CustomerAppRootState extends State<CustomerAppRoot> {
         final gym = state.currentGym;
         return Scaffold(
           backgroundColor: AppTheme.scaffoldBg,
+          drawer: const CustomerDrawer(),
           body: SafeArea(
             child: Column(
               children: [
@@ -187,6 +189,25 @@ class _CustomerAppRootState extends State<CustomerAppRoot> {
                   padding: const EdgeInsets.fromLTRB(20, 12, 20, 10),
                   child: Row(
                     children: [
+                      Builder(
+                        builder: (ctx) => IconButton(
+                          tooltip: 'Profile & Settings',
+                          style: IconButton.styleFrom(
+                            backgroundColor:
+                                AppTheme.trainerCyan.withValues(alpha: 0.14),
+                            foregroundColor: AppTheme.trainerCyan,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                          ),
+                          onPressed: () {
+                            HapticFeedback.selectionClick();
+                            Scaffold.of(ctx).openDrawer();
+                          },
+                          icon: const Icon(Icons.menu_rounded, size: 20),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -233,21 +254,6 @@ class _CustomerAppRootState extends State<CustomerAppRoot> {
                             fontSize: 11.5,
                             fontWeight: FontWeight.w900,
                           ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      IconButton(
-                        tooltip: 'Logout',
-                        onPressed: () {
-                          HapticFeedback.mediumImpact();
-                          context
-                              .read<SmartGymBloc>()
-                              .add(const LogoutPartnerEvent());
-                        },
-                        icon: const Icon(
-                          Icons.logout_rounded,
-                          color: Colors.white54,
-                          size: 19,
                         ),
                       ),
                     ],
