@@ -77,6 +77,7 @@ rules_version = '2';
 //   - phone: string (required, 7..20 chars)
 //   - planTitle: string (required, 1..100 chars)
 //   - feePaid: number (required, >= 0, <= 1000000)
+//   - dueAmount: number (optional, >= 0, <= 1000000)
 //   - joinedDate: string (required, 1..40 chars)
 //   - expiryDate: string (required, 1..40 chars)
 //   - daysLeft: int (required, -3650..3650)
@@ -357,9 +358,9 @@ service cloud.firestore {
                'addedByTrainer', 'currentWeightKg'
              ]) &&
              hasOnlyAllowedFields([
-               'id', 'name', 'phone', 'planTitle', 'feePaid', 'joinedDate',
-               'expiryDate', 'daysLeft', 'assignedTrainer', 'isPtClient',
-               'addedByTrainer', 'currentWeightKg', 'paymentMode',
+               'id', 'name', 'phone', 'planTitle', 'feePaid', 'dueAmount',
+               'joinedDate', 'expiryDate', 'daysLeft', 'assignedTrainer',
+               'isPtClient', 'addedByTrainer', 'currentWeightKg', 'paymentMode',
                'paymentReference', 'paymentProofBase64', 'createdAt'
              ]) &&
              isValidOptionalString(data, 'id', 1, 64) &&
@@ -367,6 +368,7 @@ service cloud.firestore {
              isValidPhoneString(data.phone) &&
              isValidString(data.planTitle, 1, 100) &&
              data.feePaid is number && data.feePaid >= 0 && data.feePaid <= 1000000 &&
+             (!('dueAmount' in data) || (data.dueAmount is number && data.dueAmount >= 0 && data.dueAmount <= 1000000)) &&
              isValidString(data.joinedDate, 1, 40) &&
              isValidString(data.expiryDate, 1, 40) &&
              data.daysLeft is int && data.daysLeft >= -3650 && data.daysLeft <= 3650 &&

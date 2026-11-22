@@ -393,6 +393,7 @@ class FirestoreService {
         phone: (d['phone'] ?? '') as String,
         planTitle: (d['planTitle'] ?? '') as String,
         feePaid: (d['feePaid'] as num?)?.toInt() ?? 0,
+        dueAmount: (d['dueAmount'] as num?)?.toInt() ?? 0,
         joinedDate: (d['joinedDate'] ?? '') as String,
         expiryDate: (d['expiryDate'] ?? '') as String,
         daysLeft: (d['daysLeft'] as num?)?.toInt() ?? 0,
@@ -451,6 +452,7 @@ class FirestoreService {
               phone: (d['phone'] ?? '') as String,
               planTitle: (d['planTitle'] ?? '') as String,
               feePaid: (d['feePaid'] as num?)?.toInt() ?? 0,
+              dueAmount: (d['dueAmount'] as num?)?.toInt() ?? 0,
               joinedDate: (d['joinedDate'] ?? '') as String,
               expiryDate: (d['expiryDate'] ?? '') as String,
               daysLeft: (d['daysLeft'] as num?)?.toInt() ?? 0,
@@ -786,6 +788,7 @@ class FirestoreService {
       'phone': member.phone,
       'planTitle': member.planTitle,
       'feePaid': member.feePaid,
+      'dueAmount': member.dueAmount,
       'joinedDate': member.joinedDate,
       'expiryDate': member.expiryDate,
       'daysLeft': member.daysLeft,
@@ -862,6 +865,22 @@ class FirestoreService {
         .collection('members')
         .doc(memberId)
         .update({'currentWeightKg': newWeightKg});
+  }
+
+  Future<void> collectMemberDue(
+    String gymId,
+    String memberId,
+    int newFeePaid,
+  ) async {
+    await _db
+        .collection('gyms')
+        .doc(gymId)
+        .collection('members')
+        .doc(memberId)
+        .update({
+      'feePaid': newFeePaid,
+      'dueAmount': 0,
+    });
   }
 
   Future<void> addMachineGuide(String gymId, MachineGuide guide) async {

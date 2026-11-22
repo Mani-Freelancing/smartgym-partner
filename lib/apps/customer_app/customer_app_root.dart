@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/theme/app_theme.dart';
+import '../../data/services/hero_avatar_service.dart';
 import '../../shared_bloc/smart_gym_bloc.dart';
 import '../../shared_bloc/smart_gym_event.dart';
 import '../../shared_bloc/smart_gym_state.dart';
@@ -27,7 +28,19 @@ class _CustomerAppRootState extends State<CustomerAppRoot> {
   int _tabIndex = 0;
   bool _checkingIntro = true;
   bool _showIntro = false;
-  bool _showPowerCinematic = true;
+  bool _cinematicLaunched = false;
+  bool _homeVisible = false;
+
+  static String _titleCase(String raw) {
+    final trimmed = raw.trim();
+    if (trimmed.isEmpty) return trimmed;
+    return trimmed
+        .split(RegExp(r'\s+'))
+        .map((w) => w.isEmpty
+            ? w
+            : '${w[0].toUpperCase()}${w.substring(1).toLowerCase()}')
+        .join(' ');
+  }
 
   @override
   void initState() {
@@ -37,6 +50,7 @@ class _CustomerAppRootState extends State<CustomerAppRoot> {
 
   Future<void> _loadIntroFlag() async {
     try {
+      await HeroAvatarService.loadSavedPose();
       final prefs = await SharedPreferences.getInstance();
       final seen = prefs.getBool(_seenIntroKey) ?? false;
       if (mounted) {
@@ -55,10 +69,48 @@ class _CustomerAppRootState extends State<CustomerAppRoot> {
     }
   }
 
-  void _markPowerCinematicSeen() {
-    if (mounted) {
-      setState(() => _showPowerCinematic = false);
-    }
+  void _launchPowerCinematicOnce(
+    BuildContext context, {
+    required String gymName,
+    required String memberName,
+    required String planTitle,
+  }) {
+    if (_cinematicLaunched) return;
+    _cinematicLaunched = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      setState(() => _tabIndex = 0);
+      Navigator.of(context).push(
+        PageRouteBuilder<void>(
+          transitionDuration: Duration.zero,
+          reverseTransitionDuration: const Duration(milliseconds: 900),
+          pageBuilder: (ctx, animation, secondaryAnimation) =>
+              CustomerCinematicIntro(
+            gymName: gymName,
+            memberName: memberName,
+            planTitle: planTitle,
+            onFinished: () {
+              if (Navigator.of(ctx).canPop()) {
+                Navigator.of(ctx).pop();
+              }
+            },
+          ),
+          transitionsBuilder: (ctx, animation, secondaryAnimation, child) {
+            return FadeTransition(
+              opacity: CurvedAnimation(
+                parent: animation,
+                curve: Curves.easeInOutCubic,
+              ),
+              child: child,
+            );
+          },
+        ),
+      );
+      // Reveal Home underneath only after the intro route is already on top
+      Future<void>.delayed(const Duration(milliseconds: 120), () {
+        if (mounted) setState(() => _homeVisible = true);
+      });
+    });
   }
 
   Future<void> _markIntroSeen() async {
@@ -183,30 +235,19 @@ class _CustomerAppRootState extends State<CustomerAppRoot> {
         }
 
         final gym = state.currentGym;
-        return AnimatedSwitcher(
-          duration: const Duration(milliseconds: 520),
-          switchInCurve: Curves.easeOutCubic,
-          switchOutCurve: Curves.easeInCubic,
-          transitionBuilder: (child, anim) => FadeTransition(
-            opacity: anim,
-            child: ScaleTransition(
-              scale: Tween<double>(begin: 0.96, end: 1.0).animate(anim),
-              child: child,
-            ),
-          ),
-          child: _showPowerCinematic
-              ? CustomerCinematicIntro(
-                  key: const ValueKey('power_cinematic'),
-                  gymName: gym.name,
-                  memberName: state.currentMember?.name ?? 'Club Athlete',
-                  planTitle: state.currentMember?.planTitle ?? '1-Month Regular',
-                  onFinished: () {
-                    setState(() => _tabIndex = 0);
-                    _markPowerCinematicSeen();
-                  },
-                )
-              : Scaffold(
-                  key: const ValueKey('customer_home'),
+        _launchPowerCinematicOnce(
+          context,
+          gymName: gym.name,
+          memberName: state.currentMember?.name ?? 'Club Athlete',
+          planTitle: state.currentMember?.planTitle ?? '1-Month Regular',
+        );
+
+        return ColoredBox(
+          color: const Color(0xFF07090D),
+          child: Opacity(
+            opacity: _homeVisible ? 1.0 : 0.0,
+            child: Scaffold(
+              key: const ValueKey('customer_home'),
           backgroundColor: AppTheme.scaffoldBg,
           drawer: const CustomerDrawer(),
           body: SafeArea(
@@ -250,7 +291,7 @@ class _CustomerAppRootState extends State<CustomerAppRoot> {
                             ),
                             const SizedBox(height: 2),
                             Text(
-                              '${gym.name}${gym.area.isNotEmpty ? ' (${gym.area})' : ''}',
+                              '${_titleCase(gym.name)}${gym.area.isNotEmpty ? ' (${_titleCase(gym.area)})' : ''}',
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: const TextStyle(
@@ -268,16 +309,16 @@ class _CustomerAppRootState extends State<CustomerAppRoot> {
                           vertical: 5,
                         ),
                         decoration: BoxDecoration(
-                          color: AppTheme.ownerGold.withValues(alpha: 0.14),
+                          color: AppTheme.trainerCyan.withValues(alpha: 0.14),
                           borderRadius: BorderRadius.circular(99),
                           border: Border.all(
-                            color: AppTheme.ownerGold.withValues(alpha: 0.4),
+                            color: AppTheme.trainerCyan.withValues(alpha: 0.4),
                           ),
                         ),
                         child: Text(
                           '🔥 ${state.streakDays}d',
                           style: const TextStyle(
-                            color: AppTheme.ownerGold,
+                            color: AppTheme.trainerCyan,
                             fontSize: 11.5,
                             fontWeight: FontWeight.w900,
                           ),
@@ -297,7 +338,7 @@ class _CustomerAppRootState extends State<CustomerAppRoot> {
           ),
           bottomNavigationBar: SafeArea(
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
+              padding: const EdgeInsets.fromLTRB(20, 4, 20, 12),
               child: Container(
                 height: 66,
                 padding: const EdgeInsets.all(6),
@@ -346,6 +387,7 @@ class _CustomerAppRootState extends State<CustomerAppRoot> {
               ),
             ),
           ),
+        ),
         ),
         );
       },

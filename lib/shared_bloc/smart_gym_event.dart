@@ -74,6 +74,7 @@ class AddNewGymMemberEvent extends SmartGymEvent {
   final String phone;
   final String planTitle;
   final int feePaid;
+  final int dueAmount;
   final int daysValid;
   final bool isPtClient;
   final String? assignedTrainer;
@@ -90,6 +91,7 @@ class AddNewGymMemberEvent extends SmartGymEvent {
     required this.phone,
     required this.planTitle,
     required this.feePaid,
+    this.dueAmount = 0,
     required this.daysValid,
     required this.isPtClient,
     this.assignedTrainer,
@@ -108,6 +110,7 @@ class AddNewGymMemberEvent extends SmartGymEvent {
         phone,
         planTitle,
         feePaid,
+        dueAmount,
         daysValid,
         isPtClient,
         assignedTrainer,
@@ -119,6 +122,19 @@ class AddNewGymMemberEvent extends SmartGymEvent {
         paymentReference,
         paymentProofBase64,
       ];
+}
+
+class CollectMemberDueEvent extends SmartGymEvent {
+  final String memberId;
+  final int duePaid;
+
+  const CollectMemberDueEvent({
+    required this.memberId,
+    required this.duePaid,
+  });
+
+  @override
+  List<Object?> get props => [memberId, duePaid];
 }
 
 class AddWalkInEnquiryEvent extends SmartGymEvent {
@@ -192,6 +208,14 @@ class ToggleMembershipExpiryDemoEvent extends SmartGymEvent {
 
 class SimulateQrCheckInEvent extends SmartGymEvent {
   const SimulateQrCheckInEvent();
+}
+
+class CustomerCheckOutEvent extends SmartGymEvent {
+  const CustomerCheckOutEvent();
+}
+
+class ResetGymFloorCrowdEvent extends SmartGymEvent {
+  const ResetGymFloorCrowdEvent();
 }
 
 class RenewMembershipViaUpiEvent extends SmartGymEvent {

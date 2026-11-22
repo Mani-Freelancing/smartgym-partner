@@ -94,6 +94,12 @@ class SmartGymState extends Equatable {
   int get totalMonthlyRevenue =>
       members.fold<int>(0, (sum, m) => sum + m.feePaid);
 
+  int get totalPendingDues =>
+      members.fold<int>(0, (sum, m) => sum + m.dueAmount);
+
+  List<GymMember> get dueMembers =>
+      members.where((m) => m.hasDue).toList();
+
   int get activeMembersCount => members.where((m) => !m.isExpired).length;
 
   List<GymMember> get expiringOrExpiredMembers =>

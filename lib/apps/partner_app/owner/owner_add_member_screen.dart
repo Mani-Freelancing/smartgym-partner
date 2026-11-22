@@ -5,6 +5,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/cred_neopop_widgets.dart';
+import '../../../data/services/member_whatsapp_service.dart';
+import '../../../domain/models/gym_member.dart';
 import '../../../shared_bloc/smart_gym_bloc.dart';
 import '../../../shared_bloc/smart_gym_event.dart';
 import '../../../shared_bloc/smart_gym_state.dart';
@@ -20,6 +22,7 @@ class _OwnerAddMemberScreenState extends State<OwnerAddMemberScreen> {
   final _nameCtrl = TextEditingController();
   final _phoneCtrl = TextEditingController();
   final _amountCtrl = TextEditingController();
+  final _dueCtrl = TextEditingController(text: '0');
   final _weightCtrl = TextEditingController(text: '70.0');
   final _joinDateCtrl = TextEditingController();
   final ImagePicker _picker = ImagePicker();
@@ -62,6 +65,7 @@ class _OwnerAddMemberScreenState extends State<OwnerAddMemberScreen> {
     _nameCtrl.dispose();
     _phoneCtrl.dispose();
     _amountCtrl.dispose();
+    _dueCtrl.dispose();
     _weightCtrl.dispose();
     _joinDateCtrl.dispose();
     super.dispose();
@@ -199,10 +203,11 @@ class _OwnerAddMemberScreenState extends State<OwnerAddMemberScreen> {
     }
   }
 
-  void _submit(SmartGymState state) {
+  Future<void> _submit(SmartGymState state) async {
     final name = _nameCtrl.text.trim();
     final digits = _phoneCtrl.text.replaceAll(RegExp(r'\D'), '');
     final fee = int.tryParse(_amountCtrl.text.trim());
+    final due = int.tryParse(_dueCtrl.text.trim()) ?? 0;
     final weight = double.tryParse(_weightCtrl.text.trim()) ?? 70.0;
 
     if (name.isEmpty) {
@@ -215,9 +220,9 @@ class _OwnerAddMemberScreenState extends State<OwnerAddMemberScreen> {
       setState(() => _errorText = 'Enter a valid 10-digit mobile number.');
       return;
     }
-    if (fee == null || fee < 0) {
+    if (fee == null || fee < 0 || due < 0) {
       HapticFeedback.heavyImpact();
-      setState(() => _errorText = 'Enter a valid membership amount.');
+      setState(() => _errorText = 'Enter valid fee and due amounts.');
       return;
     }
     if (_paymentMode == 'Online' && _paymentProofBase64.isEmpty) {
@@ -239,6 +244,24 @@ class _OwnerAddMemberScreenState extends State<OwnerAddMemberScreen> {
                 ? state.trainers.first.name
                 : state.currentGym.headTrainer))
         : null;
+    final joinedStr = _formatDate(_joiningDate);
+    final expiryStr = _formatDate(_expiryDate);
+    final enrolledMember = GymMember(
+      id: 'tmp',
+      name: name,
+      phone: '+91$digits',
+      planTitle: planLabel,
+      feePaid: fee,
+      dueAmount: due,
+      joinedDate: joinedStr,
+      expiryDate: expiryStr,
+      daysLeft: daysLeft,
+      assignedTrainer: trainerName,
+      isPtClient: _isPt,
+      addedByTrainer: 'Owner (${state.currentGym.headTrainer})',
+      currentWeightKg: weight.clamp(20.0, 300.0),
+      paymentMode: _paymentMode,
+    );
 
     HapticFeedback.mediumImpact();
     context.read<SmartGymBloc>().add(
@@ -247,12 +270,13 @@ class _OwnerAddMemberScreenState extends State<OwnerAddMemberScreen> {
             phone: '+91$digits',
             planTitle: planLabel,
             feePaid: fee,
+            dueAmount: due,
             daysValid: daysLeft,
             isPtClient: _isPt,
             assignedTrainer: trainerName,
             addedByTrainer: 'Owner (${state.currentGym.headTrainer})',
-            joinedDate: _formatDate(_joiningDate),
-            expiryDate: _formatDate(_expiryDate),
+            joinedDate: joinedStr,
+            expiryDate: expiryStr,
             currentWeightKg: weight.clamp(20.0, 300.0),
             paymentMode: _paymentMode,
             paymentProofBase64:
@@ -260,19 +284,13 @@ class _OwnerAddMemberScreenState extends State<OwnerAddMemberScreen> {
           ),
         );
 
-    Navigator.of(context).pop();
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        backgroundColor: AppTheme.ownerGold,
-        content: Text(
-          '$name enrolled ($planLabel • ₹$fee)',
-          style: const TextStyle(
-            color: Colors.black,
-            fontWeight: FontWeight.w900,
-          ),
-        ),
-      ),
+    await MemberWhatsAppService.showEnrollmentSuccessDialog(
+      context: context,
+      gymName: state.currentGym.name,
+      member: enrolledMember,
+      accentColor: AppTheme.ownerGold,
     );
+    if (mounted) Navigator.of(context).pop();
   }
 
   @override
@@ -281,6 +299,7 @@ class _OwnerAddMemberScreenState extends State<OwnerAddMemberScreen> {
       builder: (context, state) {
         final gym = state.currentGym;
         final feePreview = int.tryParse(_amountCtrl.text.trim()) ?? 0;
+        final duePreview = int.tryParse(_dueCtrl.text.trim()) ?? 0;
         final now = DateTime.now();
         final today = DateTime(now.year, now.month, now.day);
         final daysLeft = _expiryDate.difference(today).inDays;
@@ -346,14 +365,31 @@ class _OwnerAddMemberScreenState extends State<OwnerAddMemberScreen> {
                         ],
                       ),
                       const SizedBox(height: 10),
-                      Text(
-                        '₹$feePreview',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 32,
-                          fontWeight: FontWeight.w900,
-                          letterSpacing: -0.8,
-                        ),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.baseline,
+                        textBaseline: TextBaseline.alphabetic,
+                        children: [
+                          Text(
+                            '₹$feePreview',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 32,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: -0.8,
+                            ),
+                          ),
+                          if (duePreview > 0) ...[
+                            const SizedBox(width: 10),
+                            Text(
+                              '+ ₹$duePreview due',
+                              style: const TextStyle(
+                                color: AppTheme.amber,
+                                fontSize: 13.5,
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                          ],
+                        ],
                       ),
                       const SizedBox(height: 4),
                       Text(
@@ -591,6 +627,16 @@ class _OwnerAddMemberScreenState extends State<OwnerAddMemberScreen> {
                       ),
                     ),
                   ],
+                ),
+                const SizedBox(height: 12),
+                _PremiumField(
+                  controller: _dueCtrl,
+                  label: 'Pending Due / Balance (₹) • Optional',
+                  hint: '0 (if paid in full)',
+                  icon: Icons.pending_actions_rounded,
+                  keyboardType: TextInputType.number,
+                  formatters: [FilteringTextInputFormatter.digitsOnly],
+                  onChanged: (_) => setState(() {}),
                 ),
                 const SizedBox(height: 16),
 

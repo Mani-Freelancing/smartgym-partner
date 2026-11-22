@@ -93,6 +93,7 @@ class SmartGymBloc extends Bloc<SmartGymEvent, SmartGymState> {
     on<LoginPartnerEvent>(_onLoginPartner);
     on<LogoutPartnerEvent>(_onLogoutPartner);
     on<AddNewGymMemberEvent>(_onAddNewGymMember);
+    on<CollectMemberDueEvent>(_onCollectMemberDue);
     on<ImportBulkMembersEvent>(_onImportBulkMembers);
     on<AddWalkInEnquiryEvent>(_onAddWalkInEnquiry);
     on<ConvertEnquiryToMemberEvent>(_onConvertEnquiryToMember);
@@ -101,6 +102,8 @@ class SmartGymBloc extends Bloc<SmartGymEvent, SmartGymState> {
     on<AddMachineGuideEvent>(_onAddMachineGuide);
     on<ToggleMembershipExpiryDemoEvent>(_onToggleMembershipExpiryDemo);
     on<SimulateQrCheckInEvent>(_onSimulateQrCheckIn);
+    on<CustomerCheckOutEvent>(_onCustomerCheckOut);
+    on<ResetGymFloorCrowdEvent>(_onResetGymFloorCrowd);
     on<RenewMembershipViaUpiEvent>(_onRenewMembershipViaUpi);
     on<TogglePeakCrowdSimulationEvent>(_onTogglePeakCrowdSimulation);
     on<TogglePtLockDemoEvent>(_onTogglePtLockDemo);
@@ -241,11 +244,15 @@ class SmartGymBloc extends Bloc<SmartGymEvent, SmartGymState> {
   ) {
     final existingIndex = state.gyms.indexWhere((g) => g.id == event.gym.id);
     if (existingIndex == -1) {
-      emit(state.copyWith(gyms: [event.gym], selectedGymIndex: 0));
+      emit(state.copyWith(
+        gyms: [event.gym],
+        selectedGymIndex: 0,
+        crowdDelta: 0,
+      ));
     } else {
       final updated = List<GymTenant>.from(state.gyms);
       updated[existingIndex] = event.gym;
-      emit(state.copyWith(gyms: updated));
+      emit(state.copyWith(gyms: updated, crowdDelta: 0));
     }
   }
 
@@ -651,6 +658,7 @@ class SmartGymBloc extends Bloc<SmartGymEvent, SmartGymState> {
       phone: event.phone.trim(),
       planTitle: event.planTitle,
       feePaid: event.feePaid,
+      dueAmount: event.dueAmount,
       joinedDate: event.joinedDate ?? 'Just Now',
       expiryDate: event.expiryDate ?? '${event.daysValid}d from today',
       daysLeft: event.daysValid,
@@ -665,6 +673,40 @@ class SmartGymBloc extends Bloc<SmartGymEvent, SmartGymState> {
     final updated = [newMember, ...state.members];
     emit(state.copyWith(members: updated));
     _syncAsync(() => firestoreService!.addMember(state.currentGym.id, newMember));
+  }
+
+  void _onCollectMemberDue(
+    CollectMemberDueEvent event,
+    Emitter<SmartGymState> emit,
+  ) {
+    final idx = state.members.indexWhere((m) => m.id == event.memberId);
+    if (idx == -1) return;
+    final target = state.members[idx];
+    final nextFeePaid = target.feePaid + event.duePaid;
+    final updatedMember = target.copyWith(
+      feePaid: nextFeePaid,
+      dueAmount: 0,
+    );
+    final updatedList = List<GymMember>.from(state.members);
+    updatedList[idx] = updatedMember;
+
+    final updatedCurrent = state.currentMember?.id == event.memberId
+        ? updatedMember
+        : state.currentMember;
+
+    emit(
+      state.copyWith(
+        members: updatedList,
+        currentMember: updatedCurrent,
+      ),
+    );
+    _syncAsync(
+      () => firestoreService!.collectMemberDue(
+        state.currentGym.id,
+        event.memberId,
+        nextFeePaid,
+      ),
+    );
   }
 
   void _onImportBulkMembers(
@@ -804,16 +846,58 @@ class SmartGymBloc extends Bloc<SmartGymEvent, SmartGymState> {
         : state.wheyScoopsLeft;
     final nextCrowd = (state.currentGym.activeCrowd + 1)
         .clamp(0, state.currentGym.maxCapacity);
+    final updatedGyms = List<GymTenant>.from(state.gyms);
+    if (updatedGyms.isNotEmpty) {
+      final idx = state.selectedGymIndex.clamp(0, updatedGyms.length - 1);
+      updatedGyms[idx] = updatedGyms[idx].copyWith(activeCrowd: nextCrowd);
+    }
     emit(
       state.copyWith(
+        gyms: updatedGyms,
         streakDays: state.streakDays + 1,
-        crowdDelta: state.crowdDelta + 1,
+        crowdDelta: 0,
         wheyScoopsLeft: nextScoops,
       ),
     );
     if (state.currentGym.id.isNotEmpty) {
       _syncAsync(
         () => firestoreService!.incrementGymCrowd(state.currentGym.id, nextCrowd),
+      );
+    }
+  }
+
+  void _onCustomerCheckOut(
+    CustomerCheckOutEvent event,
+    Emitter<SmartGymState> emit,
+  ) {
+    final nextCrowd = (state.currentGym.activeCrowd - 1)
+        .clamp(0, state.currentGym.maxCapacity);
+    final updatedGyms = List<GymTenant>.from(state.gyms);
+    if (updatedGyms.isNotEmpty) {
+      final idx = state.selectedGymIndex.clamp(0, updatedGyms.length - 1);
+      updatedGyms[idx] = updatedGyms[idx].copyWith(activeCrowd: nextCrowd);
+    }
+    emit(state.copyWith(gyms: updatedGyms, crowdDelta: 0));
+    if (state.currentGym.id.isNotEmpty) {
+      _syncAsync(
+        () => firestoreService!.incrementGymCrowd(state.currentGym.id, nextCrowd),
+      );
+    }
+  }
+
+  void _onResetGymFloorCrowd(
+    ResetGymFloorCrowdEvent event,
+    Emitter<SmartGymState> emit,
+  ) {
+    final updatedGyms = List<GymTenant>.from(state.gyms);
+    if (updatedGyms.isNotEmpty) {
+      final idx = state.selectedGymIndex.clamp(0, updatedGyms.length - 1);
+      updatedGyms[idx] = updatedGyms[idx].copyWith(activeCrowd: 0);
+    }
+    emit(state.copyWith(gyms: updatedGyms, crowdDelta: 0));
+    if (state.currentGym.id.isNotEmpty) {
+      _syncAsync(
+        () => firestoreService!.incrementGymCrowd(state.currentGym.id, 0),
       );
     }
   }

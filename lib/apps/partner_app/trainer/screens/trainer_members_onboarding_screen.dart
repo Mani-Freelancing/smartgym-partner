@@ -5,6 +5,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/cred_neopop_widgets.dart';
+import '../../../../data/services/member_whatsapp_service.dart';
 import '../../../../domain/models/gym_member.dart';
 import '../../../../shared_bloc/smart_gym_bloc.dart';
 import '../../../../shared_bloc/smart_gym_event.dart';
@@ -20,6 +21,7 @@ class TrainerMembersOnboardingScreen extends StatelessWidget {
     final phoneCtrl = TextEditingController();
     final amountCtrl =
         TextEditingController(text: state.currentGym.monthlyFee.toString());
+    final dueCtrl = TextEditingController(text: '0');
     final joinDateCtrl = TextEditingController();
     final picker = ImagePicker();
 
@@ -81,6 +83,7 @@ class TrainerMembersOnboardingScreen extends StatelessWidget {
           final today = DateTime(now.year, now.month, now.day);
           final daysLeft = expiryDate.difference(today).inDays;
           final feePreview = int.tryParse(amountCtrl.text.trim()) ?? 0;
+          final duePreview = int.tryParse(dueCtrl.text.trim()) ?? 0;
 
           return DraggableScrollableSheet(
             initialChildSize: 0.88,
@@ -170,13 +173,27 @@ class TrainerMembersOnboardingScreen extends StatelessWidget {
                                 letterSpacing: 1.3,
                               ),
                             ),
-                            Text(
-                              '₹$feePreview',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 22,
-                                fontWeight: FontWeight.w900,
-                              ),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                Text(
+                                  '₹$feePreview',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 22,
+                                    fontWeight: FontWeight.w900,
+                                  ),
+                                ),
+                                if (duePreview > 0)
+                                  Text(
+                                    '+ ₹$duePreview due',
+                                    style: const TextStyle(
+                                      color: AppTheme.amber,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w800,
+                                    ),
+                                  ),
+                              ],
                             ),
                           ],
                         ),
@@ -468,6 +485,36 @@ class TrainerMembersOnboardingScreen extends StatelessWidget {
                         ),
                       ),
                     ],
+                  ),
+                  const SizedBox(height: 10),
+                  TextField(
+                    controller: dueCtrl,
+                    keyboardType: TextInputType.number,
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                    onChanged: (_) => setModalState(() {}),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w800,
+                    ),
+                    decoration: InputDecoration(
+                      labelText: 'Pending Due / Balance (₹) • Optional',
+                      hintText: '0 if paid in full',
+                      hintStyle: const TextStyle(
+                        color: Colors.white24,
+                        fontWeight: FontWeight.w400,
+                      ),
+                      prefixIcon: const Icon(
+                        Icons.pending_actions_rounded,
+                        color: AppTheme.amber,
+                        size: 18,
+                      ),
+                      filled: true,
+                      fillColor: const Color(0xFF12151C),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(14),
+                        borderSide: BorderSide.none,
+                      ),
+                    ),
                   ),
                   const SizedBox(height: 12),
                   Container(
@@ -822,11 +869,12 @@ class TrainerMembersOnboardingScreen extends StatelessWidget {
                           borderRadius: BorderRadius.circular(14),
                         ),
                       ),
-                      onPressed: () {
+                      onPressed: () async {
                         final name = nameCtrl.text.trim();
                         final digits =
                             phoneCtrl.text.replaceAll(RegExp(r'\D'), '');
                         final fee = int.tryParse(amountCtrl.text.trim());
+                        final due = int.tryParse(dueCtrl.text.trim()) ?? 0;
                         if (name.isEmpty || digits.length != 10) {
                           HapticFeedback.heavyImpact();
                           setModalState(() {
@@ -835,7 +883,7 @@ class TrainerMembersOnboardingScreen extends StatelessWidget {
                           });
                           return;
                         }
-                        if (fee == null || fee < 0) {
+                        if (fee == null || fee < 0 || due < 0) {
                           HapticFeedback.heavyImpact();
                           setModalState(() {
                             errorText = 'Enter a valid amount.';
@@ -852,6 +900,21 @@ class TrainerMembersOnboardingScreen extends StatelessWidget {
                         }
                         final planLabel =
                             '$months ${months == 1 ? 'Month' : 'Months'} ${isPt ? 'PT VIP' : 'Regular'}';
+                        final enrolledMember = GymMember(
+                          id: 'tmp',
+                          name: name,
+                          phone: '+91$digits',
+                          planTitle: planLabel,
+                          feePaid: fee,
+                          dueAmount: due,
+                          joinedDate: fmtDate(joiningDate),
+                          expiryDate: fmtDate(expiryDate),
+                          daysLeft: daysLeft,
+                          assignedTrainer: isPt ? selectedTrainer : null,
+                          isPtClient: isPt,
+                          addedByTrainer: state.loggedInTrainerName,
+                          paymentMode: paymentMode,
+                        );
                         HapticFeedback.mediumImpact();
                         bloc.add(
                           AddNewGymMemberEvent(
@@ -859,6 +922,7 @@ class TrainerMembersOnboardingScreen extends StatelessWidget {
                             phone: '+91$digits',
                             planTitle: planLabel,
                             feePaid: fee,
+                            dueAmount: due,
                             daysValid: daysLeft,
                             isPtClient: isPt,
                             assignedTrainer: isPt ? selectedTrainer : null,
@@ -884,6 +948,14 @@ class TrainerMembersOnboardingScreen extends StatelessWidget {
                             ),
                           ),
                         );
+                        if (context.mounted) {
+                          await MemberWhatsAppService.showEnrollmentSuccessDialog(
+                            context: context,
+                            gymName: state.currentGym.name,
+                            member: enrolledMember,
+                            accentColor: AppTheme.trainerCyan,
+                          );
+                        }
                       },
                       icon: const Icon(Icons.verified_rounded, size: 19),
                       label: Text(

@@ -2,6 +2,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../data/services/hero_avatar_service.dart';
 
 class CustomerCinematicIntro extends StatefulWidget {
   final String gymName;
@@ -27,6 +28,7 @@ class _CustomerCinematicIntroState extends State<CustomerCinematicIntro>
   late final AnimationController _embersCtrl;
   final List<_EmberParticle> _embers = [];
   bool _impactTriggered = false;
+  bool _finished = false;
 
   @override
   void initState() {
@@ -53,7 +55,7 @@ class _CustomerCinematicIntroState extends State<CustomerCinematicIntro>
 
     _mainCtrl = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 3500),
+      duration: const Duration(milliseconds: 2900),
     );
 
     _mainCtrl.addListener(() {
@@ -64,7 +66,10 @@ class _CustomerCinematicIntroState extends State<CustomerCinematicIntro>
     });
 
     _mainCtrl.addStatusListener((status) {
-      // Hold on the intro screen for inspection until auto-navigation is re-enabled.
+      if (status == AnimationStatus.completed && !_finished) {
+        _finished = true;
+        widget.onFinished();
+      }
     });
 
     _mainCtrl.forward();
@@ -140,92 +145,84 @@ class _CustomerCinematicIntroState extends State<CustomerCinematicIntro>
                 opacity: masterOpacity,
                 child: Transform.translate(
                   offset: Offset(shakeX, shakeY),
-                  child: Center(
+                  child: SafeArea(
                     child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 24),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 32,
+                        vertical: 24,
+                      ),
                       child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
+                          const Spacer(flex: 2),
                           SizedBox(
-                            width: 300,
-                            height: 330,
-                            child: Stack(
-                              alignment: Alignment.center,
-                              children: [
-                                // 3D Perspective Hero Portrait (No circle/frame)
-                                Transform(
-                                  alignment: Alignment.center,
-                                  transform: Matrix4.identity()
-                                    ..setEntry(3, 2, 0.0018)
-                                    ..rotateY(rotY)
-                                    ..rotateX(rotX)
-                                    ..scaleByDouble(
-                                      heroScale + idleBreath,
-                                      heroScale + idleBreath,
-                                      1.0,
-                                      1.0,
-                                    ),
-                                  child: Opacity(
-                                    opacity: heroRaw,
-                                    child: ShaderMask(
-                                      shaderCallback: (bounds) =>
-                                          const LinearGradient(
-                                        begin: Alignment.topCenter,
-                                        end: Alignment.bottomCenter,
-                                        colors: [
-                                          Colors.transparent,
-                                          Colors.white,
-                                          Colors.white,
-                                          Colors.transparent,
-                                        ],
-                                        stops: [0.0, 0.16, 0.82, 1.0],
-                                      ).createShader(bounds),
-                                      blendMode: BlendMode.dstIn,
-                                      child: ShaderMask(
-                                        shaderCallback: (bounds) =>
-                                            const LinearGradient(
-                                          begin: Alignment.centerLeft,
-                                          end: Alignment.centerRight,
-                                          colors: [
-                                            Colors.transparent,
-                                            Colors.white,
-                                            Colors.white,
-                                            Colors.transparent,
-                                          ],
-                                          stops: [0.0, 0.16, 0.84, 1.0],
-                                        ).createShader(bounds),
-                                        blendMode: BlendMode.dstIn,
-                                        child: Image.asset(
-                                          'assets/images/power_hero_3d.jpg',
-                                          width: 300,
-                                          height: 330,
-                                          fit: BoxFit.cover,
-                                        ),
-                                      ),
+                            width: (size.width * 0.80).clamp(250.0, 330.0),
+                            height: (size.height * 0.43).clamp(280.0, 380.0),
+                            child: Center(
+                              // 3D Perspective Hero Portrait (No circle/frame)
+                              child: Transform(
+                                alignment: Alignment.center,
+                                transform: Matrix4.identity()
+                                  ..setEntry(3, 2, 0.0018)
+                                  ..rotateY(rotY)
+                                  ..rotateX(rotX)
+                                  ..scaleByDouble(
+                                    heroScale + idleBreath,
+                                    heroScale + idleBreath,
+                                    1.0,
+                                    1.0,
+                                  ),
+                                child: Opacity(
+                                  opacity: heroRaw,
+                                  child: Hero(
+                                    tag: 'power_hero_avatar',
+                                    child: HeroAvatarImage(
+                                      width: (size.width * 0.84)
+                                          .clamp(260.0, 340.0),
+                                      height: (size.height * 0.45)
+                                          .clamp(290.0, 390.0),
                                     ),
                                   ),
                                 ),
-                              ],
+                              ),
                             ),
                           ),
-                          const SizedBox(height: 12),
+                          const SizedBox(height: 28),
                           Opacity(
                             opacity: textT,
                             child: Transform.scale(
-                              scale: 0.85 + (easedText * 0.15),
+                              scale: 0.88 + (easedText * 0.12),
                               child: Column(
+                                mainAxisSize: MainAxisSize.min,
                                 children: [
+                                  Container(
+                                    width: 40,
+                                    height: 2.5,
+                                    decoration: BoxDecoration(
+                                      gradient: const LinearGradient(
+                                        colors: [
+                                          AppTheme.ownerGold,
+                                          Color(0xFFFF6B2B),
+                                        ],
+                                      ),
+                                      borderRadius: BorderRadius.circular(99),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 18),
                                   Text(
                                     'WELCOME TO ${widget.gymName.toUpperCase()}',
                                     textAlign: TextAlign.center,
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
                                     style: const TextStyle(
                                       color: AppTheme.ownerGold,
-                                      fontSize: 11.5,
-                                      fontWeight: FontWeight.w900,
-                                      letterSpacing: 2.0,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w800,
+                                      letterSpacing: 2.8,
+                                      height: 1.4,
                                     ),
                                   ),
-                                  const SizedBox(height: 10),
+                                  const SizedBox(height: 14),
                                   ShaderMask(
                                     shaderCallback: (bounds) =>
                                         const LinearGradient(
@@ -240,34 +237,10 @@ class _CustomerCinematicIntroState extends State<CustomerCinematicIntro>
                                       textAlign: TextAlign.center,
                                       style: TextStyle(
                                         color: Colors.white,
-                                        fontSize: 34,
+                                        fontSize: 33,
                                         fontWeight: FontWeight.w900,
-                                        letterSpacing: -0.8,
-                                        height: 1.08,
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(height: 16),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 14,
-                                      vertical: 7,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: AppTheme.trainerCyan
-                                          .withValues(alpha: 0.14),
-                                      borderRadius: BorderRadius.circular(99),
-                                      border: Border.all(
-                                        color: AppTheme.trainerCyan
-                                            .withValues(alpha: 0.45),
-                                      ),
-                                    ),
-                                    child: Text(
-                                      '${widget.memberName} • ${widget.planTitle}',
-                                      style: const TextStyle(
-                                        color: AppTheme.trainerCyan,
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w800,
+                                        letterSpacing: 0.6,
+                                        height: 1.16,
                                       ),
                                     ),
                                   ),
@@ -275,6 +248,7 @@ class _CustomerCinematicIntroState extends State<CustomerCinematicIntro>
                               ),
                             ),
                           ),
+                          const Spacer(flex: 3),
                         ],
                       ),
                     ),

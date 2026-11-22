@@ -6,6 +6,7 @@ class GymMember extends Equatable {
   final String phone;
   final String planTitle;
   final int feePaid;
+  final int dueAmount;
   final String joinedDate;
   final String expiryDate;
   final int daysLeft;
@@ -23,6 +24,7 @@ class GymMember extends Equatable {
     required this.phone,
     required this.planTitle,
     required this.feePaid,
+    this.dueAmount = 0,
     required this.joinedDate,
     required this.expiryDate,
     required this.daysLeft,
@@ -37,10 +39,12 @@ class GymMember extends Equatable {
 
   bool get isExpired => daysLeft <= 0;
   bool get isExpiringSoon => daysLeft > 0 && daysLeft <= 5;
+  bool get hasDue => dueAmount > 0;
 
   GymMember copyWith({
     String? planTitle,
     int? feePaid,
+    int? dueAmount,
     String? expiryDate,
     int? daysLeft,
     String? assignedTrainer,
@@ -53,6 +57,7 @@ class GymMember extends Equatable {
       phone: phone,
       planTitle: planTitle ?? this.planTitle,
       feePaid: feePaid ?? this.feePaid,
+      dueAmount: dueAmount ?? this.dueAmount,
       joinedDate: joinedDate,
       expiryDate: expiryDate ?? this.expiryDate,
       daysLeft: daysLeft ?? this.daysLeft,
@@ -73,6 +78,7 @@ class GymMember extends Equatable {
         phone,
         planTitle,
         feePaid,
+        dueAmount,
         joinedDate,
         expiryDate,
         daysLeft,
