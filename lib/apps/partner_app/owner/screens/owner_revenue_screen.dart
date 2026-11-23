@@ -6,6 +6,7 @@ import '../../../../core/widgets/cred_neopop_widgets.dart';
 import '../../../../shared_bloc/smart_gym_bloc.dart';
 import '../../../../shared_bloc/smart_gym_event.dart';
 import '../../../../shared_bloc/smart_gym_state.dart';
+import '../analytics/owner_analytics_widgets.dart';
 import '../owner_add_member_screen.dart';
 import 'owner_audit_log_screen.dart';
 
@@ -83,16 +84,9 @@ class OwnerRevenueScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return BlocBuilder<SmartGymBloc, SmartGymState>(
       builder: (context, state) {
-        final gym = state.currentGym;
         final expiringList = state.expiringOrExpiredMembers;
         final pendingEnquiries =
             state.enquiries.where((e) => !e.converted).length;
-        final cashTotal = state.members
-            .where((m) => m.paymentMode != 'Online')
-            .fold<int>(0, (sum, m) => sum + m.feePaid);
-        final onlineTotal = state.members
-            .where((m) => m.paymentMode == 'Online')
-            .fold<int>(0, (sum, m) => sum + m.feePaid);
 
         return RefreshIndicator(
           color: AppTheme.ownerGold,
@@ -107,105 +101,13 @@ class OwnerRevenueScreen extends StatelessWidget {
             ),
             padding: const EdgeInsets.fromLTRB(20, 10, 20, 28),
             children: [
-              // 1. Revenue Hero Card with Cash/UPI Split & Live Capacity
+              // 1. Unified CEO Overview Hero + Analytics Chart Card
               CredStaggeredItem(
                 index: 0,
-                child: CredMetalCard(
-                  glowColor: AppTheme.ownerGold,
-                  enableShimmer: true,
-                  padding: const EdgeInsets.all(20),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Flexible(
-                            child: Text(
-                              '${gym.name.toUpperCase()} • CEO OVERVIEW',
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                fontSize: 10,
-                                fontWeight: FontWeight.w900,
-                                color: AppTheme.ownerGold,
-                                letterSpacing: 1.4,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          GestureDetector(
-                            onTap: () =>
-                                _showResetCrowdDialog(context, state.liveCrowd),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 3,
-                              ),
-                              decoration: BoxDecoration(
-                                color: AppTheme.accent.withValues(alpha: 0.14),
-                                borderRadius: BorderRadius.circular(99),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Text(
-                                    '${state.liveCrowd}/${gym.maxCapacity} IN FLOOR',
-                                    style: const TextStyle(
-                                      fontSize: 9.5,
-                                      fontWeight: FontWeight.w900,
-                                      color: AppTheme.accent,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 4),
-                                  const Icon(
-                                    Icons.refresh_rounded,
-                                    size: 11,
-                                    color: AppTheme.accent,
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      Text(
-                        formatInr(state.totalMonthlyRevenue),
-                        style: const TextStyle(
-                          fontSize: 36,
-                          fontWeight: FontWeight.w900,
-                          letterSpacing: -1.0,
-                          color: Colors.white,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      const Text(
-                        'Total Monthly Revenue (Memberships + Personal Training)',
-                        style: TextStyle(fontSize: 12, color: Colors.white60),
-                      ),
-                      const SizedBox(height: 14),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: _CollectionSplitChip(
-                              label: 'Cash',
-                              amount: formatInr(cashTotal),
-                              accent: AppTheme.accent,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: _CollectionSplitChip(
-                              label: 'Online / UPI',
-                              amount: formatInr(onlineTotal),
-                              accent: AppTheme.ownerGold,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
+                child: OwnerCeoHeroCard(
+                  state: state,
+                  onResetCrowd: () =>
+                      _showResetCrowdDialog(context, state.liveCrowd),
                 ),
               ),
               const SizedBox(height: 18),
@@ -290,7 +192,15 @@ class OwnerRevenueScreen extends StatelessWidget {
               ),
               const SizedBox(height: 18),
 
-              // 3. Primary Quick Action
+              // 3. Futuristic AI Gym Copilot
+              OwnerAiCopilotCard(
+                state: state,
+                onOpenAuditFilter: (f) => _openAudit(context, f),
+                onOpenWalkInLeads: onOpenWalkInLeads,
+              ),
+              const SizedBox(height: 18),
+
+              // 4. Primary Quick Action
               const Text(
                 'QUICK ACTION',
                 style: TextStyle(
@@ -357,56 +267,6 @@ class OwnerRevenueScreen extends StatelessWidget {
           ),
         );
       },
-    );
-  }
-}
-
-class _CollectionSplitChip extends StatelessWidget {
-  final String label;
-  final String amount;
-  final Color accent;
-
-  const _CollectionSplitChip({
-    required this.label,
-    required this.amount,
-    required this.accent,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: accent.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: accent.withValues(alpha: 0.25)),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Flexible(
-            child: Text(
-              label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w700,
-                color: Colors.white70,
-              ),
-            ),
-          ),
-          const SizedBox(width: 6),
-          Text(
-            amount,
-            style: TextStyle(
-              fontSize: 12.5,
-              fontWeight: FontWeight.w900,
-              color: accent,
-            ),
-          ),
-        ],
-      ),
     );
   }
 }

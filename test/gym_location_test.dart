@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_demo_application/apps/partner_app/auth/partner_onboarding_screen.dart';
+import 'package:flutter_demo_application/apps/partner_app/owner/analytics/owner_analytics_engine.dart';
 import 'package:flutter_demo_application/apps/partner_app/owner/owner_shell_screen.dart';
 import 'package:flutter_demo_application/apps/partner_app/owner/screens/owner_audit_log_screen.dart';
 import 'package:flutter_demo_application/apps/partner_app/owner/screens/owner_revenue_screen.dart';
@@ -12,8 +13,10 @@ import 'package:flutter_demo_application/data/services/onboarding_draft_service.
 import 'package:flutter_demo_application/domain/models/gym_fee_plan.dart';
 import 'package:flutter_demo_application/domain/models/gym_member.dart';
 import 'package:flutter_demo_application/domain/models/gym_tenant.dart';
+import 'package:flutter_demo_application/domain/models/walk_in_enquiry.dart';
 import 'package:flutter_demo_application/shared_bloc/smart_gym_bloc.dart';
 import 'package:flutter_demo_application/shared_bloc/smart_gym_event.dart';
+import 'package:flutter_demo_application/shared_bloc/smart_gym_state.dart';
 
 void main() {
   test('GymLocationService formats meters and kilometers cleanly', () {
@@ -339,14 +342,13 @@ void main() {
 
     expect(find.text('IRON PULSE GYM • CEO OVERVIEW'), findsOneWidget);
     expect(find.text('0/60 IN FLOOR'), findsOneWidget);
-    expect(find.text('Total Monthly Revenue (Memberships + Personal Training)'), findsOneWidget);
+    expect(find.text('Last 30 Days Collection'), findsOneWidget);
     expect(find.text('Cash'), findsOneWidget);
     expect(find.text('Online / UPI'), findsOneWidget);
     expect(find.text('Active Members'), findsOneWidget);
     expect(find.text('Expiring Soon'), findsOneWidget);
     expect(find.text('Walk-In Leads'), findsOneWidget);
     expect(find.text('Pending Dues'), findsOneWidget);
-    expect(find.text('Enroll Member'), findsOneWidget);
     expect(find.byKey(const ValueKey('open_audit_log_btn')), findsNothing);
     expect(find.byKey(const ValueKey('audit_log_search_input')), findsNothing);
     expect(find.text('Complete your gym setup'), findsNothing);
@@ -357,6 +359,7 @@ void main() {
         tester.state<ScrollableState>(find.byType(Scrollable).first);
     scrollState.position.jumpTo(scrollState.position.maxScrollExtent);
     await tester.pump();
+    expect(find.text('Enroll Member'), findsOneWidget);
     expect(
       find.text(
         'No gym members added yet.\nTap Enroll Member above to add your first paid member and start tracking collections live.',
@@ -448,15 +451,14 @@ void main() {
     );
     await tester.pump(const Duration(milliseconds: 500));
 
-    expect(find.text('₹9,000'), findsOneWidget);
-    expect(find.text('₹7,000'), findsOneWidget);
-    expect(find.text('₹2,000'), findsOneWidget);
+    expect(find.text('Total Enrolled: ₹9,000'), findsOneWidget);
+    expect(find.text('Last 30 Days Collection'), findsOneWidget);
+    expect(find.text('₹2,000'), findsAtLeastNWidgets(1));
     expect(find.text('4/80 IN FLOOR'), findsOneWidget);
     expect(find.byKey(const ValueKey('home_metric_active')), findsOneWidget);
     expect(find.byKey(const ValueKey('home_metric_expiring')), findsOneWidget);
     expect(find.byKey(const ValueKey('home_metric_walkins')), findsOneWidget);
     expect(find.byKey(const ValueKey('home_metric_dues')), findsOneWidget);
-    expect(find.byKey(const ValueKey('home_enroll_member_btn')), findsOneWidget);
     expect(find.text('₹500'), findsOneWidget);
 
     // Search, full directory & redundant Audit Log button should not appear on Home
@@ -464,7 +466,14 @@ void main() {
     expect(find.byKey(const ValueKey('audit_log_search_input')), findsNothing);
     expect(find.text('Rohan Verma'), findsNothing);
 
-    await tester.ensureVisible(find.byKey(const ValueKey('home_metric_active')));
+    final scrollState =
+        tester.state<ScrollableState>(find.byType(Scrollable).first);
+    scrollState.position.jumpTo(scrollState.position.maxScrollExtent);
+    await tester.pump();
+    expect(find.byKey(const ValueKey('home_enroll_member_btn')), findsOneWidget);
+
+    scrollState.position.jumpTo(0);
+    await tester.pump();
     await tester.tap(find.byKey(const ValueKey('home_metric_active')));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 500));
@@ -588,5 +597,216 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('home_metric_walkins')));
     await tester.pump(const Duration(milliseconds: 300));
     expect(find.text('TRAINER DUTY, PT CLIENTS & COMMISSION SPLIT'), findsOneWidget);
+  });
+
+  test('OwnerAnalyticsEngine computes 1W, 1M, 2M, Custom windows and AI insights accurately', () {
+    final now = DateTime(2026, 11, 23);
+    expect(
+      OwnerAnalyticsEngine.parseDate('Today, 09:30 AM', now: now),
+      DateTime(2026, 11, 23),
+    );
+    expect(
+      OwnerAnalyticsEngine.parseDate('12 Nov 2026', now: now),
+      DateTime(2026, 11, 12),
+    );
+    expect(
+      OwnerAnalyticsEngine.parseDate('18 Oct', now: now),
+      DateTime(2026, 10, 18),
+    );
+
+    final state = SmartGymState(
+      gyms: const [
+        GymTenant(
+          id: 'g_ai',
+          name: 'Titan Forge',
+          area: 'Indiranagar',
+          headTrainer: 'Karan',
+          brandColor: Color(0xFFE5C158),
+          activeCrowd: 24,
+          maxCapacity: 30,
+          monthlyFee: 2000,
+          ptFee: 6000,
+        ),
+      ],
+      members: const [
+        GymMember(
+          id: 'm_today',
+          name: 'Aarav',
+          phone: '+919800000001',
+          planTitle: 'PT VIP',
+          feePaid: 5000,
+          joinedDate: 'Today, 10:00 AM',
+          expiryDate: '23 Dec 2026',
+          daysLeft: 30,
+          isPtClient: true,
+          addedByTrainer: 'Owner',
+          paymentMode: 'Online',
+        ),
+        GymMember(
+          id: 'm_15d',
+          name: 'Bhavna',
+          phone: '+919800000002',
+          planTitle: 'Quarterly',
+          feePaid: 3000,
+          dueAmount: 500,
+          joinedDate: '08 Nov 2026',
+          expiryDate: '26 Nov 2026',
+          daysLeft: 3,
+          isPtClient: false,
+          addedByTrainer: 'Owner',
+          paymentMode: 'Cash',
+        ),
+        GymMember(
+          id: 'm_45d',
+          name: 'Charan',
+          phone: '+919800000003',
+          planTitle: 'Monthly',
+          feePaid: 2000,
+          joinedDate: '09 Oct 2026',
+          expiryDate: '09 Nov 2026',
+          daysLeft: 20,
+          isPtClient: false,
+          addedByTrainer: 'Owner',
+          paymentMode: 'Cash',
+        ),
+      ],
+      trainers: const [],
+      enquiries: const [
+        WalkInEnquiry(
+          id: 'e1',
+          name: 'Divya',
+          phone: '+919800000004',
+          interestedPlan: 'Monthly (₹2000)',
+          loggedByTrainer: 'Karan',
+          timeLabel: 'Today',
+        ),
+      ],
+      machineGuides: const [],
+      mealQueue: const [],
+      missingMembers: const [],
+    );
+
+    final w1 = OwnerAnalyticsEngine.buildReport(
+      state: state,
+      range: AnalyticsRange.week1,
+      now: now,
+    );
+    expect(w1.totalPeriodRevenue, 5000);
+    expect(w1.periodJoins, 1);
+    expect(w1.buckets.last.isForecast, isTrue);
+
+    final m1 = OwnerAnalyticsEngine.buildReport(
+      state: state,
+      range: AnalyticsRange.month1,
+      now: now,
+    );
+    expect(m1.totalPeriodRevenue, 8000);
+    expect(m1.periodJoins, 2);
+
+    final m2 = OwnerAnalyticsEngine.buildReport(
+      state: state,
+      range: AnalyticsRange.months2,
+      now: now,
+    );
+    expect(m2.totalPeriodRevenue, 10000);
+    expect(m2.periodJoins, 3);
+
+    final custom = OwnerAnalyticsEngine.buildReport(
+      state: state,
+      range: AnalyticsRange.custom,
+      customRange: DateTimeRange(
+        start: DateTime(2026, 10, 1),
+        end: DateTime(2026, 10, 31),
+      ),
+      now: now,
+    );
+    expect(custom.totalPeriodRevenue, 2000);
+    expect(custom.periodJoins, 1);
+
+    expect(m1.healthScore, inInclusiveRange(0, 100));
+    expect(m1.insights.any((i) => i.id == 'collect_dues'), isTrue);
+    expect(m1.insights.any((i) => i.id == 'renewal_risk'), isTrue);
+    expect(m1.insights.any((i) => i.id == 'lead_pipeline'), isTrue);
+    expect(m1.insights.any((i) => i.id == 'crowd_peak'), isTrue);
+  });
+
+  testWidgets('Owner Home Analytics Studio switches timeframes, chart types, and AI Brief cleanly', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(360, 900);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final bloc = SmartGymBloc(repository: GymRepository());
+    addTearDown(bloc.close);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: BlocProvider.value(
+            value: bloc,
+            child: const OwnerRevenueScreen(),
+          ),
+        ),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 500));
+
+    final scrollState =
+        tester.state<ScrollableState>(find.byType(Scrollable).first);
+
+    // Analytics lives directly inside the starting CEO OVERVIEW card with no duplicate card
+    expect(find.text('ANALYTICS STUDIO'), findsNothing);
+    expect(find.textContaining('CEO OVERVIEW'), findsOneWidget);
+    expect(find.text('Last 30 Days Collection'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('range_chip_1w')));
+    await tester.pump(const Duration(milliseconds: 250));
+    expect(find.text('Last 7 Days Collection'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('range_chip_2m')));
+    await tester.pump(const Duration(milliseconds: 250));
+    expect(find.text('Last 2 Months Collection'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('chart_type_bar')));
+    await tester.pump(const Duration(milliseconds: 300));
+
+    await tester.tap(find.byKey(const ValueKey('chart_type_mix')));
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.text('UPI / Online'), findsAtLeastNWidgets(1));
+    expect(find.text('Cash Floor'), findsOneWidget);
+    expect(find.text('PT VIP Plans'), findsOneWidget);
+    expect(find.text('Regular Plans'), findsOneWidget);
+
+    // Custom animated bottom-sheet calendar opens on tap, switches presets/months & applies
+    await tester.tap(find.byKey(const ValueKey('range_chip_custom')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(find.byKey(const ValueKey('custom_range_sheet')), findsOneWidget);
+    expect(find.text('CUSTOM DATE STUDIO'), findsOneWidget);
+    expect(find.byKey(const ValueKey('custom_range_apply_btn')), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('custom_range_prev_month')));
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.tap(find.byKey(const ValueKey('custom_range_preset_90d')));
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.text('Apply (90 Days)'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('custom_range_apply_btn')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.text('Custom (90 d) Collection'), findsOneWidget);
+
+    // Scroll to AI Copilot card & open Full AI Brief
+    scrollState.position.jumpTo(scrollState.position.maxScrollExtent);
+    await tester.pump();
+    expect(find.byKey(const ValueKey('ai_copilot_card')), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('ai_brief_btn')));
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.text('AI CEO Forecast & Health Brief'), findsOneWidget);
+    expect(find.text('PROJECTED NEXT 30-DAY RUN-RATE'), findsOneWidget);
+    expect(find.text('Retention Health'), findsOneWidget);
+    expect(find.text('Cash Collection Score'), findsOneWidget);
   });
 }

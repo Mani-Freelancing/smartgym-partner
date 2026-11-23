@@ -1,0 +1,1565 @@
+import 'dart:math' as math;
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import '../../../../core/theme/app_theme.dart';
+import '../../../../core/widgets/cred_neopop_widgets.dart';
+import '../../../../shared_bloc/smart_gym_state.dart';
+import '../screens/owner_audit_log_screen.dart';
+import 'custom_range_bottom_sheet.dart';
+import 'owner_analytics_engine.dart';
+
+/// Unified starting CEO Overview hero card fusing live revenue metrics,
+/// floor occupancy, timeframe switcher (`1W`, `1M`, `2M`, `Custom`),
+/// and multi-type interactive analytics (`Area`, `Bar`, `Mix`).
+class OwnerCeoHeroCard extends StatefulWidget {
+  final SmartGymState state;
+  final VoidCallback onResetCrowd;
+
+  const OwnerCeoHeroCard({
+    super.key,
+    required this.state,
+    required this.onResetCrowd,
+  });
+
+  @override
+  State<OwnerCeoHeroCard> createState() => _OwnerCeoHeroCardState();
+}
+
+class _OwnerCeoHeroCardState extends State<OwnerCeoHeroCard> {
+  AnalyticsRange _range = AnalyticsRange.month1;
+  AnalyticsChartType _chartType = AnalyticsChartType.area;
+  DateTimeRange? _customRange;
+  int? _selectedBucketIndex;
+
+  Future<void> _pickCustomRange() async {
+    HapticFeedback.selectionClick();
+    final now = DateTime.now();
+    final initial = _customRange ??
+        DateTimeRange(
+          start: now.subtract(const Duration(days: 13)),
+          end: now,
+        );
+    final picked = await showCustomRangeBottomSheet(
+      context,
+      initialRange: initial,
+      firstDate: DateTime(now.year - 2),
+      lastDate: now,
+    );
+    if (!mounted || picked == null) return;
+    setState(() {
+      _customRange = picked;
+      _range = AnalyticsRange.custom;
+      _selectedBucketIndex = null;
+    });
+  }
+
+  void _selectRange(AnalyticsRange next) {
+    HapticFeedback.selectionClick();
+    if (next == AnalyticsRange.custom) {
+      _pickCustomRange();
+      return;
+    }
+    setState(() {
+      _range = next;
+      _selectedBucketIndex = null;
+    });
+  }
+
+  void _selectChartType(AnalyticsChartType type) {
+    HapticFeedback.selectionClick();
+    setState(() {
+      _chartType = type;
+      _selectedBucketIndex = null;
+    });
+  }
+
+  void _scrubAt(Offset localPos, double width, int bucketCount) {
+    if (bucketCount <= 0 || width <= 0) return;
+    final ratio = (localPos.dx / width).clamp(0.0, 0.9999);
+    final idx = (ratio * bucketCount).floor().clamp(0, bucketCount - 1);
+    if (_selectedBucketIndex != idx) {
+      setState(() => _selectedBucketIndex = idx);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final gym = widget.state.currentGym;
+    final report = OwnerAnalyticsEngine.buildReport(
+      state: widget.state,
+      range: _range,
+      customRange: _customRange,
+    );
+
+    final selectedBucket = (_selectedBucketIndex != null &&
+            _selectedBucketIndex! < report.buckets.length)
+        ? report.buckets[_selectedBucketIndex!]
+        : null;
+
+    return CredMetalCard(
+      glowColor: AppTheme.ownerGold,
+      enableShimmer: true,
+      padding: const EdgeInsets.all(18),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // 1. Gym CEO Header + Live Floor Occupancy Pill
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Flexible(
+                child: Text(
+                  '${gym.name.toUpperCase()} • CEO OVERVIEW',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w900,
+                    color: AppTheme.ownerGold,
+                    letterSpacing: 1.4,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              GestureDetector(
+                onTap: widget.onResetCrowd,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 3,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppTheme.accent.withValues(alpha: 0.14),
+                    borderRadius: BorderRadius.circular(99),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        '${widget.state.liveCrowd}/${gym.maxCapacity} IN FLOOR',
+                        style: const TextStyle(
+                          fontSize: 9.5,
+                          fontWeight: FontWeight.w900,
+                          color: AppTheme.accent,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      const Icon(
+                        Icons.refresh_rounded,
+                        size: 11,
+                        color: AppTheme.accent,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+
+          // 2. Hero Revenue Headline + Join / Pace Pills
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      formatInr(
+                        selectedBucket?.revenue ?? report.totalPeriodRevenue,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 32,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: -0.9,
+                        color: selectedBucket?.isForecast == true
+                            ? AppTheme.trainerCyan
+                            : Colors.white,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      selectedBucket != null
+                          ? '${selectedBucket.detailLabel}${selectedBucket.isForecast ? ' (AI Est.)' : ''}'
+                          : '${report.rangeTitle} Collection',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 11.5,
+                        color: Colors.white60,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    if (selectedBucket == null &&
+                        widget.state.totalMonthlyRevenue !=
+                            report.totalPeriodRevenue) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        'Total Enrolled: ${formatInr(widget.state.totalMonthlyRevenue)}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 10.5,
+                          color: AppTheme.ownerGold,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Wrap(
+                spacing: 6,
+                runSpacing: 4,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  _MiniStatPill(
+                    text:
+                        '${selectedBucket?.joins ?? report.periodJoins} join(s)',
+                    color: AppTheme.trainerCyan,
+                  ),
+                  if (report.growthPercent != null && selectedBucket == null)
+                    _MiniStatPill(
+                      text:
+                          '${report.growthPercent! >= 0 ? '+' : ''}${report.growthPercent}% pace',
+                      color: report.growthPercent! >= 0
+                          ? AppTheme.accent
+                          : AppTheme.softRed,
+                    ),
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+
+          // 3. Chart Type Switcher + Range Date Caption
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(3),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF10131B),
+                  borderRadius: BorderRadius.circular(11),
+                  border: Border.all(color: Colors.white12),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _ChartTypeChip(
+                      key: const ValueKey('chart_type_area'),
+                      icon: Icons.show_chart_rounded,
+                      label: 'Area',
+                      selected: _chartType == AnalyticsChartType.area,
+                      onTap: () => _selectChartType(AnalyticsChartType.area),
+                    ),
+                    _ChartTypeChip(
+                      key: const ValueKey('chart_type_bar'),
+                      icon: Icons.bar_chart_rounded,
+                      label: 'Bar',
+                      selected: _chartType == AnalyticsChartType.bar,
+                      onTap: () => _selectChartType(AnalyticsChartType.bar),
+                    ),
+                    _ChartTypeChip(
+                      key: const ValueKey('chart_type_mix'),
+                      icon: Icons.donut_large_rounded,
+                      label: 'Mix',
+                      selected: _chartType == AnalyticsChartType.mix,
+                      onTap: () => _selectChartType(AnalyticsChartType.mix),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  report.rangeSubtitle,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.right,
+                  style: const TextStyle(
+                    fontSize: 10.5,
+                    color: Colors.white54,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+
+          // 4. Timeframe Pills (1W / Monthly / 2M / Custom)
+          Row(
+            children: [
+              Expanded(
+                child: _RangePill(
+                  key: const ValueKey('range_chip_1w'),
+                  label: '1 Week',
+                  selected: _range == AnalyticsRange.week1,
+                  onTap: () => _selectRange(AnalyticsRange.week1),
+                ),
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: _RangePill(
+                  key: const ValueKey('range_chip_1m'),
+                  label: 'Monthly',
+                  selected: _range == AnalyticsRange.month1,
+                  onTap: () => _selectRange(AnalyticsRange.month1),
+                ),
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: _RangePill(
+                  key: const ValueKey('range_chip_2m'),
+                  label: '2 Months',
+                  selected: _range == AnalyticsRange.months2,
+                  onTap: () => _selectRange(AnalyticsRange.months2),
+                ),
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: _RangePill(
+                  key: const ValueKey('range_chip_custom'),
+                  label: 'Custom',
+                  icon: Icons.date_range_rounded,
+                  selected: _range == AnalyticsRange.custom,
+                  onTap: () => _selectRange(AnalyticsRange.custom),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+
+          // 5. Interactive Chart Viewport (Area / Bar / Mix)
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 220),
+            child: switch (_chartType) {
+              AnalyticsChartType.area => _buildInteractiveCartesianChart(
+                  key: ValueKey('area_${_range.name}_${report.buckets.length}'),
+                  report: report,
+                  isBar: false,
+                ),
+              AnalyticsChartType.bar => _buildInteractiveCartesianChart(
+                  key: ValueKey('bar_${_range.name}_${report.buckets.length}'),
+                  report: report,
+                  isBar: true,
+                ),
+              AnalyticsChartType.mix => _MixBreakdownView(
+                  key: ValueKey('mix_${_range.name}'),
+                  report: report,
+                ),
+            },
+          ),
+
+          // 6. Cash vs Online Split (shown in Area/Bar; Mix already displays it)
+          if (_chartType != AnalyticsChartType.mix) ...[
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: _HeroSplitChip(
+                    label: 'Cash',
+                    amount: formatInr(report.cashRevenue),
+                    accent: AppTheme.accent,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _HeroSplitChip(
+                    label: 'Online / UPI',
+                    amount: formatInr(report.onlineRevenue),
+                    accent: AppTheme.ownerGold,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInteractiveCartesianChart({
+    required Key key,
+    required OwnerAnalyticsReport report,
+    required bool isBar,
+  }) {
+    final buckets = report.buckets;
+    return Column(
+      key: key,
+      children: [
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final width = constraints.maxWidth;
+            return GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTapDown: (d) =>
+                  _scrubAt(d.localPosition, width, buckets.length),
+              onHorizontalDragUpdate: (d) =>
+                  _scrubAt(d.localPosition, width, buckets.length),
+              child: SizedBox(
+                width: double.infinity,
+                height: 148,
+                child: CustomPaint(
+                  painter: isBar
+                      ? _GlowingBarChartPainter(
+                          buckets: buckets,
+                          selectedIndex: _selectedBucketIndex,
+                        )
+                      : _GlowingSplineChartPainter(
+                          buckets: buckets,
+                          selectedIndex: _selectedBucketIndex,
+                        ),
+                ),
+              ),
+            );
+          },
+        ),
+        const SizedBox(height: 6),
+        Row(
+          children: List.generate(buckets.length, (i) {
+            final b = buckets[i];
+            final active = _selectedBucketIndex == i;
+            return Expanded(
+              child: GestureDetector(
+                onTap: () => setState(() => _selectedBucketIndex = i),
+                child: Text(
+                  b.label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 9.5,
+                    fontWeight: active ? FontWeight.w900 : FontWeight.w600,
+                    color: b.isForecast
+                        ? AppTheme.trainerCyan
+                        : (active ? AppTheme.ownerGold : Colors.white38),
+                  ),
+                ),
+              ),
+            );
+          }),
+        ),
+        if (buckets.any((b) => b.isForecast)) ...[
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              const Icon(
+                Icons.auto_awesome_rounded,
+                size: 12,
+                color: AppTheme.trainerCyan,
+              ),
+              const SizedBox(width: 5),
+              Expanded(
+                child: Text(
+                  'Tap or slide any point to inspect • AI+ shows next period projection',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 10,
+                    color: Colors.white.withValues(alpha: 0.45),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _GlowingSplineChartPainter extends CustomPainter {
+  final List<AnalyticsBucket> buckets;
+  final int? selectedIndex;
+
+  const _GlowingSplineChartPainter({
+    required this.buckets,
+    required this.selectedIndex,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final gridPaint = Paint()
+      ..color = Colors.white.withValues(alpha: 0.06)
+      ..strokeWidth = 1;
+
+    const topPad = 14.0;
+    const bottomPad = 12.0;
+    const horizPad = 14.0;
+    final chartH = size.height - topPad - bottomPad;
+    final chartW = (size.width - horizPad * 2).clamp(1.0, size.width);
+
+    for (var g = 0; g < 3; g++) {
+      final y = topPad + (chartH * (g / 2));
+      canvas.drawLine(
+        Offset(horizPad, y),
+        Offset(size.width - horizPad, y),
+        gridPaint,
+      );
+    }
+
+    if (buckets.isEmpty) return;
+
+    final maxRev = buckets
+        .map((b) => b.revenue)
+        .fold<int>(0, (a, b) => a > b ? a : b);
+    final safeMax = maxRev > 0 ? maxRev.toDouble() : 1.0;
+
+    final points = <Offset>[];
+    for (var i = 0; i < buckets.length; i++) {
+      final x = buckets.length == 1
+          ? size.width / 2
+          : horizPad + (i / (buckets.length - 1)) * chartW;
+      final norm = buckets[i].revenue / safeMax;
+      final y = topPad + chartH * (1 - (maxRev == 0 ? 0.0 : norm));
+      points.add(Offset(x, y));
+    }
+
+    // Separate actual points from optional AI+ forecast point at end
+    final hasForecast = buckets.last.isForecast && points.length >= 2;
+    final actualPoints =
+        hasForecast ? points.sublist(0, points.length - 1) : points;
+
+    if (actualPoints.length >= 2) {
+      final path = Path()..moveTo(actualPoints.first.dx, actualPoints.first.dy);
+      for (var i = 0; i < actualPoints.length - 1; i++) {
+        final p0 = actualPoints[i];
+        final p1 = actualPoints[i + 1];
+        final midX = (p0.dx + p1.dx) / 2;
+        path.cubicTo(midX, p0.dy, midX, p1.dy, p1.dx, p1.dy);
+      }
+
+      final areaPath = Path.from(path)
+        ..lineTo(actualPoints.last.dx, topPad + chartH)
+        ..lineTo(actualPoints.first.dx, topPad + chartH)
+        ..close();
+
+      final fillPaint = Paint()
+        ..shader = LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            AppTheme.ownerGold.withValues(alpha: 0.34),
+            AppTheme.trainerCyan.withValues(alpha: 0.08),
+            Colors.transparent,
+          ],
+        ).createShader(Rect.fromLTWH(0, topPad, size.width, chartH));
+      canvas.drawPath(areaPath, fillPaint);
+
+      final glowPaint = Paint()
+        ..color = AppTheme.ownerGold.withValues(alpha: 0.35)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 6
+        ..strokeCap = StrokeCap.round;
+      canvas.drawPath(path, glowPaint);
+
+      final linePaint = Paint()
+        ..shader = const LinearGradient(
+          colors: [AppTheme.ownerGold, AppTheme.champagne],
+        ).createShader(Rect.fromLTWH(0, 0, size.width, size.height))
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2.6
+        ..strokeCap = StrokeCap.round;
+      canvas.drawPath(path, linePaint);
+    } else if (actualPoints.length == 1) {
+      canvas.drawLine(
+        Offset(horizPad, actualPoints.first.dy),
+        Offset(size.width - horizPad, actualPoints.first.dy),
+        Paint()
+          ..color = AppTheme.ownerGold
+          ..strokeWidth = 2.4,
+      );
+    }
+
+    // Forecast leg from last actual point to AI+ point
+    if (hasForecast) {
+      final from = actualPoints.last;
+      final to = points.last;
+      final dashPaint = Paint()
+        ..color = AppTheme.trainerCyan
+        ..strokeWidth = 2.2
+        ..strokeCap = StrokeCap.round;
+      const segments = 6;
+      for (var s = 0; s < segments; s++) {
+        if (s.isOdd) continue;
+        final t1 = s / segments;
+        final t2 = (s + 0.7) / segments;
+        canvas.drawLine(
+          Offset.lerp(from, to, t1)!,
+          Offset.lerp(from, to, t2)!,
+          dashPaint,
+        );
+      }
+    }
+
+    // Selected vertical crosshair + dot highlights
+    for (var i = 0; i < points.length; i++) {
+      final p = points[i];
+      final isForecast = buckets[i].isForecast;
+      final isSelected = selectedIndex == i;
+      final dotColor = isForecast ? AppTheme.trainerCyan : AppTheme.ownerGold;
+
+      if (isSelected) {
+        canvas.drawLine(
+          Offset(p.dx, topPad - 4),
+          Offset(p.dx, topPad + chartH),
+          Paint()
+            ..color = dotColor.withValues(alpha: 0.45)
+            ..strokeWidth = 1.4,
+        );
+        canvas.drawCircle(
+          p,
+          7,
+          Paint()..color = dotColor.withValues(alpha: 0.25),
+        );
+      }
+
+      canvas.drawCircle(
+        p,
+        isSelected ? 4.2 : 3.0,
+        Paint()..color = dotColor,
+      );
+      canvas.drawCircle(
+        p,
+        1.5,
+        Paint()..color = const Color(0xFF131720),
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _GlowingSplineChartPainter oldDelegate) =>
+      oldDelegate.buckets != buckets ||
+      oldDelegate.selectedIndex != selectedIndex;
+}
+
+class _GlowingBarChartPainter extends CustomPainter {
+  final List<AnalyticsBucket> buckets;
+  final int? selectedIndex;
+
+  const _GlowingBarChartPainter({
+    required this.buckets,
+    required this.selectedIndex,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final gridPaint = Paint()
+      ..color = Colors.white.withValues(alpha: 0.06)
+      ..strokeWidth = 1;
+
+    const topPad = 14.0;
+    const bottomPad = 10.0;
+    final chartH = size.height - topPad - bottomPad;
+
+    for (var g = 0; g < 3; g++) {
+      final y = topPad + (chartH * (g / 2));
+      canvas.drawLine(Offset(4, y), Offset(size.width - 4, y), gridPaint);
+    }
+
+    if (buckets.isEmpty) return;
+    final maxRev = buckets
+        .map((b) => b.revenue)
+        .fold<int>(0, (a, b) => a > b ? a : b);
+    final safeMax = maxRev > 0 ? maxRev.toDouble() : 1.0;
+
+    final slotW = size.width / buckets.length;
+    final barW = (slotW * 0.48).clamp(8.0, 28.0);
+
+    for (var i = 0; i < buckets.length; i++) {
+      final b = buckets[i];
+      final norm = maxRev == 0 ? 0.0 : (b.revenue / safeMax);
+      final h = (chartH * norm).clamp(b.revenue > 0 ? 10.0 : 4.0, chartH);
+      final left = i * slotW + (slotW - barW) / 2;
+      final top = topPad + chartH - h;
+      final rect = RRect.fromRectAndCorners(
+        Rect.fromLTWH(left, top, barW, h),
+        topLeft: const Radius.circular(7),
+        topRight: const Radius.circular(7),
+        bottomLeft: const Radius.circular(3),
+        bottomRight: const Radius.circular(3),
+      );
+
+      final isSelected = selectedIndex == i;
+      final topColor = b.isForecast
+          ? AppTheme.trainerCyan
+          : (isSelected ? Colors.white : AppTheme.ownerGold);
+      final bottomColor = b.isForecast
+          ? AppTheme.trainerCyan.withValues(alpha: 0.22)
+          : AppTheme.ownerGold.withValues(alpha: isSelected ? 0.45 : 0.25);
+
+      canvas.drawRRect(
+        rect,
+        Paint()
+          ..shader = LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [topColor, bottomColor],
+          ).createShader(rect.outerRect),
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _GlowingBarChartPainter oldDelegate) =>
+      oldDelegate.buckets != buckets ||
+      oldDelegate.selectedIndex != selectedIndex;
+}
+
+class _MixBreakdownView extends StatelessWidget {
+  final OwnerAnalyticsReport report;
+
+  const _MixBreakdownView({
+    super.key,
+    required this.report,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final totalChannel = report.cashRevenue + report.onlineRevenue;
+    final onlineShare =
+        totalChannel == 0 ? 0.0 : report.onlineRevenue / totalChannel;
+    final cashShare = totalChannel == 0 ? 0.0 : report.cashRevenue / totalChannel;
+
+    final totalPlan = report.ptRevenue + report.regularRevenue;
+    final ptShare = totalPlan == 0 ? 0.0 : report.ptRevenue / totalPlan;
+    final regShare = totalPlan == 0 ? 0.0 : report.regularRevenue / totalPlan;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 112,
+            height: 112,
+            child: CustomPaint(
+              painter: _GlowingDonutPainter(
+                onlineFraction: onlineShare,
+                cashFraction: cashShare,
+              ),
+              child: Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      totalChannel == 0
+                          ? '0%'
+                          : '${(onlineShare * 100).round()}%',
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w900,
+                        color: Colors.white,
+                      ),
+                    ),
+                    const Text(
+                      'UPI / Online',
+                      style: TextStyle(
+                        fontSize: 9.5,
+                        color: AppTheme.ownerGold,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _BreakdownBarRow(
+                  label: 'Online / UPI',
+                  amount: formatInr(report.onlineRevenue),
+                  fraction: onlineShare,
+                  color: AppTheme.ownerGold,
+                ),
+                const SizedBox(height: 8),
+                _BreakdownBarRow(
+                  label: 'Cash Floor',
+                  amount: formatInr(report.cashRevenue),
+                  fraction: cashShare,
+                  color: AppTheme.accent,
+                ),
+                const SizedBox(height: 8),
+                _BreakdownBarRow(
+                  label: 'PT VIP Plans',
+                  amount: formatInr(report.ptRevenue),
+                  fraction: ptShare,
+                  color: AppTheme.trainerCyan,
+                ),
+                const SizedBox(height: 8),
+                _BreakdownBarRow(
+                  label: 'Regular Plans',
+                  amount: formatInr(report.regularRevenue),
+                  fraction: regShare,
+                  color: AppTheme.purple,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _GlowingDonutPainter extends CustomPainter {
+  final double onlineFraction;
+  final double cashFraction;
+
+  const _GlowingDonutPainter({
+    required this.onlineFraction,
+    required this.cashFraction,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = (math.min(size.width, size.height) / 2) - 10;
+    final rect = Rect.fromCircle(center: center, radius: radius);
+
+    final trackPaint = Paint()
+      ..color = Colors.white.withValues(alpha: 0.08)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 11;
+    canvas.drawCircle(center, radius, trackPaint);
+
+    if (onlineFraction <= 0 && cashFraction <= 0) return;
+
+    const startAngle = -math.pi / 2;
+    final onlineSweep = (onlineFraction.clamp(0.0, 1.0)) * 2 * math.pi;
+    final cashSweep = (cashFraction.clamp(0.0, 1.0)) * 2 * math.pi;
+
+    if (onlineSweep > 0.02) {
+      canvas.drawArc(
+        rect,
+        startAngle,
+        onlineSweep,
+        false,
+        Paint()
+          ..color = AppTheme.ownerGold
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 11
+          ..strokeCap = StrokeCap.round,
+      );
+    }
+
+    if (cashSweep > 0.02) {
+      canvas.drawArc(
+        rect,
+        startAngle + onlineSweep,
+        cashSweep,
+        false,
+        Paint()
+          ..color = AppTheme.accent
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 11
+          ..strokeCap = StrokeCap.round,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _GlowingDonutPainter oldDelegate) =>
+      oldDelegate.onlineFraction != onlineFraction ||
+      oldDelegate.cashFraction != cashFraction;
+}
+
+class _BreakdownBarRow extends StatelessWidget {
+  final String label;
+  final String amount;
+  final double fraction;
+  final Color color;
+
+  const _BreakdownBarRow({
+    required this.label,
+    required this.amount,
+    required this.fraction,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Flexible(
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 10.5,
+                  color: Colors.white70,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+            const SizedBox(width: 6),
+            Text(
+              amount,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w900,
+                color: color,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 3),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(99),
+          child: LinearProgressIndicator(
+            minHeight: 4,
+            value: fraction.clamp(0.0, 1.0),
+            backgroundColor: Colors.white10,
+            valueColor: AlwaysStoppedAnimation<Color>(color),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Futuristic AI Copilot widget highlighting real predictive risks, 30d run-rate,
+/// and 1-tap owner actions computed from live [SmartGymState].
+class OwnerAiCopilotCard extends StatelessWidget {
+  final SmartGymState state;
+  final ValueChanged<String> onOpenAuditFilter;
+  final VoidCallback? onOpenWalkInLeads;
+
+  const OwnerAiCopilotCard({
+    super.key,
+    required this.state,
+    required this.onOpenAuditFilter,
+    this.onOpenWalkInLeads,
+  });
+
+  Color _toneColor(AiInsightTone tone) => switch (tone) {
+        AiInsightTone.positive => AppTheme.accent,
+        AiInsightTone.warning => AppTheme.amber,
+        AiInsightTone.alert => AppTheme.softRed,
+        AiInsightTone.info => AppTheme.trainerCyan,
+      };
+
+  void _triggerInsightAction(BuildContext context, AiInsight insight) {
+    HapticFeedback.selectionClick();
+    if (insight.openLeads) {
+      onOpenWalkInLeads?.call();
+    } else if (insight.auditFilter != null) {
+      onOpenAuditFilter(insight.auditFilter!);
+    }
+  }
+
+  void _showFullBrief(BuildContext context, OwnerAnalyticsReport report) {
+    HapticFeedback.selectionClick();
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: const Color(0xFF151923),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(26)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(20, 14, 20, 28),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 14),
+                  decoration: BoxDecoration(
+                    color: Colors.white12,
+                    borderRadius: BorderRadius.circular(99),
+                  ),
+                ),
+              ),
+              Row(
+                children: [
+                  Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          AppTheme.trainerCyan.withValues(alpha: 0.25),
+                          AppTheme.ownerGold.withValues(alpha: 0.22),
+                        ],
+                      ),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(
+                      Icons.auto_awesome_rounded,
+                      color: AppTheme.ownerGold,
+                      size: 20,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  const Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'AI CEO Forecast & Health Brief',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 16.5,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                        Text(
+                          'Computed live from memberships, dues & leads',
+                          style: TextStyle(color: Colors.white54, fontSize: 11.5),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: AppTheme.trainerCyan.withValues(alpha: 0.16),
+                      borderRadius: BorderRadius.circular(99),
+                    ),
+                    child: Text(
+                      '${report.healthScore}/100',
+                      style: const TextStyle(
+                        color: AppTheme.trainerCyan,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF10131C),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: AppTheme.trainerCyan.withValues(alpha: 0.25),
+                  ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'PROJECTED NEXT 30-DAY RUN-RATE',
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 1.3,
+                        color: AppTheme.trainerCyan,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      formatInr(report.projectedNext30dRevenue),
+                      style: const TextStyle(
+                        fontSize: 26,
+                        fontWeight: FontWeight.w900,
+                        color: Colors.white,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    _BreakdownBarRow(
+                      label: 'Retention Health',
+                      amount: '${report.retentionScore}%',
+                      fraction: report.retentionScore / 100,
+                      color: AppTheme.accent,
+                    ),
+                    const SizedBox(height: 8),
+                    _BreakdownBarRow(
+                      label: 'Cash Collection Score',
+                      amount: '${report.collectionScore}%',
+                      fraction: report.collectionScore / 100,
+                      color: AppTheme.ownerGold,
+                    ),
+                    const SizedBox(height: 8),
+                    _BreakdownBarRow(
+                      label: 'PT VIP Penetration',
+                      amount: '${report.ptMixScore}%',
+                      fraction: report.ptMixScore / 100,
+                      color: AppTheme.trainerCyan,
+                    ),
+                    const SizedBox(height: 8),
+                    _BreakdownBarRow(
+                      label: 'Lead Momentum',
+                      amount: '${report.pipelineScore}%',
+                      fraction: report.pipelineScore / 100,
+                      color: AppTheme.purple,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 14),
+              ...report.insights.map((ins) {
+                final c = _toneColor(ins.tone);
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 10),
+                  padding: const EdgeInsets.all(13),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF1A1E29),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: c.withValues(alpha: 0.28)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        ins.tag,
+                        style: TextStyle(
+                          fontSize: 9.5,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 1.2,
+                          color: c,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        ins.title,
+                        style: const TextStyle(
+                          fontSize: 13.5,
+                          fontWeight: FontWeight.w900,
+                          color: Colors.white,
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        ins.detail,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Colors.white70,
+                          height: 1.4,
+                        ),
+                      ),
+                      if (ins.actionLabel != null &&
+                          (ins.auditFilter != null ||
+                              (ins.openLeads && onOpenWalkInLeads != null))) ...[
+                        const SizedBox(height: 8),
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: TextButton(
+                            onPressed: () {
+                              Navigator.pop(ctx);
+                              _triggerInsightAction(context, ins);
+                            },
+                            child: Text(
+                              '${ins.actionLabel} →',
+                              style: TextStyle(
+                                color: c,
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                );
+              }),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final report = OwnerAnalyticsEngine.buildReport(
+      state: state,
+      range: AnalyticsRange.month1,
+    );
+    final topInsights = report.insights.take(2).toList();
+
+    return Container(
+      key: const ValueKey('ai_copilot_card'),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            AppTheme.trainerCyan.withValues(alpha: 0.14),
+            AppTheme.ownerGold.withValues(alpha: 0.10),
+            const Color(0xFF151923),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: AppTheme.trainerCyan.withValues(alpha: 0.35),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(
+                Icons.auto_awesome_rounded,
+                size: 16,
+                color: AppTheme.trainerCyan,
+              ),
+              const SizedBox(width: 6),
+              const Expanded(
+                child: Text(
+                  'AI GYM COPILOT',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 1.4,
+                    color: AppTheme.trainerCyan,
+                  ),
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
+                decoration: BoxDecoration(
+                  color: AppTheme.ownerGold.withValues(alpha: 0.16),
+                  borderRadius: BorderRadius.circular(99),
+                  border: Border.all(
+                    color: AppTheme.ownerGold.withValues(alpha: 0.35),
+                  ),
+                ),
+                child: Text(
+                  'SCORE ${report.healthScore}/100',
+                  style: const TextStyle(
+                    fontSize: 9.5,
+                    fontWeight: FontWeight.w900,
+                    color: AppTheme.ownerGold,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          ...topInsights.map((ins) {
+            final c = _toneColor(ins.tone);
+            final canAct = ins.actionLabel != null &&
+                (ins.auditFilter != null ||
+                    (ins.openLeads && onOpenWalkInLeads != null));
+            return Container(
+              margin: const EdgeInsets.only(bottom: 8),
+              padding: const EdgeInsets.all(11),
+              decoration: BoxDecoration(
+                color: const Color(0xFF11151E).withValues(alpha: 0.85),
+                borderRadius: BorderRadius.circular(13),
+                border: Border.all(color: c.withValues(alpha: 0.25)),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Container(
+                    width: 4,
+                    height: 32,
+                    decoration: BoxDecoration(
+                      color: c,
+                      borderRadius: BorderRadius.circular(99),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          ins.title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w800,
+                            color: Colors.white,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          ins.detail,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: Colors.white60,
+                            height: 1.3,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (canAct) ...[
+                    const SizedBox(width: 8),
+                    InkWell(
+                      onTap: () => _triggerInsightAction(context, ins),
+                      borderRadius: BorderRadius.circular(10),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 9,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: c.withValues(alpha: 0.16),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Text(
+                          ins.actionLabel!,
+                          style: TextStyle(
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.w900,
+                            color: c,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            );
+          }),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Flexible(
+                child: Text(
+                  'Next 30d run-rate: ${formatInr(report.projectedNext30dRevenue)}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white60,
+                  ),
+                ),
+              ),
+              TextButton(
+                key: const ValueKey('ai_brief_btn'),
+                style: TextButton.styleFrom(
+                  foregroundColor: AppTheme.ownerGold,
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                onPressed: () => _showFullBrief(context, report),
+                child: const Text(
+                  'Full AI Brief →',
+                  style: TextStyle(
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ChartTypeChip extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _ChartTypeChip({
+    super.key,
+    required this.icon,
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+        decoration: BoxDecoration(
+          color: selected
+              ? AppTheme.ownerGold.withValues(alpha: 0.22)
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(9),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icon,
+              size: 13,
+              color: selected ? AppTheme.ownerGold : Colors.white54,
+            ),
+            const SizedBox(width: 4),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 10.5,
+                fontWeight: selected ? FontWeight.w900 : FontWeight.w600,
+                color: selected ? Colors.white : Colors.white54,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _RangePill extends StatelessWidget {
+  final String label;
+  final IconData? icon;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _RangePill({
+    super.key,
+    required this.label,
+    this.icon,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 7),
+        decoration: BoxDecoration(
+          color: selected
+              ? AppTheme.ownerGold
+              : const Color(0xFF10131B),
+          borderRadius: BorderRadius.circular(99),
+          border: Border.all(
+            color: selected ? AppTheme.ownerGold : Colors.white12,
+          ),
+        ),
+        child: Center(
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (icon != null) ...[
+                  Icon(
+                    icon,
+                    size: 12,
+                    color: selected ? Colors.black : AppTheme.ownerGold,
+                  ),
+                  const SizedBox(width: 4),
+                ],
+                Text(
+                  label,
+                  maxLines: 1,
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                    color: selected ? Colors.black : Colors.white70,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _MiniStatPill extends StatelessWidget {
+  final String text;
+  final Color color;
+
+  const _MiniStatPill({
+    required this.text,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.14),
+        borderRadius: BorderRadius.circular(99),
+      ),
+      child: Text(
+        text,
+        style: TextStyle(
+          fontSize: 10,
+          fontWeight: FontWeight.w900,
+          color: color,
+        ),
+      ),
+    );
+  }
+}
+
+class _HeroSplitChip extends StatelessWidget {
+  final String label;
+  final String amount;
+  final Color accent;
+
+  const _HeroSplitChip({
+    required this.label,
+    required this.amount,
+    required this.accent,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: accent.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: accent.withValues(alpha: 0.25)),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Flexible(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                color: Colors.white70,
+              ),
+            ),
+          ),
+          const SizedBox(width: 6),
+          Text(
+            amount,
+            style: TextStyle(
+              fontSize: 12.5,
+              fontWeight: FontWeight.w900,
+              color: accent,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
