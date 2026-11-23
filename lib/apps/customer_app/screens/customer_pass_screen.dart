@@ -4,10 +4,12 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/cred_neopop_widgets.dart';
 import '../../../data/services/attendance_guard_service.dart';
+import '../../../data/services/gym_location_service.dart';
 import '../../../data/services/hero_avatar_service.dart';
 import '../../../shared_bloc/smart_gym_bloc.dart';
 import '../../../shared_bloc/smart_gym_event.dart';
@@ -29,6 +31,9 @@ class _CustomerPassScreenState extends State<CustomerPassScreen>
   bool _checkedOutToday = false;
   String _checkedOutTime = '';
   String _loadedAttendanceScope = '';
+  GymProximityResult? _passiveProximity;
+  String _checkedProximityScope = '';
+  bool _checkingGpsGate = false;
 
   @override
   void initState() {
@@ -71,6 +76,32 @@ class _CustomerPassScreenState extends State<CustomerPassScreen>
         _checkedOutToday = record.checkedOutToday;
         _checkedOutTime = record.checkOutTimeLabel;
       });
+    }
+  }
+
+  Future<void> _syncPassiveProximity(
+    BuildContext context,
+    SmartGymState state,
+  ) async {
+    final bloc = context.read<SmartGymBloc>();
+    final gym = state.currentGym;
+    if (bloc.firestoreService == null ||
+        !gym.requireGpsCheckIn ||
+        !gym.hasLocation) {
+      return;
+    }
+    final scope =
+        '${gym.id}|${gym.latitude}|${gym.longitude}|${gym.checkInRadiusMeters}|${gym.requireGpsCheckIn}';
+    if (scope == _checkedProximityScope) return;
+    _checkedProximityScope = scope;
+
+    final status = await GymLocationService.checkPassiveProximityIfPermitted(
+      gymLat: gym.latitude!,
+      gymLng: gym.longitude!,
+      radiusMeters: gym.checkInRadiusMeters,
+    );
+    if (mounted) {
+      setState(() => _passiveProximity = status);
     }
   }
 
@@ -150,6 +181,7 @@ class _CustomerPassScreenState extends State<CustomerPassScreen>
   }
 
   Future<void> _scanDoorQr(BuildContext context, SmartGymState state) async {
+    if (_checkingGpsGate) return;
     final bloc = context.read<SmartGymBloc>();
     final messenger = ScaffoldMessenger.of(context);
     final member = state.currentMember;
@@ -250,6 +282,59 @@ class _CustomerPassScreenState extends State<CustomerPassScreen>
       return;
     }
 
+    // 5.5. Inside-Gym GPS Geofence + Anti-Fake-GPS Gate (if pinned & enabled)
+    if (bloc.firestoreService != null &&
+        gym.requireGpsCheckIn &&
+        gym.hasLocation) {
+      if (mounted) setState(() => _checkingGpsGate = true);
+      final GymProximityResult gpsResult;
+      try {
+        gpsResult = await GymLocationService.verifyInsideGym(
+          gymLat: gym.latitude!,
+          gymLng: gym.longitude!,
+          radiusMeters: gym.checkInRadiusMeters,
+          gymName: gym.name,
+        );
+      } finally {
+        if (mounted) setState(() => _checkingGpsGate = false);
+      }
+      if (!context.mounted) return;
+      setState(() => _passiveProximity = gpsResult);
+
+      if (!gpsResult.allowed) {
+        HapticFeedback.heavyImpact();
+        messenger.showSnackBar(
+          SnackBar(
+            backgroundColor:
+                gpsResult.isMocked ? AppTheme.danger : const Color(0xFF1A1E29),
+            duration: const Duration(seconds: 4),
+            content: Text(
+              gpsResult.message,
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            action: (gpsResult.openLocationSettings ||
+                    gpsResult.openAppSettings)
+                ? SnackBarAction(
+                    label: 'Settings',
+                    textColor: AppTheme.trainerCyan,
+                    onPressed: () {
+                      if (gpsResult.openLocationSettings) {
+                        Geolocator.openLocationSettings();
+                      } else if (gpsResult.openAppSettings) {
+                        Geolocator.openAppSettings();
+                      }
+                    },
+                  )
+                : null,
+          ),
+        );
+        return;
+      }
+    }
+
     // 6. Strict Reception QR Verification (must match this exact gymId)
     if (bloc.firestoreService != null) {
       if (!context.mounted) return;
@@ -297,6 +382,53 @@ class _CustomerPassScreenState extends State<CustomerPassScreen>
     bloc.add(const SimulateQrCheckInEvent());
     if (!context.mounted) return;
     _showCheckInSuccessSheet(context, state);
+  }
+
+  Widget _buildGpsProximityRow(int radiusMeters) {
+    final p = _passiveProximity;
+    final IconData icon;
+    final Color color;
+    final String text;
+    if (p == null) {
+      icon = Icons.my_location_rounded;
+      color = Colors.white54;
+      text = 'GPS checked within ${radiusMeters}m when scanning door QR';
+    } else if (p.isMocked) {
+      icon = Icons.warning_amber_rounded;
+      color = AppTheme.danger;
+      text = 'Fake GPS detected • Disable mock location apps';
+    } else if (p.allowed && p.distanceMeters != null) {
+      icon = Icons.my_location_rounded;
+      color = AppTheme.trainerCyan;
+      text =
+          'Inside gym floor (${GymLocationService.formatDistance(p.distanceMeters!)}) • Ready to check in';
+    } else {
+      icon = Icons.home_outlined;
+      color = Colors.white60;
+      final dist = p.distanceMeters != null
+          ? GymLocationService.formatDistance(p.distanceMeters!)
+          : 'Away';
+      text = '$dist from gym • Check-in works only inside the gym';
+    }
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Icon(icon, size: 13.5, color: color),
+        const SizedBox(width: 6),
+        Flexible(
+          child: Text(
+            text,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: color,
+              fontSize: 11.5,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+      ],
+    );
   }
 
   void _showCheckInSuccessSheet(BuildContext context, SmartGymState state) {
@@ -460,6 +592,7 @@ class _CustomerPassScreenState extends State<CustomerPassScreen>
     return BlocBuilder<SmartGymBloc, SmartGymState>(
       builder: (context, state) {
         _syncTodayAttendance(state);
+        _syncPassiveProximity(context, state);
         final gym = state.currentGym;
         final member = state.currentMember;
         final memberName = member?.name ?? 'Club Member';
@@ -485,6 +618,7 @@ class _CustomerPassScreenState extends State<CustomerPassScreen>
           color: AppTheme.trainerCyan,
           backgroundColor: const Color(0xFF1A1E29),
           onRefresh: () async {
+            _checkedProximityScope = '';
             context.read<SmartGymBloc>().add(const RefreshGymDataEvent());
             await Future<void>.delayed(const Duration(milliseconds: 450));
           },
@@ -807,37 +941,73 @@ class _CustomerPassScreenState extends State<CustomerPassScreen>
                   if (_checkedInToday && !_checkedOutToday) {
                     return CredStaggeredItem(
                       index: 1,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Container(
-                                width: 6,
-                                height: 6,
-                                decoration: const BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  color: AppTheme.trainerCyan,
+                      child: CredMetalCard(
+                        glowColor: AppTheme.trainerCyan,
+                        borderRadius: 22,
+                        padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Row(
+                              children: [
+                                Container(
+                                  width: 42,
+                                  height: 42,
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    color: AppTheme.trainerCyan
+                                        .withValues(alpha: 0.14),
+                                    border: Border.all(
+                                      color: AppTheme.trainerCyan
+                                          .withValues(alpha: 0.48),
+                                      width: 1.2,
+                                    ),
+                                  ),
+                                  child: const Icon(
+                                    Icons.verified_rounded,
+                                    color: AppTheme.trainerCyan,
+                                    size: 20,
+                                  ),
                                 ),
-                              ),
-                              const SizedBox(width: 7),
-                              Text(
-                                'CHECKED IN${_checkedInTime.isNotEmpty ? " AT $_checkedInTime" : " TODAY"}',
-                                style: const TextStyle(
-                                  color: Colors.white60,
-                                  fontSize: 10.5,
-                                  fontWeight: FontWeight.w900,
-                                  letterSpacing: 1.3,
+                                const SizedBox(width: 14),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'CHECKED IN${_checkedInTime.isNotEmpty ? " • $_checkedInTime" : " TODAY"}',
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 13.5,
+                                          fontWeight: FontWeight.w900,
+                                          letterSpacing: 0.7,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 3),
+                                      const Text(
+                                        'Daily attendance marked • Swipe below when leaving',
+                                        style: TextStyle(
+                                          color: Colors.white60,
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w500,
+                                          height: 1.3,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                                 ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 10),
-                          _SlideToCheckOutBar(
-                            onCompleted: () => _handleCheckOut(context, state),
-                          ),
-                        ],
+                              ],
+                            ),
+                            const SizedBox(height: 14),
+                            _SlideToCheckOutBar(
+                              onCompleted: () =>
+                                  _handleCheckOut(context, state),
+                            ),
+                          ],
+                        ),
                       ),
                     );
                   }
@@ -846,155 +1016,161 @@ class _CustomerPassScreenState extends State<CustomerPassScreen>
                     final durationLabel = _computeSessionDuration();
                     return CredStaggeredItem(
                       index: 1,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Container(
-                                width: 7,
-                                height: 7,
-                                decoration: const BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  color: AppTheme.trainerCyan,
-                                ),
-                              ),
-                              const SizedBox(width: 7),
-                              const Expanded(
-                                child: Text(
-                                  'TODAY\'S WORKOUT',
-                                  style: TextStyle(
-                                    color: Colors.white54,
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w900,
-                                    letterSpacing: 1.4,
-                                  ),
-                                ),
-                              ),
-                              const Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(
-                                    Icons.verified_rounded,
+                      child: CredMetalCard(
+                        glowColor: AppTheme.trainerCyan,
+                        borderRadius: 22,
+                        padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Container(
+                                  width: 7,
+                                  height: 7,
+                                  decoration: const BoxDecoration(
+                                    shape: BoxShape.circle,
                                     color: AppTheme.trainerCyan,
-                                    size: 13,
                                   ),
-                                  SizedBox(width: 4),
-                                  Text(
-                                    'SESSION COMPLETE',
+                                ),
+                                const SizedBox(width: 7),
+                                const Expanded(
+                                  child: Text(
+                                    'TODAY\'S WORKOUT',
                                     style: TextStyle(
-                                      color: AppTheme.trainerCyan,
+                                      color: Colors.white54,
                                       fontSize: 10,
                                       fontWeight: FontWeight.w900,
-                                      letterSpacing: 0.8,
+                                      letterSpacing: 1.4,
                                     ),
                                   ),
-                                ],
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 14),
-                          Row(
-                            children: [
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Text(
-                                    'CHECKED IN',
-                                    style: TextStyle(
-                                      color: Colors.white38,
-                                      fontSize: 9,
-                                      fontWeight: FontWeight.w800,
-                                      letterSpacing: 1.2,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 3),
-                                  Text(
-                                    _checkedInTime.isNotEmpty
-                                        ? _checkedInTime
-                                        : '--:--',
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 15,
-                                      fontWeight: FontWeight.w900,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Row(
+                                ),
+                                const Row(
+                                  mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    Expanded(
-                                      child: Container(
-                                        height: 1.2,
-                                        color: AppTheme.trainerCyan
-                                            .withValues(alpha: 0.35),
-                                      ),
+                                    Icon(
+                                      Icons.verified_rounded,
+                                      color: AppTheme.trainerCyan,
+                                      size: 13,
                                     ),
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 10,
-                                        vertical: 4,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: AppTheme.trainerCyan
-                                            .withValues(alpha: 0.12),
-                                        borderRadius: BorderRadius.circular(99),
-                                        border: Border.all(
-                                          color: AppTheme.trainerCyan
-                                              .withValues(alpha: 0.38),
-                                        ),
-                                      ),
-                                      child: Text(
-                                        durationLabel,
-                                        style: const TextStyle(
-                                          color: AppTheme.trainerCyan,
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.w900,
-                                          letterSpacing: 0.4,
-                                        ),
-                                      ),
-                                    ),
-                                    Expanded(
-                                      child: Container(
-                                        height: 1.2,
-                                        color: AppTheme.trainerCyan
-                                            .withValues(alpha: 0.35),
+                                    SizedBox(width: 4),
+                                    Text(
+                                      'SESSION COMPLETE',
+                                      style: TextStyle(
+                                        color: AppTheme.trainerCyan,
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.w900,
+                                        letterSpacing: 0.8,
                                       ),
                                     ),
                                   ],
                                 ),
-                              ),
-                              const SizedBox(width: 12),
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.end,
-                                children: [
-                                  const Text(
-                                    'CHECKED OUT',
-                                    style: TextStyle(
-                                      color: Colors.white38,
-                                      fontSize: 9,
-                                      fontWeight: FontWeight.w800,
-                                      letterSpacing: 1.2,
+                              ],
+                            ),
+                            const SizedBox(height: 14),
+                            Row(
+                              children: [
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Text(
+                                      'CHECKED IN',
+                                      style: TextStyle(
+                                        color: Colors.white38,
+                                        fontSize: 9,
+                                        fontWeight: FontWeight.w800,
+                                        letterSpacing: 1.2,
+                                      ),
                                     ),
-                                  ),
-                                  const SizedBox(height: 3),
-                                  Text(
-                                    _checkedOutTime.isNotEmpty
-                                        ? _checkedOutTime
-                                        : '--:--',
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 15,
-                                      fontWeight: FontWeight.w900,
+                                    const SizedBox(height: 3),
+                                    Text(
+                                      _checkedInTime.isNotEmpty
+                                          ? _checkedInTime
+                                          : '--:--',
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.w900,
+                                      ),
                                     ),
+                                  ],
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Row(
+                                    children: [
+                                      Expanded(
+                                        child: Container(
+                                          height: 1.2,
+                                          color: AppTheme.trainerCyan
+                                              .withValues(alpha: 0.35),
+                                        ),
+                                      ),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 10,
+                                          vertical: 4,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: AppTheme.trainerCyan
+                                              .withValues(alpha: 0.12),
+                                          borderRadius:
+                                              BorderRadius.circular(99),
+                                          border: Border.all(
+                                            color: AppTheme.trainerCyan
+                                                .withValues(alpha: 0.38),
+                                          ),
+                                        ),
+                                        child: Text(
+                                          durationLabel,
+                                          style: const TextStyle(
+                                            color: AppTheme.trainerCyan,
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w900,
+                                            letterSpacing: 0.4,
+                                          ),
+                                        ),
+                                      ),
+                                      Expanded(
+                                        child: Container(
+                                          height: 1.2,
+                                          color: AppTheme.trainerCyan
+                                              .withValues(alpha: 0.35),
+                                        ),
+                                      ),
+                                    ],
                                   ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ],
+                                ),
+                                const SizedBox(width: 12),
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.end,
+                                  children: [
+                                    const Text(
+                                      'CHECKED OUT',
+                                      style: TextStyle(
+                                        color: Colors.white38,
+                                        fontSize: 9,
+                                        fontWeight: FontWeight.w800,
+                                        letterSpacing: 1.2,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 3),
+                                    Text(
+                                      _checkedOutTime.isNotEmpty
+                                          ? _checkedOutTime
+                                          : '--:--',
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.w900,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
                       ),
                     );
                   }
@@ -1004,85 +1180,111 @@ class _CustomerPassScreenState extends State<CustomerPassScreen>
                       : isFrozen
                           ? Icons.pause_circle_filled_rounded
                           : Icons.qr_code_scanner_rounded;
-                  final String btnTitle = isExpired
-                      ? 'PASS EXPIRED • RENEW NOW'
-                      : isFrozen
-                          ? 'PASS FROZEN • VACATION MODE'
-                          : 'SCAN DOOR QR TO CHECK IN';
+                  final String btnTitle = _checkingGpsGate
+                      ? 'CHECKING GYM LOCATION...'
+                      : isExpired
+                          ? 'PASS EXPIRED • RENEW NOW'
+                          : isFrozen
+                              ? 'PASS FROZEN • VACATION MODE'
+                              : 'SCAN DOOR QR TO CHECK IN';
+                  final showGpsHint = !isExpired &&
+                      !isFrozen &&
+                      context.read<SmartGymBloc>().firestoreService != null &&
+                      gym.requireGpsCheckIn &&
+                      gym.hasLocation;
 
                   return CredStaggeredItem(
                     index: 1,
-                    child: AnimatedBuilder(
-                      animation: _radarCtrl,
-                      builder: (context, child) {
-                        final pulse =
-                            isFrozen ? 1.0 : 1.0 + (_radarCtrl.value * 0.03);
-                        return Transform.scale(scale: pulse, child: child);
-                      },
-                      child: GestureDetector(
-                        onTap: () => _scanDoorQr(context, state),
-                        child: Container(
-                          height: 58,
-                          padding: const EdgeInsets.symmetric(horizontal: 10),
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(99),
-                            gradient: LinearGradient(
-                              colors: [
-                                btnColor.withValues(alpha: 0.22),
-                                btnColor.withValues(alpha: 0.07),
-                              ],
-                            ),
-                            border: Border.all(
-                              color: btnColor.withValues(alpha: 0.75),
-                              width: 1.2,
-                            ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: btnColor.withValues(alpha: 0.16),
-                                blurRadius: 20,
-                              ),
-                            ],
-                          ),
-                          child: Row(
-                            children: [
-                              Container(
-                                width: 40,
-                                height: 40,
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  color: btnColor,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        AnimatedBuilder(
+                          animation: _radarCtrl,
+                          builder: (context, child) {
+                            final pulse = (isFrozen || _checkingGpsGate)
+                                ? 1.0
+                                : 1.0 + (_radarCtrl.value * 0.03);
+                            return Transform.scale(scale: pulse, child: child);
+                          },
+                          child: GestureDetector(
+                            onTap: () => _scanDoorQr(context, state),
+                            child: Container(
+                              height: 58,
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 10),
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(99),
+                                gradient: LinearGradient(
+                                  colors: [
+                                    btnColor.withValues(alpha: 0.22),
+                                    btnColor.withValues(alpha: 0.07),
+                                  ],
                                 ),
-                                child: Icon(
-                                  btnIcon,
-                                  color: Colors.black,
-                                  size: 20,
+                                border: Border.all(
+                                  color: btnColor.withValues(alpha: 0.75),
+                                  width: 1.2,
                                 ),
-                              ),
-                              const SizedBox(width: 14),
-                              Expanded(
-                                child: Text(
-                                  btnTitle,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 13.5,
-                                    fontWeight: FontWeight.w900,
-                                    letterSpacing: 0.6,
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: btnColor.withValues(alpha: 0.16),
+                                    blurRadius: 20,
                                   ),
-                                ),
+                                ],
                               ),
-                              const SizedBox(width: 8),
-                              Icon(
-                                Icons.arrow_forward_rounded,
-                                color: btnColor,
-                                size: 20,
+                              child: Row(
+                                children: [
+                                  Container(
+                                    width: 40,
+                                    height: 40,
+                                    decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      color: btnColor,
+                                    ),
+                                    child: _checkingGpsGate
+                                        ? const Padding(
+                                            padding: EdgeInsets.all(10),
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2.2,
+                                              color: Colors.black,
+                                            ),
+                                          )
+                                        : Icon(
+                                            btnIcon,
+                                            color: Colors.black,
+                                            size: 20,
+                                          ),
+                                  ),
+                                  const SizedBox(width: 14),
+                                  Expanded(
+                                    child: Text(
+                                      btnTitle,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 13.5,
+                                        fontWeight: FontWeight.w900,
+                                        letterSpacing: 0.6,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Icon(
+                                    Icons.arrow_forward_rounded,
+                                    color: btnColor,
+                                    size: 20,
+                                  ),
+                                  const SizedBox(width: 6),
+                                ],
                               ),
-                              const SizedBox(width: 6),
-                            ],
+                            ),
                           ),
                         ),
-                      ),
+                        if (showGpsHint) ...[
+                          const SizedBox(height: 9),
+                          _buildGpsProximityRow(gym.checkInRadiusMeters),
+                        ],
+                      ],
                     ),
                   );
                 },
@@ -1307,10 +1509,10 @@ class _SlideToCheckOutBarState extends State<_SlideToCheckOutBar> {
 
   @override
   Widget build(BuildContext context) {
-    const double height = 48;
-    const double knobSize = 40;
-    const double pad = 4;
-    const Color sliderAccent = AppTheme.trainerCyan;
+    const double height = 56;
+    const double knobSize = 46;
+    const double pad = 5;
+    const Color sliderAccent = Color(0xFFFF6B35);
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -1342,34 +1544,42 @@ class _SlideToCheckOutBarState extends State<_SlideToCheckOutBar> {
           child: Container(
             height: height,
             decoration: BoxDecoration(
-              color: Colors.black.withValues(alpha: 0.36),
+              color: Colors.black.withValues(alpha: 0.44),
               borderRadius: BorderRadius.circular(99),
               border: Border.all(
-                color: sliderAccent.withValues(alpha: 0.42),
-                width: 1.1,
+                color: sliderAccent.withValues(alpha: 0.55),
+                width: 1.2,
               ),
             ),
             child: Stack(
               alignment: Alignment.centerLeft,
               children: [
-                // Glowing primary-cyan walk trail
+                // Glowing fiery-orange walk trail
                 AnimatedContainer(
                   duration: const Duration(milliseconds: 60),
                   width: knobLeft + knobSize + pad,
                   height: height,
                   decoration: BoxDecoration(
-                    color: sliderAccent
-                        .withValues(alpha: 0.12 + (_dragRatio * 0.22)),
+                    gradient: LinearGradient(
+                      colors: [
+                        sliderAccent.withValues(
+                          alpha: 0.24 + (_dragRatio * 0.24),
+                        ),
+                        sliderAccent.withValues(
+                          alpha: 0.08 + (_dragRatio * 0.16),
+                        ),
+                      ],
+                    ),
                     borderRadius: BorderRadius.circular(99),
                   ),
                 ),
                 // Exit door target icon on the right end
                 Positioned(
-                  right: 14,
+                  right: 16,
                   child: Icon(
                     Icons.door_front_door_rounded,
                     color: sliderAccent.withValues(
-                      alpha: 0.45 + (_dragRatio * 0.55),
+                      alpha: 0.70 + (_dragRatio * 0.30),
                     ),
                     size: 22,
                   ),
@@ -1385,23 +1595,23 @@ class _SlideToCheckOutBarState extends State<_SlideToCheckOutBar> {
                         Text(
                           'SLIDE TO WALK OUT',
                           style: TextStyle(
-                            color: Colors.white70,
-                            fontSize: 11.5,
+                            color: Colors.white,
+                            fontSize: 12,
                             fontWeight: FontWeight.w900,
-                            letterSpacing: 1.4,
+                            letterSpacing: 1.3,
                           ),
                         ),
                         SizedBox(width: 6),
                         Icon(
                           Icons.keyboard_double_arrow_right_rounded,
                           color: sliderAccent,
-                          size: 18,
+                          size: 19,
                         ),
                       ],
                     ),
                   ),
                 ),
-                // Clean Primary Cyan Draggable Knob (surprise avatar appears on overlay!)
+                // Glowing fiery-orange circular knob with walking hero avatar
                 AnimatedPositioned(
                   duration: _dragRatio == 0.0
                       ? const Duration(milliseconds: 220)
@@ -1414,18 +1624,27 @@ class _SlideToCheckOutBarState extends State<_SlideToCheckOutBar> {
                     height: knobSize,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: sliderAccent,
+                      color: const Color(0xFF141824),
+                      border: Border.all(
+                        color: sliderAccent,
+                        width: 2.0,
+                      ),
                       boxShadow: [
                         BoxShadow(
-                          color: sliderAccent.withValues(alpha: 0.42),
-                          blurRadius: 12,
+                          color: sliderAccent.withValues(alpha: 0.55),
+                          blurRadius: 14,
+                          spreadRadius: 1,
                         ),
                       ],
                     ),
-                    child: const Icon(
-                      Icons.directions_walk_rounded,
-                      color: Colors.black,
-                      size: 21,
+                    child: ClipOval(
+                      child: Padding(
+                        padding: const EdgeInsets.all(2),
+                        child: Image.asset(
+                          'assets/images/poses/pose_walkout_bag.png',
+                          fit: BoxFit.contain,
+                        ),
+                      ),
                     ),
                   ),
                 ),

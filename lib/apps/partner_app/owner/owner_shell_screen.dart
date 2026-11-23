@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../shared_bloc/smart_gym_bloc.dart';
 import '../../../../shared_bloc/smart_gym_state.dart';
+import 'screens/owner_audit_log_screen.dart';
 import 'screens/owner_orders_leads_screen.dart';
 import 'screens/owner_revenue_screen.dart';
 
@@ -16,11 +17,14 @@ class OwnerShellScreen extends StatefulWidget {
 
 class _OwnerShellScreenState extends State<OwnerShellScreen> {
   int _tabIndex = 0;
+  String _auditFilter = 'All';
 
-  static const _screens = [
-    OwnerRevenueScreen(),
-    OwnerOrdersLeadsScreen(),
-  ];
+  void _openAuditTab(String filter) {
+    setState(() {
+      _auditFilter = filter;
+      _tabIndex = 1;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -31,11 +35,22 @@ class _OwnerShellScreenState extends State<OwnerShellScreen> {
           backgroundColor: AppTheme.scaffoldBg,
           body: IndexedStack(
             index: _tabIndex,
-            children: _screens,
+            children: [
+              OwnerRevenueScreen(
+                onOpenWalkInLeads: () => setState(() => _tabIndex = 2),
+                onOpenAuditLog: _openAuditTab,
+              ),
+              OwnerAuditLogScreen(
+                embedded: true,
+                activeFilter: _auditFilter,
+                onFilterChanged: (f) => setState(() => _auditFilter = f),
+              ),
+              const OwnerOrdersLeadsScreen(),
+            ],
           ),
           bottomNavigationBar: SafeArea(
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(18, 4, 18, 12),
+              padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
               child: Container(
                 height: 66,
                 padding: const EdgeInsets.all(6),
@@ -66,16 +81,26 @@ class _OwnerShellScreenState extends State<OwnerShellScreen> {
                 child: Row(
                   children: [
                     _buildNavItem(
+                      navKey: const ValueKey('owner_nav_home'),
                       index: 0,
-                      icon: Icons.account_balance_wallet_rounded,
-                      label: 'Revenue',
+                      icon: Icons.dashboard_rounded,
+                      label: 'Home',
                       badgeCount: 0,
                     ),
                     const SizedBox(width: 6),
                     _buildNavItem(
+                      navKey: const ValueKey('owner_nav_audit'),
                       index: 1,
+                      icon: Icons.fact_check_rounded,
+                      label: 'Audit Log',
+                      badgeCount: 0,
+                    ),
+                    const SizedBox(width: 6),
+                    _buildNavItem(
+                      navKey: const ValueKey('owner_nav_trainers'),
+                      index: 2,
                       icon: Icons.groups_2_rounded,
-                      label: 'Trainers & PT',
+                      label: 'Trainers',
                       badgeCount: pendingCount,
                     ),
                   ],
@@ -89,6 +114,7 @@ class _OwnerShellScreenState extends State<OwnerShellScreen> {
   }
 
   Widget _buildNavItem({
+    required Key navKey,
     required int index,
     required IconData icon,
     required String label,
@@ -97,6 +123,7 @@ class _OwnerShellScreenState extends State<OwnerShellScreen> {
     final selected = _tabIndex == index;
     return Expanded(
       child: GestureDetector(
+        key: navKey,
         behavior: HitTestBehavior.opaque,
         onTap: () {
           if (_tabIndex == index) return;
@@ -106,7 +133,7 @@ class _OwnerShellScreenState extends State<OwnerShellScreen> {
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 240),
           curve: Curves.easeOutCubic,
-          padding: const EdgeInsets.symmetric(horizontal: 12),
+          padding: const EdgeInsets.symmetric(horizontal: 6),
           decoration: BoxDecoration(
             gradient: selected
                 ? LinearGradient(
@@ -152,18 +179,18 @@ class _OwnerShellScreenState extends State<OwnerShellScreen> {
                 children: [
                   Icon(
                     icon,
-                    size: 18,
+                    size: 17,
                     color: selected ? AppTheme.ownerGold : Colors.white38,
                   ),
-                  const SizedBox(width: 7),
+                  const SizedBox(width: 5),
                   Flexible(
                     child: Text(
                       label,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                        fontSize: 12.5,
-                        letterSpacing: 0.2,
+                        fontSize: 11.5,
+                        letterSpacing: 0.1,
                         fontWeight:
                             selected ? FontWeight.w900 : FontWeight.w600,
                         color: selected ? Colors.white : Colors.white54,
@@ -171,11 +198,11 @@ class _OwnerShellScreenState extends State<OwnerShellScreen> {
                     ),
                   ),
                   if (badgeCount > 0) ...[
-                    const SizedBox(width: 6),
+                    const SizedBox(width: 4),
                     Container(
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 6,
-                        vertical: 2,
+                        horizontal: 5,
+                        vertical: 1.5,
                       ),
                       decoration: BoxDecoration(
                         color: AppTheme.ownerGold,
@@ -185,7 +212,7 @@ class _OwnerShellScreenState extends State<OwnerShellScreen> {
                         '$badgeCount',
                         style: const TextStyle(
                           color: Colors.black,
-                          fontSize: 10,
+                          fontSize: 9.5,
                           fontWeight: FontWeight.w900,
                         ),
                       ),

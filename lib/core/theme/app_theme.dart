@@ -14,6 +14,7 @@ class AppTheme {
   static const Color amber = Color(0xFFFFB300);
   static const Color purple = Color(0xFFA78BFA);
   static const Color danger = Color(0xFFFF453A);
+  static const Color softRed = Color(0xFFFF6B6B);
 
   static ThemeData get lightTheme => darkTheme;
 

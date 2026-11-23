@@ -6,6 +6,7 @@ import '../../../shared_bloc/smart_gym_bloc.dart';
 import '../../../shared_bloc/smart_gym_event.dart';
 import '../../../shared_bloc/smart_gym_state.dart';
 import 'owner_add_member_screen.dart';
+import 'owner_gym_settings_sheet.dart';
 import 'owner_qr_poster_screen.dart';
 import 'owner_register_import_screen.dart';
 
@@ -330,201 +331,6 @@ class OwnerDrawer extends StatelessWidget {
     );
   }
 
-  void _showGymSettingsSheet(BuildContext context, SmartGymState state) {
-    final bloc = context.read<SmartGymBloc>();
-    final messenger = ScaffoldMessenger.of(context);
-    final gym = state.currentGym;
-    final nameCtrl = TextEditingController(text: gym.name);
-    final areaCtrl = TextEditingController(text: gym.area);
-    final monthlyCtrl = TextEditingController(text: gym.monthlyFee.toString());
-    final ptCtrl = TextEditingController(text: gym.ptFee.toString());
-    final capCtrl = TextEditingController(text: gym.maxCapacity.toString());
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: const Color(0xFF1A1E29),
-      sheetAnimationStyle: const AnimationStyle(
-        duration: Duration(milliseconds: 340),
-        reverseDuration: Duration(milliseconds: 240),
-        curve: Curves.easeOutCubic,
-      ),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-      ),
-      builder: (ctx) => Padding(
-        padding: EdgeInsets.fromLTRB(
-          20,
-          14,
-          20,
-          MediaQuery.of(ctx).viewInsets.bottom + 24,
-        ),
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Center(
-                child: Container(
-                  width: 40,
-                  height: 4,
-                  margin: const EdgeInsets.only(bottom: 18),
-                  decoration: BoxDecoration(
-                    color: Colors.white12,
-                    borderRadius: BorderRadius.circular(99),
-                  ),
-                ),
-              ),
-              const Text(
-                'Gym Fee & Capacity Settings',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-              const SizedBox(height: 14),
-              TextField(
-                controller: nameCtrl,
-                style: const TextStyle(color: Colors.white),
-                decoration: InputDecoration(
-                  labelText: 'Gym Name',
-                  filled: true,
-                  fillColor: const Color(0xFF12151C),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(14),
-                    borderSide: BorderSide.none,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 10),
-              TextField(
-                controller: areaCtrl,
-                style: const TextStyle(color: Colors.white),
-                decoration: InputDecoration(
-                  labelText: 'Area & City',
-                  filled: true,
-                  fillColor: const Color(0xFF12151C),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(14),
-                    borderSide: BorderSide.none,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 10),
-              Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: monthlyCtrl,
-                      keyboardType: TextInputType.number,
-                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                      style: const TextStyle(color: Colors.white),
-                      decoration: InputDecoration(
-                        labelText: 'Monthly Fee (₹)',
-                        filled: true,
-                        fillColor: const Color(0xFF12151C),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(14),
-                          borderSide: BorderSide.none,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: TextField(
-                      controller: ptCtrl,
-                      keyboardType: TextInputType.number,
-                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                      style: const TextStyle(color: Colors.white),
-                      decoration: InputDecoration(
-                        labelText: 'PT Fee (₹)',
-                        filled: true,
-                        fillColor: const Color(0xFF12151C),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(14),
-                          borderSide: BorderSide.none,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 10),
-              TextField(
-                controller: capCtrl,
-                keyboardType: TextInputType.number,
-                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                style: const TextStyle(color: Colors.white),
-                decoration: InputDecoration(
-                  labelText: 'Max Floor Capacity',
-                  filled: true,
-                  fillColor: const Color(0xFF12151C),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(14),
-                    borderSide: BorderSide.none,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 18),
-              SizedBox(
-                height: 50,
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.ownerGold,
-                    foregroundColor: Colors.black,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                  ),
-                  onPressed: () {
-                    final mFee =
-                        int.tryParse(monthlyCtrl.text.trim()) ?? gym.monthlyFee;
-                    final pFee = int.tryParse(ptCtrl.text.trim()) ?? gym.ptFee;
-                    final cap =
-                        (int.tryParse(capCtrl.text.trim()) ?? gym.maxCapacity)
-                            .clamp(1, 10000);
-                    HapticFeedback.mediumImpact();
-                    bloc.add(
-                      UpdateGymSettingsEvent(
-                        name: nameCtrl.text,
-                        area: areaCtrl.text,
-                        monthlyFee: mFee,
-                        ptFee: pFee,
-                        maxCapacity: cap,
-                      ),
-                    );
-                    Navigator.pop(ctx);
-                    messenger.showSnackBar(
-                      const SnackBar(
-                        backgroundColor: AppTheme.ownerGold,
-                        content: Text(
-                          'Gym settings updated!',
-                          style: TextStyle(
-                            color: Colors.black,
-                            fontWeight: FontWeight.w900,
-                          ),
-                        ),
-                      ),
-                    );
-                  },
-                  child: const Text(
-                    'SAVE SETTINGS',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: 1.0,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
   void _showRemovedModal(BuildContext context, SmartGymState state) {
     showModalBottomSheet(
       context: context,
@@ -665,62 +471,14 @@ class OwnerDrawer extends StatelessWidget {
                 ),
                 Expanded(
                   child: ListView(
-                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    padding: const EdgeInsets.fromLTRB(0, 6, 0, 12),
                     children: [
-                      _DrawerItem(
-                        icon: Icons.qr_code_2_rounded,
-                        color: AppTheme.trainerCyan,
-                        title: 'Staff Invite QR',
-                        subtitle: 'Share, PNG Image & PDF Poster',
-                        onTap: () {
-                          Navigator.pop(context);
-                          Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (_) => BlocProvider.value(
-                                value: context.read<SmartGymBloc>(),
-                                child: const OwnerQrPosterScreen(
-                                  type: QrPosterType.invite,
-                                ),
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-                      _DrawerItem(
-                        icon: Icons.storefront_rounded,
-                        color: AppTheme.ownerGold,
-                        title: 'Reception Duty QR',
-                        subtitle: 'Share, PNG Image & PDF Poster',
-                        onTap: () {
-                          Navigator.pop(context);
-                          Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (_) => BlocProvider.value(
-                                value: context.read<SmartGymBloc>(),
-                                child: const OwnerQrPosterScreen(
-                                  type: QrPosterType.duty,
-                                ),
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-                      const Divider(color: Colors.white12, height: 20),
-                      _DrawerItem(
-                        icon: Icons.person_add_alt_1_rounded,
-                        color: AppTheme.trainerCyan,
-                        title: 'Add Trainer by Phone',
-                        subtitle: 'Grant direct Trainer Portal access',
-                        onTap: () {
-                          Navigator.pop(context);
-                          _showAddTrainerSheet(context);
-                        },
-                      ),
+                      const _DrawerSectionHeader('ADMISSIONS & MEMBERS'),
                       _DrawerItem(
                         icon: Icons.group_add_rounded,
                         color: AppTheme.ownerGold,
-                        title: 'Add Paid Member',
-                        subtitle: 'Custom months, amount & joining date',
+                        title: 'Enroll Paid Member',
+                        subtitle: 'Single admission, dues & WhatsApp pass',
                         onTap: () {
                           Navigator.pop(context);
                           Navigator.of(context).push(
@@ -735,9 +493,9 @@ class OwnerDrawer extends StatelessWidget {
                       ),
                       _DrawerItem(
                         icon: Icons.document_scanner_rounded,
-                        color: AppTheme.trainerCyan,
-                        title: 'AI Register Photo Import',
-                        subtitle: 'Snap paper register or paste Excel',
+                        color: AppTheme.ownerGold,
+                        title: 'Import From Register / CSV',
+                        subtitle: 'AI photo scan or Excel upload',
                         onTap: () {
                           Navigator.pop(context);
                           Navigator.of(context).push(
@@ -750,17 +508,71 @@ class OwnerDrawer extends StatelessWidget {
                           );
                         },
                       ),
+                      const Divider(color: Colors.white10, height: 18),
+                      const _DrawerSectionHeader('STAFF & TEAM'),
+                      _DrawerItem(
+                        icon: Icons.person_add_alt_1_rounded,
+                        color: AppTheme.trainerCyan,
+                        title: 'Add Trainer by Phone',
+                        subtitle: 'Direct OTP Trainer Portal access',
+                        onTap: () {
+                          Navigator.pop(context);
+                          _showAddTrainerSheet(context);
+                        },
+                      ),
+                      _DrawerItem(
+                        icon: Icons.qr_code_2_rounded,
+                        color: AppTheme.trainerCyan,
+                        title: 'Staff Invite QR',
+                        subtitle: 'Shareable QR for trainers to join',
+                        onTap: () {
+                          Navigator.pop(context);
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => BlocProvider.value(
+                                value: context.read<SmartGymBloc>(),
+                                child: const OwnerQrPosterScreen(
+                                  type: QrPosterType.invite,
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                      const Divider(color: Colors.white10, height: 18),
+                      const _DrawerSectionHeader('GYM SETUP & CHECK-IN'),
+                      _DrawerItem(
+                        icon: Icons.storefront_rounded,
+                        color: AppTheme.champagne,
+                        title: 'Gym Door Check-In QR',
+                        subtitle: 'Printable QR poster for floor desk',
+                        onTap: () {
+                          Navigator.pop(context);
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => BlocProvider.value(
+                                value: context.read<SmartGymBloc>(),
+                                child: const OwnerQrPosterScreen(
+                                  type: QrPosterType.duty,
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
                       _DrawerItem(
                         icon: Icons.tune_rounded,
                         color: AppTheme.champagne,
-                        title: 'Gym Fee & Capacity Settings',
+                        title: 'Fees, Capacity & GPS Lock',
                         subtitle:
-                            '₹${gym.monthlyFee}/mo • ₹${gym.ptFee} PT • Cap ${gym.maxCapacity}',
+                            '₹${gym.monthlyFee}/mo • ₹${gym.ptFee} PT • ${!gym.requireGpsCheckIn ? 'QR Only' : gym.hasLocation ? 'GPS ${gym.checkInRadiusMeters}m' : 'Set Map / GPS Pin'}',
                         onTap: () {
                           Navigator.pop(context);
-                          _showGymSettingsSheet(context, state);
+                          showOwnerGymSettingsSheet(context, state);
                         },
                       ),
+                      const Divider(color: Colors.white10, height: 18),
+                      const _DrawerSectionHeader('RECORDS'),
                       _DrawerItem(
                         icon: Icons.person_remove_rounded,
                         color: AppTheme.danger,
@@ -802,6 +614,27 @@ class OwnerDrawer extends StatelessWidget {
   }
 }
 
+class _DrawerSectionHeader extends StatelessWidget {
+  final String title;
+  const _DrawerSectionHeader(this.title);
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(18, 8, 18, 4),
+      child: Text(
+        title,
+        style: const TextStyle(
+          color: Colors.white38,
+          fontSize: 10,
+          fontWeight: FontWeight.w900,
+          letterSpacing: 1.4,
+        ),
+      ),
+    );
+  }
+}
+
 class _DrawerItem extends StatelessWidget {
   final IconData icon;
   final Color color;
@@ -820,20 +653,22 @@ class _DrawerItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListTile(
+      contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 2),
+      visualDensity: VisualDensity.compact,
       leading: Container(
-        width: 38,
-        height: 38,
+        width: 36,
+        height: 36,
         decoration: BoxDecoration(
           color: color.withValues(alpha: 0.14),
           borderRadius: BorderRadius.circular(10),
         ),
-        child: Icon(icon, color: color, size: 20),
+        child: Icon(icon, color: color, size: 19),
       ),
       title: Text(
         title,
         style: const TextStyle(
           color: Colors.white,
-          fontSize: 14,
+          fontSize: 13.5,
           fontWeight: FontWeight.w800,
         ),
       ),

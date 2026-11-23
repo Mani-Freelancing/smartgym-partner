@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import '../../domain/models/gym_fee_plan.dart';
 import '../../domain/models/gym_member.dart';
 import '../../domain/models/gym_tenant.dart';
 import '../../domain/models/machine_guide.dart';
@@ -67,6 +68,12 @@ class FirestoreService {
     required String ownerPhone,
     int monthlyFee = 1500,
     int ptFee = 6000,
+    int maxCapacity = 60,
+    List<GymFeePlan> feePlans = const [],
+    double? latitude,
+    double? longitude,
+    int checkInRadiusMeters = 100,
+    bool requireGpsCheckIn = true,
   }) async {
     final slug = gymName
         .toLowerCase()
@@ -76,21 +83,33 @@ class FirestoreService {
         (DateTime.now().millisecondsSinceEpoch % 100000).toString();
     final gymId = '${slug.isEmpty ? 'gym' : slug}_$shortTs';
     final uid = _auth.currentUser?.uid ?? '';
+    final effectivePlans = feePlans.isNotEmpty
+        ? feePlans
+        : GymFeePlan.defaultPlans(monthlyFee: monthlyFee, ptFee: ptFee);
 
-    final batch = _db.batch();
-    final gymRef = _db.collection('gyms').doc(gymId);
-    batch.set(gymRef, {
+    final gymPayload = <String, dynamic>{
       'id': gymId,
       'name': gymName.trim(),
       'area': area.trim(),
       'headTrainer': ownerName.trim(),
       'monthlyFee': monthlyFee,
       'ptFee': ptFee,
+      'feePlans': effectivePlans.map((p) => p.toJson()).toList(),
       'activeCrowd': 0,
-      'maxCapacity': 60,
+      'maxCapacity': maxCapacity,
+      'checkInRadiusMeters': checkInRadiusMeters,
+      'requireGpsCheckIn': requireGpsCheckIn,
       'ownerUid': uid,
       'createdAt': FieldValue.serverTimestamp(),
-    });
+    };
+    if (latitude != null && longitude != null) {
+      gymPayload['latitude'] = latitude;
+      gymPayload['longitude'] = longitude;
+    }
+
+    final batch = _db.batch();
+    final gymRef = _db.collection('gyms').doc(gymId);
+    batch.set(gymRef, gymPayload);
 
     final phoneRef = _db.collection('phone_index').doc(ownerPhone);
     batch.set(phoneRef, {
@@ -113,14 +132,68 @@ class FirestoreService {
     required int monthlyFee,
     required int ptFee,
     required int maxCapacity,
+    List<GymFeePlan>? feePlans,
+    double? latitude,
+    double? longitude,
+    bool clearLocation = false,
+    int? checkInRadiusMeters,
+    bool? requireGpsCheckIn,
   }) async {
-    await _db.collection('gyms').doc(gymId).update({
+    final updates = <String, dynamic>{
       'name': name.trim(),
       'area': area.trim(),
       'monthlyFee': monthlyFee,
       'ptFee': ptFee,
       'maxCapacity': maxCapacity,
-    });
+    };
+    if (feePlans != null) {
+      updates['feePlans'] = feePlans.map((p) => p.toJson()).toList();
+    }
+    if (clearLocation) {
+      updates['latitude'] = FieldValue.delete();
+      updates['longitude'] = FieldValue.delete();
+    } else if (latitude != null && longitude != null) {
+      updates['latitude'] = latitude;
+      updates['longitude'] = longitude;
+    }
+    if (checkInRadiusMeters != null) {
+      updates['checkInRadiusMeters'] = checkInRadiusMeters;
+    }
+    if (requireGpsCheckIn != null) {
+      updates['requireGpsCheckIn'] = requireGpsCheckIn;
+    }
+    await _db.collection('gyms').doc(gymId).update(updates);
+  }
+
+  /// Builds a concise diagnostic summary when a gym settings write is denied.
+  Future<String> diagnoseGymWriteAccess(String gymId) async {
+    try {
+      final user = _auth.currentUser;
+      final phone = user?.phoneNumber ?? '';
+      final uid = user?.uid ?? '';
+      final phoneSnap = phone.isNotEmpty
+          ? await _db.collection('phone_index').doc(phone).get()
+          : null;
+      final gymSnap = await _db.collection('gyms').doc(gymId).get();
+      final d = gymSnap.data();
+      final phoneRole = phoneSnap?.data()?['role'] ?? 'missing';
+      final phoneGym = phoneSnap?.data()?['gymId'] ?? 'missing';
+      final ownerUid = d?['ownerUid'] ?? 'missing';
+      final crowd = d?['activeCrowd'];
+      final cap = d?['maxCapacity'];
+      final headLen = (d?['headTrainer']?.toString() ?? '').length;
+      final keys = d?.keys.join(',') ?? 'none';
+      final summary =
+          'uidMatch=${ownerUid == uid}, ownerEmpty=${ownerUid == ''}, '
+          'phoneRole=$phoneRole, phoneGym=$phoneGym, '
+          'crowd=$crowd/$cap (${crowd.runtimeType}/${cap.runtimeType}), '
+          'headLen=$headLen, docKeys=[$keys]';
+      debugPrint('GYM_SAVE_DIAG: $summary');
+      return summary;
+    } catch (diagErr) {
+      debugPrint('GYM_SAVE_DIAG error: $diagErr');
+      return 'diagError=$diagErr';
+    }
   }
 
   /// Owner adds a trainer to their gym and registers their phone in `phone_index`.
@@ -371,6 +444,12 @@ class FirestoreService {
         maxCapacity: (d['maxCapacity'] as num?)?.toInt() ?? 60,
         monthlyFee: (d['monthlyFee'] as num?)?.toInt() ?? 1500,
         ptFee: (d['ptFee'] as num?)?.toInt() ?? 6000,
+        feePlans: GymFeePlan.decodeList(d['feePlans']),
+        latitude: (d['latitude'] as num?)?.toDouble(),
+        longitude: (d['longitude'] as num?)?.toDouble(),
+        checkInRadiusMeters:
+            (d['checkInRadiusMeters'] as num?)?.toInt() ?? 100,
+        requireGpsCheckIn: (d['requireGpsCheckIn'] as bool?) ?? true,
       );
     });
   }

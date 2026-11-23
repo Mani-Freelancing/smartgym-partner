@@ -33,10 +33,16 @@ rules_version = '2';
 //   - headTrainer: string (required, 1..100 chars)
 //   - monthlyFee: number (required, >= 0, <= 1000000)
 //   - ptFee: number (required, >= 0, <= 1000000)
+//   - feePlans: list (optional, <= 25 membership/custom plan maps)
 //   - activeCrowd: int (required, >= 0, <= maxCapacity)
 //   - maxCapacity: int (required, >= 1, <= 10000)
+//   - latitude: number (optional, >= -90, <= 90)
+//   - longitude: number (optional, >= -180, <= 180)
+//   - checkInRadiusMeters: int (optional, >= 20, <= 1000)
+//   - requireGpsCheckIn: bool (optional)
 //   - ownerUid: string (required, 1..128 chars, immutable)
 //   - createdAt: timestamp (optional, immutable)
+//   - updatedAt: timestamp (optional)
 //
 // Collection: gyms/{gymId}/trainers/{trainerId}
 // Fields:
@@ -184,30 +190,56 @@ service cloud.firestore {
 
     function isGymDocOwner(gymId) {
       return isAuthenticated() && (
-        (exists(gymPath(gymId)) && get(gymPath(gymId)).data.ownerUid == request.auth.uid) ||
-        (existsAfter(gymPath(gymId)) && getAfter(gymPath(gymId)).data.ownerUid == request.auth.uid)
+        (exists(gymPath(gymId)) &&
+         'ownerUid' in get(gymPath(gymId)).data &&
+         get(gymPath(gymId)).data.ownerUid == request.auth.uid) ||
+        (request.method in ['create', 'update', 'delete'] &&
+         existsAfter(gymPath(gymId)) &&
+         'ownerUid' in getAfter(gymPath(gymId)).data &&
+         getAfter(gymPath(gymId)).data.ownerUid == request.auth.uid)
       );
     }
 
     function isGymOwner(gymId) {
       return isAuthenticated() && (
-        (request.auth.token.role == 'owner' && request.auth.token.gymId == gymId) ||
+        ('role' in request.auth.token &&
+         'gymId' in request.auth.token &&
+         request.auth.token.role == 'owner' &&
+         request.auth.token.gymId == gymId) ||
         isGymDocOwner(gymId) ||
-        (hasPhoneIndex() && phoneIndexData().gymId == gymId && phoneIndexData().role == 'owner')
+        (hasPhoneIndex() &&
+         'gymId' in phoneIndexData() &&
+         'role' in phoneIndexData() &&
+         phoneIndexData().gymId == gymId &&
+         phoneIndexData().role == 'owner')
       );
     }
 
     function isGymTrainer(gymId) {
       return isAuthenticated() && (
-        (request.auth.token.role == 'trainer' && request.auth.token.gymId == gymId) ||
-        (hasPhoneIndex() && phoneIndexData().gymId == gymId && phoneIndexData().role == 'trainer')
+        ('role' in request.auth.token &&
+         'gymId' in request.auth.token &&
+         request.auth.token.role == 'trainer' &&
+         request.auth.token.gymId == gymId) ||
+        (hasPhoneIndex() &&
+         'gymId' in phoneIndexData() &&
+         'role' in phoneIndexData() &&
+         phoneIndexData().gymId == gymId &&
+         phoneIndexData().role == 'trainer')
       );
     }
 
     function isGymMember(gymId) {
       return isAuthenticated() && (
-        (request.auth.token.role == 'member' && request.auth.token.gymId == gymId) ||
-        (hasPhoneIndex() && phoneIndexData().gymId == gymId && phoneIndexData().role == 'member')
+        ('role' in request.auth.token &&
+         'gymId' in request.auth.token &&
+         request.auth.token.role == 'member' &&
+         request.auth.token.gymId == gymId) ||
+        (hasPhoneIndex() &&
+         'gymId' in phoneIndexData() &&
+         'role' in phoneIndexData() &&
+         phoneIndexData().gymId == gymId &&
+         phoneIndexData().role == 'member')
       );
     }
 
@@ -255,6 +287,7 @@ service cloud.firestore {
       return isValidString(gymId, 1, 64) &&
              isValidString(inviteCode, 4, 64) &&
              exists(invitePath(gymId, inviteCode)) &&
+             'active' in get(invitePath(gymId, inviteCode)).data &&
              get(invitePath(gymId, inviteCode)).data.active == true;
     }
 
@@ -294,7 +327,9 @@ service cloud.firestore {
              ]) &&
              hasOnlyAllowedFields([
                'id', 'name', 'area', 'headTrainer', 'monthlyFee',
-               'ptFee', 'activeCrowd', 'maxCapacity', 'ownerUid', 'createdAt'
+               'ptFee', 'feePlans', 'activeCrowd', 'maxCapacity', 'latitude',
+               'longitude', 'checkInRadiusMeters', 'requireGpsCheckIn',
+               'ownerUid', 'createdAt', 'updatedAt'
              ]) &&
              isValidOptionalString(data, 'id', 1, 64) &&
              isValidString(data.name, 1, 100) &&
@@ -302,10 +337,16 @@ service cloud.firestore {
              isValidString(data.headTrainer, 1, 100) &&
              data.monthlyFee is number && data.monthlyFee >= 0 && data.monthlyFee <= 1000000 &&
              data.ptFee is number && data.ptFee >= 0 && data.ptFee <= 1000000 &&
+             (!('feePlans' in data) || (data.feePlans is list && data.feePlans.size() <= 25)) &&
              data.maxCapacity is int && data.maxCapacity >= 1 && data.maxCapacity <= 10000 &&
              data.activeCrowd is int && data.activeCrowd >= 0 && data.activeCrowd <= data.maxCapacity &&
+             (!('latitude' in data) || (data.latitude is number && data.latitude >= -90 && data.latitude <= 90)) &&
+             (!('longitude' in data) || (data.longitude is number && data.longitude >= -180 && data.longitude <= 180)) &&
+             (!('checkInRadiusMeters' in data) || (data.checkInRadiusMeters is int && data.checkInRadiusMeters >= 20 && data.checkInRadiusMeters <= 1000)) &&
+             (!('requireGpsCheckIn' in data) || data.requireGpsCheckIn is bool) &&
              isValidString(data.ownerUid, 1, 128) &&
-             isValidOptionalTimestamp(data, 'createdAt');
+             isValidOptionalTimestamp(data, 'createdAt') &&
+             isValidOptionalTimestamp(data, 'updatedAt');
     }
 
     function isValidTrainer(data) {
@@ -454,7 +495,11 @@ service cloud.firestore {
     match /phone_index/{phone} {
       // Users can read their own phone_index entry; gym owners can read trainer/member entries in their gym.
       allow read: if (hasPhone() && userPhone() == phone) ||
-                     (isGymOwner(resource.data.gymId) && resource.data.role in ['trainer', 'member']);
+                     (resource != null &&
+                      'gymId' in resource.data &&
+                      'role' in resource.data &&
+                      isGymOwner(resource.data.gymId) &&
+                      resource.data.role in ['trainer', 'member']);
 
       // Owners can create trainer/member phone_index entries for their own gym (or their own owner entry if they own the gym doc);
       // trainers can create member phone_index entries for their own gym when enrolling a new paid member.
@@ -475,12 +520,16 @@ service cloud.firestore {
       // Owners can update trainer/member phone_index entries for their own gym without changing gymId or escalating to owner.
       allow update: if isValidPhoneIndex(request.resource.data, phone) &&
                        areImmutableFieldsUnchanged(['gymId', 'phone']) &&
+                       'gymId' in resource.data &&
+                       'role' in resource.data &&
                        isGymOwner(resource.data.gymId) &&
                        resource.data.role in ['trainer', 'member'] &&
                        request.resource.data.role in ['trainer', 'member'];
 
       // Owners can delete trainer/member phone_index entries for their own gym.
-      allow delete: if isGymOwner(resource.data.gymId) &&
+      allow delete: if 'gymId' in resource.data &&
+                       'role' in resource.data &&
+                       isGymOwner(resource.data.gymId) &&
                        resource.data.role in ['trainer', 'member'];
     }
 
@@ -491,12 +540,12 @@ service cloud.firestore {
       // Only the verified phone owner can create or update their own pending request.
       allow create, update: if hasPhone() &&
                                userPhone() == phone &&
-                               request.resource.data.uid == request.auth.uid &&
-                               isValidPendingRequest(request.resource.data, phone);
+                               isValidPendingRequest(request.resource.data, phone) &&
+                               request.resource.data.uid == request.auth.uid;
 
       // The verified phone owner or the target gym's owner can delete the pending request.
       allow delete: if (hasPhone() && userPhone() == phone) ||
-                       isGymOwner(resource.data.gymId);
+                       ('gymId' in resource.data && isGymOwner(resource.data.gymId));
     }
 
     match /gyms/{gymId} {
@@ -513,6 +562,9 @@ service cloud.firestore {
       allow update: if isValidGym(request.resource.data) &&
                        areImmutableFieldsUnchanged(['id', 'ownerUid', 'createdAt']) &&
                        (
+                         (isAuthenticated() &&
+                          'ownerUid' in resource.data &&
+                          resource.data.ownerUid == request.auth.uid) ||
                          isGymOwner(gymId) ||
                          (isGymTrainer(gymId) &&
                           request.resource.data.diff(resource.data).affectedKeys().hasOnly(['activeCrowd'])) ||
@@ -521,7 +573,10 @@ service cloud.firestore {
                           math.abs(request.resource.data.activeCrowd - resource.data.activeCrowd) == 1)
                        );
 
-      allow delete: if isGymOwner(gymId);
+      allow delete: if (isAuthenticated() &&
+                        'ownerUid' in resource.data &&
+                        resource.data.ownerUid == request.auth.uid) ||
+                       isGymOwner(gymId);
 
       // Trainers subcollection
       match /trainers/{trainerId} {
@@ -638,17 +693,17 @@ service cloud.firestore {
       match /trainer_requests/{requestId} {
         allow read: if isGymOwner(gymId) ||
                        (isAuthenticated() && requestId == request.auth.uid) ||
-                       (resource != null && hasPhone() && resource.data.phone == userPhone());
+                       (resource != null && hasPhone() && 'phone' in resource.data && resource.data.phone == userPhone());
 
         allow create: if hasPhone() &&
+                         isValidTrainerRequest(request.resource.data) &&
                          request.resource.data.phone == userPhone() &&
                          request.resource.data.uid == request.auth.uid &&
                          request.resource.data.status == 'pending' &&
-                         isValidTrainerRequest(request.resource.data) &&
                          hasActiveInvite(gymId, request.resource.data.inviteCode);
 
         allow delete: if isGymOwner(gymId) ||
-                         (hasPhone() && resource.data.phone == userPhone());
+                         (hasPhone() && 'phone' in resource.data && resource.data.phone == userPhone());
       }
 
       // Removed trainers & members audit logs subcollection

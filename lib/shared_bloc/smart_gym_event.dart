@@ -1,4 +1,5 @@
 import 'package:equatable/equatable.dart';
+import '../domain/models/gym_fee_plan.dart';
 import '../domain/models/gym_member.dart';
 import '../domain/models/gym_tenant.dart';
 import '../domain/models/machine_guide.dart';
@@ -287,6 +288,12 @@ class CreateNewGymOnboardingEvent extends SmartGymEvent {
   final String ownerName;
   final int monthlyFee;
   final int ptFee;
+  final int maxCapacity;
+  final List<GymFeePlan> feePlans;
+  final double? latitude;
+  final double? longitude;
+  final int checkInRadiusMeters;
+  final bool requireGpsCheckIn;
 
   const CreateNewGymOnboardingEvent({
     required this.gymName,
@@ -294,10 +301,28 @@ class CreateNewGymOnboardingEvent extends SmartGymEvent {
     required this.ownerName,
     this.monthlyFee = 1500,
     this.ptFee = 6000,
+    this.maxCapacity = 60,
+    this.feePlans = const [],
+    this.latitude,
+    this.longitude,
+    this.checkInRadiusMeters = 100,
+    this.requireGpsCheckIn = true,
   });
 
   @override
-  List<Object?> get props => [gymName, area, ownerName, monthlyFee, ptFee];
+  List<Object?> get props => [
+        gymName,
+        area,
+        ownerName,
+        monthlyFee,
+        ptFee,
+        maxCapacity,
+        feePlans,
+        latitude,
+        longitude,
+        checkInRadiusMeters,
+        requireGpsCheckIn,
+      ];
 }
 
 class AddTrainerToGymEvent extends SmartGymEvent {
@@ -464,6 +489,12 @@ class UpdateGymSettingsEvent extends SmartGymEvent {
   final int monthlyFee;
   final int ptFee;
   final int maxCapacity;
+  final List<GymFeePlan>? feePlans;
+  final double? latitude;
+  final double? longitude;
+  final bool clearLocation;
+  final int? checkInRadiusMeters;
+  final bool? requireGpsCheckIn;
 
   const UpdateGymSettingsEvent({
     required this.name,
@@ -471,10 +502,28 @@ class UpdateGymSettingsEvent extends SmartGymEvent {
     required this.monthlyFee,
     required this.ptFee,
     required this.maxCapacity,
+    this.feePlans,
+    this.latitude,
+    this.longitude,
+    this.clearLocation = false,
+    this.checkInRadiusMeters,
+    this.requireGpsCheckIn,
   });
 
   @override
-  List<Object?> get props => [name, area, monthlyFee, ptFee, maxCapacity];
+  List<Object?> get props => [
+        name,
+        area,
+        monthlyFee,
+        ptFee,
+        maxCapacity,
+        feePlans,
+        latitude,
+        longitude,
+        clearLocation,
+        checkInRadiusMeters,
+        requireGpsCheckIn,
+      ];
 }
 
 class SyncCurrentMemberEvent extends SmartGymEvent {

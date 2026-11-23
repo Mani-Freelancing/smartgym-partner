@@ -6,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/cred_neopop_widgets.dart';
 import '../../../../data/services/member_whatsapp_service.dart';
+import '../../../../domain/models/gym_fee_plan.dart';
 import '../../../../domain/models/gym_member.dart';
 import '../../../../shared_bloc/smart_gym_bloc.dart';
 import '../../../../shared_bloc/smart_gym_event.dart';
@@ -26,6 +27,7 @@ class TrainerMembersOnboardingScreen extends StatelessWidget {
     final picker = ImagePicker();
 
     int months = 1;
+    GymFeePlan? selectedPlan;
     bool isPt = false;
     bool amountEdited = false;
     String paymentMode = 'Cash';
@@ -55,6 +57,19 @@ class TrainerMembersOnboardingScreen extends StatelessWidget {
 
     void recalcFee() {
       if (amountEdited) return;
+      if (selectedPlan != null) {
+        amountCtrl.text = selectedPlan!.price.toString();
+        return;
+      }
+      final exact = GymFeePlan.matchPriceForDuration(
+        state.currentGym.effectiveFeePlans,
+        months: months,
+        isPt: isPt,
+      );
+      if (exact != null) {
+        amountCtrl.text = exact.toString();
+        return;
+      }
       final perMo =
           isPt ? state.currentGym.ptFee : state.currentGym.monthlyFee;
       amountCtrl.text = (perMo * months).toString();
@@ -74,11 +89,14 @@ class TrainerMembersOnboardingScreen extends StatelessWidget {
       ),
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setModalState) {
-          final expiryDate = DateTime(
-            joiningDate.year,
-            joiningDate.month + months,
-            joiningDate.day,
-          );
+          final expiryDate = (selectedPlan != null &&
+                  selectedPlan!.durationMonths == null)
+              ? joiningDate.add(Duration(days: selectedPlan!.durationDays))
+              : DateTime(
+                  joiningDate.year,
+                  joiningDate.month + months,
+                  joiningDate.day,
+                );
           final now = DateTime.now();
           final today = DateTime(now.year, now.month, now.day);
           final daysLeft = expiryDate.difference(today).inDays;
@@ -275,7 +293,7 @@ class TrainerMembersOnboardingScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 14),
                   const Text(
-                    'PLAN DURATION (MONTHS)',
+                    'MEMBERSHIP PLAN & DURATION',
                     style: TextStyle(
                       fontSize: 10,
                       fontWeight: FontWeight.w900,
@@ -284,9 +302,56 @@ class TrainerMembersOnboardingScreen extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: state.currentGym.effectiveFeePlans.map((plan) {
+                      final sel = selectedPlan?.id == plan.id;
+                      return GestureDetector(
+                        onTap: () {
+                          HapticFeedback.selectionClick();
+                          setModalState(() {
+                            selectedPlan = plan;
+                            months = plan.durationMonths ?? 1;
+                            isPt = plan.includesPt;
+                            amountEdited = false;
+                            amountCtrl.text = plan.price.toString();
+                          });
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 11,
+                            vertical: 7,
+                          ),
+                          decoration: BoxDecoration(
+                            color: sel
+                                ? AppTheme.trainerCyan.withValues(alpha: 0.18)
+                                : const Color(0xFF12151C),
+                            borderRadius: BorderRadius.circular(11),
+                            border: Border.all(
+                              color: sel
+                                  ? AppTheme.trainerCyan
+                                  : Colors.white12,
+                            ),
+                          ),
+                          child: Text(
+                            '${plan.name} • ₹${plan.price}',
+                            style: TextStyle(
+                              color: sel
+                                  ? AppTheme.trainerCyan
+                                  : Colors.white70,
+                              fontWeight: FontWeight.w800,
+                              fontSize: 11.5,
+                            ),
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                  const SizedBox(height: 10),
                   Row(
                     children: [1, 3, 6, 12].map((m) {
-                      final sel = months == m;
+                      final sel = selectedPlan == null && months == m;
                       return Expanded(
                         child: Padding(
                           padding: EdgeInsets.only(right: m == 12 ? 0 : 8),
@@ -294,6 +359,7 @@ class TrainerMembersOnboardingScreen extends StatelessWidget {
                             onTap: () {
                               HapticFeedback.selectionClick();
                               setModalState(() {
+                                selectedPlan = null;
                                 months = m;
                                 recalcFee();
                               });
@@ -356,6 +422,7 @@ class TrainerMembersOnboardingScreen extends StatelessWidget {
                                   ? () {
                                       HapticFeedback.selectionClick();
                                       setModalState(() {
+                                        selectedPlan = null;
                                         months--;
                                         recalcFee();
                                       });
@@ -383,6 +450,7 @@ class TrainerMembersOnboardingScreen extends StatelessWidget {
                                   ? () {
                                       HapticFeedback.selectionClick();
                                       setModalState(() {
+                                        selectedPlan = null;
                                         months++;
                                         recalcFee();
                                       });
@@ -898,7 +966,7 @@ class TrainerMembersOnboardingScreen extends StatelessWidget {
                           });
                           return;
                         }
-                        final planLabel =
+                        final planLabel = selectedPlan?.name ??
                             '$months ${months == 1 ? 'Month' : 'Months'} ${isPt ? 'PT VIP' : 'Regular'}';
                         final enrolledMember = GymMember(
                           id: 'tmp',

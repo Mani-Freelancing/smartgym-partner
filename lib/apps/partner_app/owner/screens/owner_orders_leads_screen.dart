@@ -42,13 +42,11 @@ class OwnerOrdersLeadsScreen extends StatelessWidget {
     final messenger = ScaffoldMessenger.of(context);
     final nameCtrl = TextEditingController();
     final phoneCtrl = TextEditingController();
-    final plans = [
-      'Monthly (₹${state.currentGym.monthlyFee})',
-      '3 Months',
-      'Annual Plan',
-      'PT Plan (₹${state.currentGym.ptFee})',
-    ];
-    String selectedPlan = plans.first;
+    final plans = state.currentGym.effectiveFeePlans
+        .map((p) => '${p.name} (₹${p.price})')
+        .toList();
+    String selectedPlan =
+        plans.isNotEmpty ? plans.first : 'Monthly (₹${state.currentGym.monthlyFee})';
     String? error;
 
     showModalBottomSheet<void>(
@@ -494,16 +492,18 @@ class OwnerOrdersLeadsScreen extends StatelessWidget {
                           ],
                         ),
                         const Divider(height: 24),
-                        Row(
+                        Wrap(
+                          alignment: WrapAlignment.spaceBetween,
+                          runSpacing: 4,
+                          spacing: 8,
+                          crossAxisAlignment: WrapCrossAlignment.center,
                           children: [
-                            Expanded(
-                              child: Text(
-                                'Assigned PT Clients (${assignedPtClients.length})',
-                                style: const TextStyle(
-                                  fontSize: 11.5,
-                                  fontWeight: FontWeight.w800,
-                                  color: Colors.white70,
-                                ),
+                            Text(
+                              'Assigned PT Clients (${assignedPtClients.length})',
+                              style: const TextStyle(
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.w800,
+                                color: Colors.white70,
                               ),
                             ),
                             Text(

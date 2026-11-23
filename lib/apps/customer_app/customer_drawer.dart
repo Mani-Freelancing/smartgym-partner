@@ -621,27 +621,33 @@ class CustomerDrawer extends StatelessWidget {
                 ),
                 Expanded(
                   child: ListView(
-                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    padding: const EdgeInsets.fromLTRB(0, 8, 0, 12),
                     children: [
+                      const _DrawerSectionHeader('MEMBERSHIP'),
                       ListTile(
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 18,
+                          vertical: 2,
+                        ),
+                        visualDensity: VisualDensity.compact,
                         leading: Container(
-                          width: 38,
-                          height: 38,
+                          width: 36,
+                          height: 36,
                           decoration: BoxDecoration(
-                            color: AppTheme.ownerGold.withValues(alpha: 0.14),
+                            color: AppTheme.trainerCyan.withValues(alpha: 0.14),
                             borderRadius: BorderRadius.circular(10),
                           ),
                           child: const Icon(
                             Icons.card_membership_rounded,
-                            color: AppTheme.ownerGold,
-                            size: 20,
+                            color: AppTheme.trainerCyan,
+                            size: 19,
                           ),
                         ),
                         title: Text(
                           planTitle,
                           style: const TextStyle(
                             color: Colors.white,
-                            fontSize: 14,
+                            fontSize: 13.5,
                             fontWeight: FontWeight.w800,
                           ),
                         ),
@@ -649,15 +655,19 @@ class CustomerDrawer extends StatelessWidget {
                           'Valid till $expiry',
                           style: const TextStyle(
                             color: Colors.white54,
-                            fontSize: 12,
+                            fontSize: 11.5,
                           ),
                         ),
                       ),
-                      const Divider(color: Colors.white12, height: 20),
                       SwitchListTile(
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 18,
+                          vertical: 2,
+                        ),
+                        visualDensity: VisualDensity.compact,
                         secondary: Container(
-                          width: 38,
-                          height: 38,
+                          width: 36,
+                          height: 36,
                           decoration: BoxDecoration(
                             color: AppTheme.trainerCyan.withValues(alpha: 0.14),
                             borderRadius: BorderRadius.circular(10),
@@ -665,7 +675,7 @@ class CustomerDrawer extends StatelessWidget {
                           child: const Icon(
                             Icons.ac_unit_rounded,
                             color: AppTheme.trainerCyan,
-                            size: 20,
+                            size: 19,
                           ),
                         ),
                         activeThumbColor: AppTheme.trainerCyan,
@@ -673,7 +683,7 @@ class CustomerDrawer extends StatelessWidget {
                           'Vacation Freeze',
                           style: TextStyle(
                             color: Colors.white,
-                            fontSize: 14,
+                            fontSize: 13.5,
                             fontWeight: FontWeight.w800,
                           ),
                         ),
@@ -681,7 +691,7 @@ class CustomerDrawer extends StatelessWidget {
                           '${state.freezeDaysLeft} freeze days left',
                           style: const TextStyle(
                             color: Colors.white54,
-                            fontSize: 12,
+                            fontSize: 11.5,
                           ),
                         ),
                         value: state.isMembershipFrozen,
@@ -692,36 +702,43 @@ class CustomerDrawer extends StatelessWidget {
                               .add(ToggleVacationFreezeEvent(v));
                         },
                       ),
-                      const Divider(color: Colors.white12, height: 20),
+                      const Divider(color: Colors.white10, height: 18),
+                      const _DrawerSectionHeader('AVATAR & INTRO'),
                       ValueListenableBuilder<HeroPoseOption>(
                         valueListenable: HeroAvatarService.selectedPose,
                         builder: (context, pose, _) => ListTile(
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 18,
+                            vertical: 2,
+                          ),
+                          visualDensity: VisualDensity.compact,
                           leading: Container(
-                            width: 38,
-                            height: 38,
+                            width: 36,
+                            height: 36,
                             decoration: BoxDecoration(
-                              color: AppTheme.ownerGold.withValues(alpha: 0.16),
+                              color:
+                                  AppTheme.trainerCyan.withValues(alpha: 0.14),
                               borderRadius: BorderRadius.circular(10),
                             ),
                             child: const Icon(
                               Icons.accessibility_new_rounded,
-                              color: AppTheme.ownerGold,
-                              size: 20,
+                              color: AppTheme.trainerCyan,
+                              size: 19,
                             ),
                           ),
                           title: const Text(
                             'Change Avatar Pose',
                             style: TextStyle(
                               color: Colors.white,
-                              fontSize: 14,
+                              fontSize: 13.5,
                               fontWeight: FontWeight.w800,
                             ),
                           ),
                           subtitle: Text(
                             'Primary: ${pose.title} (${HeroAvatarService.poses.length} poses)',
                             style: const TextStyle(
-                              color: AppTheme.ownerGold,
-                              fontSize: 12,
+                              color: AppTheme.trainerCyan,
+                              fontSize: 11.5,
                               fontWeight: FontWeight.w700,
                             ),
                           ),
@@ -740,24 +757,29 @@ class CustomerDrawer extends StatelessWidget {
                         ),
                       ),
                       ListTile(
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 18,
+                          vertical: 2,
+                        ),
+                        visualDensity: VisualDensity.compact,
                         leading: Container(
-                          width: 38,
-                          height: 38,
+                          width: 36,
+                          height: 36,
                           decoration: BoxDecoration(
-                            color: const Color(0xFFFF6B2B).withValues(alpha: 0.16),
+                            color: AppTheme.trainerCyan.withValues(alpha: 0.14),
                             borderRadius: BorderRadius.circular(10),
                           ),
                           child: const Icon(
                             Icons.local_fire_department_rounded,
-                            color: Color(0xFFFF6B2B),
-                            size: 20,
+                            color: AppTheme.trainerCyan,
+                            size: 19,
                           ),
                         ),
                         title: const Text(
                           'Replay Power Intro',
                           style: TextStyle(
                             color: Colors.white,
-                            fontSize: 14,
+                            fontSize: 13.5,
                             fontWeight: FontWeight.w800,
                           ),
                         ),
@@ -765,7 +787,7 @@ class CustomerDrawer extends StatelessWidget {
                           'Preview the fire & power entrance',
                           style: TextStyle(
                             color: Colors.white54,
-                            fontSize: 12,
+                            fontSize: 11.5,
                           ),
                         ),
                         onTap: () {
@@ -778,25 +800,32 @@ class CustomerDrawer extends StatelessWidget {
                           );
                         },
                       ),
+                      const Divider(color: Colors.white10, height: 18),
+                      const _DrawerSectionHeader('TEST TOOLS'),
                       ListTile(
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 18,
+                          vertical: 2,
+                        ),
+                        visualDensity: VisualDensity.compact,
                         leading: Container(
-                          width: 38,
-                          height: 38,
+                          width: 36,
+                          height: 36,
                           decoration: BoxDecoration(
-                            color: AppTheme.trainerCyan.withValues(alpha: 0.16),
+                            color: AppTheme.trainerCyan.withValues(alpha: 0.14),
                             borderRadius: BorderRadius.circular(10),
                           ),
                           child: const Icon(
                             Icons.qr_code_scanner_rounded,
                             color: AppTheme.trainerCyan,
-                            size: 20,
+                            size: 19,
                           ),
                         ),
                         title: const Text(
                           'Reset Today\'s Scan',
                           style: TextStyle(
                             color: Colors.white,
-                            fontSize: 14,
+                            fontSize: 13.5,
                             fontWeight: FontWeight.w800,
                           ),
                         ),
@@ -804,7 +833,7 @@ class CustomerDrawer extends StatelessWidget {
                           'Clear today check-in/out to scan freshly',
                           style: TextStyle(
                             color: Colors.white54,
-                            fontSize: 12,
+                            fontSize: 11.5,
                           ),
                         ),
                         onTap: () async {
@@ -859,6 +888,27 @@ class CustomerDrawer extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+}
+
+class _DrawerSectionHeader extends StatelessWidget {
+  final String title;
+  const _DrawerSectionHeader(this.title);
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(18, 6, 18, 4),
+      child: Text(
+        title,
+        style: const TextStyle(
+          color: Colors.white38,
+          fontSize: 10,
+          fontWeight: FontWeight.w900,
+          letterSpacing: 1.4,
+        ),
+      ),
     );
   }
 }

@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../data/repositories/gym_repository.dart';
 import '../data/services/firestore_service.dart';
+import '../data/services/onboarding_draft_service.dart';
 import '../domain/models/gym_member.dart';
 import '../domain/models/gym_tenant.dart';
 import '../domain/models/machine_guide.dart';
@@ -306,6 +307,7 @@ class SmartGymBloc extends Bloc<SmartGymEvent, SmartGymState> {
         ));
         return;
       }
+      await OnboardingDraftService.clearDraft(phone);
       _subscribeToGym(lookup.gymId);
       emit(state.copyWith(
         isAuthChecking: false,
@@ -342,7 +344,14 @@ class SmartGymBloc extends Bloc<SmartGymEvent, SmartGymState> {
         ownerPhone: phone,
         monthlyFee: event.monthlyFee,
         ptFee: event.ptFee,
+        maxCapacity: event.maxCapacity,
+        feePlans: event.feePlans,
+        latitude: event.latitude,
+        longitude: event.longitude,
+        checkInRadiusMeters: event.checkInRadiusMeters,
+        requireGpsCheckIn: event.requireGpsCheckIn,
       );
+      await OnboardingDraftService.clearDraft(phone);
       _subscribeToGym(gymId);
       emit(state.copyWith(
         isOnboardingBusy: false,
@@ -391,6 +400,7 @@ class SmartGymBloc extends Bloc<SmartGymEvent, SmartGymState> {
         trainerName: event.trainerName,
         trainerPhone: phone,
       );
+      await OnboardingDraftService.clearDraft(phone);
       emit(state.copyWith(
         isOnboardingBusy: false,
         needsOnboarding: true,
@@ -512,6 +522,12 @@ class SmartGymBloc extends Bloc<SmartGymEvent, SmartGymState> {
       monthlyFee: event.monthlyFee,
       ptFee: event.ptFee,
       maxCapacity: event.maxCapacity,
+      feePlans: event.feePlans,
+      latitude: event.latitude,
+      longitude: event.longitude,
+      clearLocation: event.clearLocation,
+      checkInRadiusMeters: event.checkInRadiusMeters,
+      requireGpsCheckIn: event.requireGpsCheckIn,
     );
     emit(state.copyWith(gyms: updatedGyms));
     _syncAsync(
@@ -522,6 +538,12 @@ class SmartGymBloc extends Bloc<SmartGymEvent, SmartGymState> {
         monthlyFee: event.monthlyFee,
         ptFee: event.ptFee,
         maxCapacity: event.maxCapacity,
+        feePlans: event.feePlans,
+        latitude: event.latitude,
+        longitude: event.longitude,
+        clearLocation: event.clearLocation,
+        checkInRadiusMeters: event.checkInRadiusMeters,
+        requireGpsCheckIn: event.requireGpsCheckIn,
       ),
     );
   }
@@ -596,6 +618,7 @@ class SmartGymBloc extends Bloc<SmartGymEvent, SmartGymState> {
         ));
         return;
       }
+      await OnboardingDraftService.clearDraft(event.phone);
       _subscribeToGym(lookup.gymId);
       emit(
         state.copyWith(

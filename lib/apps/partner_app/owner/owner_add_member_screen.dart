@@ -6,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/cred_neopop_widgets.dart';
 import '../../../data/services/member_whatsapp_service.dart';
+import '../../../domain/models/gym_fee_plan.dart';
 import '../../../domain/models/gym_member.dart';
 import '../../../shared_bloc/smart_gym_bloc.dart';
 import '../../../shared_bloc/smart_gym_event.dart';
@@ -28,6 +29,7 @@ class _OwnerAddMemberScreenState extends State<OwnerAddMemberScreen> {
   final ImagePicker _picker = ImagePicker();
 
   int _months = 1;
+  GymFeePlan? _selectedPlan;
   bool _isPt = false;
   String _paymentMode = 'Cash'; // 'Cash' | 'Online'
   String _paymentProofBase64 = '';
@@ -161,15 +163,34 @@ class _OwnerAddMemberScreenState extends State<OwnerAddMemberScreen> {
 
   void _recalculateSuggestedAmount(SmartGymState state) {
     if (_amountEditedManually) return;
+    if (_selectedPlan != null) {
+      _amountCtrl.text = _selectedPlan!.price.toString();
+      return;
+    }
+    final exactMatch = GymFeePlan.matchPriceForDuration(
+      state.currentGym.effectiveFeePlans,
+      months: _months,
+      isPt: _isPt,
+    );
+    if (exactMatch != null) {
+      _amountCtrl.text = exactMatch.toString();
+      return;
+    }
     final perMonth = _isPt ? state.currentGym.ptFee : state.currentGym.monthlyFee;
     _amountCtrl.text = (perMonth * _months).toString();
   }
 
-  DateTime get _expiryDate => DateTime(
-        _joiningDate.year,
-        _joiningDate.month + _months,
-        _joiningDate.day,
-      );
+  DateTime get _expiryDate {
+    final plan = _selectedPlan;
+    if (plan != null && plan.durationMonths == null) {
+      return _joiningDate.add(Duration(days: plan.durationDays));
+    }
+    return DateTime(
+      _joiningDate.year,
+      _joiningDate.month + _months,
+      _joiningDate.day,
+    );
+  }
 
   String _formatDate(DateTime dt) =>
       '${dt.day.toString().padLeft(2, '0')} ${_monthNames[dt.month - 1]} ${dt.year}';
@@ -236,7 +257,7 @@ class _OwnerAddMemberScreenState extends State<OwnerAddMemberScreen> {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     final daysLeft = _expiryDate.difference(today).inDays;
-    final planLabel =
+    final planLabel = _selectedPlan?.name ??
         '$_months ${_months == 1 ? 'Month' : 'Months'} ${_isPt ? 'PT VIP' : 'Regular'}';
     final trainerName = _isPt
         ? (_selectedTrainer ??
@@ -447,18 +468,66 @@ class _OwnerAddMemberScreenState extends State<OwnerAddMemberScreen> {
                 ),
                 const SizedBox(height: 22),
 
-                // 3. Plan Duration (Months)
-                const _SectionLabel('PLAN DURATION (MONTHS)'),
+                // 3. Gym Packages + Plan Duration
+                const _SectionLabel('MEMBERSHIP PLAN & DURATION'),
+                const SizedBox(height: 10),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: gym.effectiveFeePlans.map((plan) {
+                    final selected = _selectedPlan?.id == plan.id;
+                    return GestureDetector(
+                      onTap: () {
+                        HapticFeedback.selectionClick();
+                        setState(() {
+                          _selectedPlan = plan;
+                          _months = plan.durationMonths ?? 1;
+                          _isPt = plan.includesPt;
+                          _amountEditedManually = false;
+                          _amountCtrl.text = plan.price.toString();
+                        });
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
+                        decoration: BoxDecoration(
+                          color: selected
+                              ? AppTheme.ownerGold.withValues(alpha: 0.18)
+                              : const Color(0xFF1A1E29),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: selected
+                                ? AppTheme.ownerGold
+                                : Colors.white12,
+                          ),
+                        ),
+                        child: Text(
+                          '${plan.name} • ₹${plan.price}',
+                          style: TextStyle(
+                            color: selected
+                                ? AppTheme.ownerGold
+                                : Colors.white70,
+                            fontWeight: FontWeight.w800,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
                 const SizedBox(height: 10),
                 Wrap(
                   spacing: 8,
                   runSpacing: 8,
                   children: [1, 3, 6, 12].map((m) {
-                    final selected = _months == m;
+                    final selected = _selectedPlan == null && _months == m;
                     return GestureDetector(
                       onTap: () {
                         HapticFeedback.selectionClick();
                         setState(() {
+                          _selectedPlan = null;
                           _months = m;
                           _recalculateSuggestedAmount(state);
                         });
@@ -518,6 +587,7 @@ class _OwnerAddMemberScreenState extends State<OwnerAddMemberScreen> {
                                 ? () {
                                     HapticFeedback.selectionClick();
                                     setState(() {
+                                      _selectedPlan = null;
                                       _months--;
                                       _recalculateSuggestedAmount(state);
                                     });
@@ -545,6 +615,7 @@ class _OwnerAddMemberScreenState extends State<OwnerAddMemberScreen> {
                                 ? () {
                                     HapticFeedback.selectionClick();
                                     setState(() {
+                                      _selectedPlan = null;
                                       _months++;
                                       _recalculateSuggestedAmount(state);
                                     });
