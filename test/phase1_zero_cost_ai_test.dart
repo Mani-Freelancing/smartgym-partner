@@ -1,12 +1,18 @@
 import 'dart:convert';
+import 'dart:io';
+import 'dart:math' as math;
+import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import 'package:flutter_demo_application/apps/customer_app/screens/customer_pass_screen.dart';
 import 'package:flutter_demo_application/apps/partner_app/owner/owner_add_member_screen.dart';
 import 'package:flutter_demo_application/apps/partner_app/shared/upi_payment_proof_section.dart';
 import 'package:flutter_demo_application/apps/partner_app/trainer/screens/trainer_absent_radar_screen.dart';
 import 'package:flutter_demo_application/data/repositories/gym_repository.dart';
+import 'package:flutter_demo_application/data/services/rupee_glyph_detector.dart';
 import 'package:flutter_demo_application/data/services/upi_proof_ocr_service.dart';
 import 'package:flutter_demo_application/domain/models/gym_member.dart';
 import 'package:flutter_demo_application/domain/models/gym_tenant.dart';
@@ -82,6 +88,60 @@ void main() {
       (text: '24', box: const Rect.fromLTWH(40, 240, 30, 14)),
     ]);
     expect(heroSpatialWithoutRupee, 2500);
+
+    // Status bar clock/battery, date year & masked bank digits must NOT beat paid hero
+    final statusBarAndDateNoise = UpiProofOcrService.parseExtractedText(
+      '15:02\n85\n24 Nov 2026\nCompleted\n2,000\nPaid to IMFIT Gym\nBank **** 4521\nUPI Ref: 432918273645',
+    );
+    expect(statusBarAndDateNoise.amountInr, 2000);
+
+    // Common ML Kit Latin ₹ misreads (F / R / 7-fused / space thousands / dot thousands / trail /-)
+    expect(
+      UpiProofOcrService.parseExtractedText(
+        'Paid F1,500 to IMFIT\nRef 432918273645',
+      ).amountInr,
+      1500,
+    );
+    expect(
+      UpiProofOcrService.parseExtractedText(
+        'Paid ₹1 500/-\nTransaction Successful',
+      ).amountInr,
+      1500,
+    );
+    expect(
+      UpiProofOcrService.parseExtractedText(
+        'Paid ₹1.500\nTransaction Successful',
+      ).amountInr,
+      1500,
+    );
+    expect(
+      UpiProofOcrService.parseExtractedText(
+        'Paid 1,500\n24 Nov 2026\nA/c XX4521',
+      ).amountInr,
+      1500,
+    );
+    expect(
+      UpiProofOcrService.parseExtractedText(
+        'Payment Successful\n71,500\nTo IMFIT Gym',
+        expectedAmount: 1500,
+      ).amountInr,
+      1500,
+    );
+    // Genuine lower amount stays blocked (tamper protection intact!)
+    expect(
+      UpiProofOcrService.parseExtractedText(
+        'Payment Successful\nPaid ₹500\nTo IMFIT Gym',
+        expectedAmount: 2000,
+      ).amountInr,
+      500,
+    );
+
+    // Top-aligned small ₹ next to tall hero digits still pairs spatially
+    final topAlignedRupee = UpiProofOcrService.extractAmountNearRupeeBoxes([
+      (text: '₹', box: const Rect.fromLTWH(40, 178, 20, 24)),
+      (text: '2,000', box: const Rect.fromLTWH(68, 176, 130, 68)),
+    ]);
+    expect(topAlignedRupee, 2000);
   });
 
   test('UpiProofOcrService.auditProof detects duplicate UTR, mismatch, and verified proofs', () {
@@ -432,5 +492,593 @@ void main() {
     await tester.pump();
     expect(strip, findsOneWidget);
     expect(find.textContaining('Quiet: 1–4 PM'), findsOneWidget);
+  });
+
+  test('RupeeGlyphDetector & UpiProofOcrService distinguish ₹300 from real 7300/2300/3300/7/2/3/F/R across fonts and themes', () async {
+    TestWidgetsFlutterBinding.ensureInitialized();
+
+    // Helper: rasterizes an arbitrary Canvas callback to DecodedRgbaImage.
+    Future<DecodedRgbaImage> rasterize({
+      required int width,
+      required int height,
+      required void Function(Canvas canvas) paint,
+    }) async {
+      final recorder = ui.PictureRecorder();
+      final canvas = Canvas(recorder);
+      paint(canvas);
+      final picture = recorder.endRecording();
+      final image = await picture.toImage(width, height);
+      final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+      expect(byteData, isNotNull);
+      final decoded = await RupeeGlyphDetector.decodeBytes(
+        byteData!.buffer.asUint8List(),
+      );
+      expect(decoded, isNotNull);
+      return decoded!;
+    }
+
+    RecognizedText buildSingleLineOcr(String lineText, Rect box) {
+      final pts = <math.Point<int>>[
+        math.Point<int>(box.left.round(), box.top.round()),
+        math.Point<int>(box.right.round(), box.top.round()),
+        math.Point<int>(box.right.round(), box.bottom.round()),
+        math.Point<int>(box.left.round(), box.bottom.round()),
+      ];
+      return RecognizedText(
+        text: lineText,
+        blocks: [
+          TextBlock(
+            text: lineText,
+            lines: [
+              TextLine(
+                text: lineText,
+                elements: [
+                  TextElement(
+                    text: lineText,
+                    symbols: const [],
+                    boundingBox: box,
+                    recognizedLanguages: const ['en'],
+                    cornerPoints: pts,
+                    confidence: 0.9,
+                    angle: 0,
+                  ),
+                ],
+                boundingBox: box,
+                recognizedLanguages: const ['en'],
+                cornerPoints: pts,
+                confidence: 0.9,
+                angle: 0,
+              ),
+            ],
+            boundingBox: box,
+            recognizedLanguages: const ['en'],
+            cornerPoints: pts,
+          ),
+        ],
+      );
+    }
+
+    // 1. Deterministic vector-drawn ₹ vs 7 bitmap test (runs in any environment).
+    Future<({DecodedRgbaImage image, Rect box})> renderVectorGlyphPair({
+      required bool drawRupee,
+      required Color bg,
+      required Color fg,
+    }) async {
+      const box = Rect.fromLTWH(20, 20, 140, 48);
+      final image = await rasterize(
+        width: 180,
+        height: 88,
+        paint: (canvas) {
+          canvas.drawRect(
+            const Rect.fromLTWH(0, 0, 180, 88),
+            Paint()..color = bg,
+          );
+          final p = Paint()
+            ..color = fg
+            ..strokeWidth = 3.5
+            ..strokeCap = StrokeCap.round
+            ..strokeJoin = StrokeJoin.round
+            ..style = PaintingStyle.stroke;
+          if (drawRupee) {
+            // Two top horizontal bars + upper curve + diagonal lower-right tail.
+            canvas.drawLine(const Offset(24, 24), const Offset(48, 24), p);
+            canvas.drawLine(const Offset(24, 33), const Offset(48, 33), p);
+            canvas.drawArc(
+              const Rect.fromLTWH(24, 24, 20, 18),
+              -1.3,
+              2.6,
+              false,
+              p,
+            );
+            canvas.drawLine(const Offset(26, 42), const Offset(46, 62), p);
+          } else {
+            // Genuine '7': single top bar + diagonal down-left stroke.
+            canvas.drawLine(const Offset(24, 24), const Offset(48, 24), p);
+            canvas.drawLine(const Offset(47, 25), const Offset(28, 62), p);
+          }
+          // Trailing "300" digits
+          canvas.drawArc(const Rect.fromLTWH(58, 24, 22, 18), -2.2, 3.6, false, p);
+          canvas.drawArc(const Rect.fromLTWH(58, 42, 22, 19), -1.4, 3.6, false, p);
+          canvas.drawOval(const Rect.fromLTWH(90, 24, 22, 38), p);
+          canvas.drawOval(const Rect.fromLTWH(122, 24, 22, 38), p);
+        },
+      );
+      return (image: image, box: box);
+    }
+
+    final vecRupeeLight = await renderVectorGlyphPair(
+      drawRupee: true,
+      bg: const Color(0xFFFAF9F6),
+      fg: const Color(0xFF111111),
+    );
+    expect(
+      RupeeGlyphDetector.isRupeeGlyph(
+        vecRupeeLight.image,
+        vecRupeeLight.box,
+        isolateFirstGlyph: true,
+      ),
+      isTrue,
+      reason: 'Vector ₹300 on light background should match ₹ glyph: '
+          '${RupeeGlyphDetector.analyzeRegion(vecRupeeLight.image, vecRupeeLight.box, isolateFirstGlyph: true)}',
+    );
+    // Even if default fee field is 1500, pixel verification strips misread `7` -> 300!
+    final vecOcrCorrected = UpiProofOcrService.parseRecognizedTextWithImage(
+      buildSingleLineOcr('7300', vecRupeeLight.box),
+      rgbaImage: vecRupeeLight.image,
+      expectedAmount: 1500,
+    );
+    expect(vecOcrCorrected.amountInr, 300);
+
+    final vecSevenDark = await renderVectorGlyphPair(
+      drawRupee: false,
+      bg: const Color(0xFF150B24),
+      fg: Colors.white,
+    );
+    expect(
+      RupeeGlyphDetector.isRupeeGlyph(
+        vecSevenDark.image,
+        vecSevenDark.box,
+        isolateFirstGlyph: true,
+      ),
+      isFalse,
+      reason: 'Genuine 7300 on dark background must NOT be misclassified as ₹: '
+          '${RupeeGlyphDetector.analyzeRegion(vecSevenDark.image, vecSevenDark.box, isolateFirstGlyph: true)}',
+    );
+    // Real `7300` keeps 7300 on a payment receipt even when enteredAmount is 300!
+    final vecRealSevenReceipt = RecognizedText(
+      text: 'Payment Successful\n7300\nUPI Ref: 669407427418',
+      blocks: [
+        TextBlock(
+          text: 'Payment Successful\n7300',
+          lines: [
+            TextLine(
+              text: 'Payment Successful',
+              elements: [
+                TextElement(
+                  text: 'Payment',
+                  symbols: const [],
+                  boundingBox: const Rect.fromLTWH(20, 2, 70, 14),
+                  recognizedLanguages: const ['en'],
+                  cornerPoints: const [],
+                  confidence: 0.9,
+                  angle: 0,
+                ),
+                TextElement(
+                  text: 'Successful',
+                  symbols: const [],
+                  boundingBox: const Rect.fromLTWH(96, 2, 70, 14),
+                  recognizedLanguages: const ['en'],
+                  cornerPoints: const [],
+                  confidence: 0.9,
+                  angle: 0,
+                ),
+              ],
+              boundingBox: const Rect.fromLTWH(20, 2, 146, 14),
+              recognizedLanguages: const ['en'],
+              cornerPoints: const [],
+              confidence: 0.9,
+              angle: 0,
+            ),
+            TextLine(
+              text: '7300',
+              elements: [
+                TextElement(
+                  text: '7300',
+                  symbols: const [],
+                  boundingBox: vecSevenDark.box,
+                  recognizedLanguages: const ['en'],
+                  cornerPoints: const [],
+                  confidence: 0.9,
+                  angle: 0,
+                ),
+              ],
+              boundingBox: vecSevenDark.box,
+              recognizedLanguages: const ['en'],
+              cornerPoints: const [],
+              confidence: 0.9,
+              angle: 0,
+            ),
+          ],
+          boundingBox: const Rect.fromLTWH(20, 2, 146, 66),
+          recognizedLanguages: const ['en'],
+          cornerPoints: const [],
+        ),
+      ],
+    );
+    final vecOcrRealSeven = UpiProofOcrService.parseRecognizedTextWithImage(
+      vecRealSevenReceipt,
+      rgbaImage: vecSevenDark.image,
+      expectedAmount: 300,
+    );
+    expect(vecOcrRealSeven.amountInr, 7300);
+
+    // 2. Real Roboto font TextPainter tests (PhonePe/GPay/Paytm typography, light + dark).
+    final fontFiles = <String, String>{
+      'TestRobotoRegular':
+          '/Applications/flutter/bin/cache/artifacts/material_fonts/Roboto-Regular.ttf',
+      'TestRobotoMedium':
+          '/Applications/flutter/bin/cache/artifacts/material_fonts/Roboto-Medium.ttf',
+      'TestRobotoBold':
+          '/Applications/flutter/bin/cache/artifacts/material_fonts/Roboto-Bold.ttf',
+    };
+    for (final entry in fontFiles.entries) {
+      final f = File(entry.value);
+      if (!f.existsSync()) continue;
+      final bytes = await f.readAsBytes();
+      final loader = FontLoader(entry.key)
+        ..addFont(Future.value(ByteData.view(bytes.buffer)));
+      await loader.load();
+
+      Future<({DecodedRgbaImage image, Rect box})> renderFontText(
+        String text, {
+        required Color bg,
+        required Color fg,
+        double fontSize = 56,
+      }) async {
+        final tp = TextPainter(
+          text: TextSpan(
+            text: text,
+            style: TextStyle(
+              fontFamily: entry.key,
+              fontSize: fontSize,
+              color: fg,
+            ),
+          ),
+          textDirection: TextDirection.ltr,
+        )..layout();
+        const pad = 24.0;
+        final w = (tp.width + pad * 2).ceil();
+        final h = (tp.height + pad * 2).ceil();
+        final img = await rasterize(
+          width: w,
+          height: h,
+          paint: (canvas) {
+            canvas.drawRect(
+              Rect.fromLTWH(0, 0, w.toDouble(), h.toDouble()),
+              Paint()..color = bg,
+            );
+            tp.paint(canvas, const Offset(pad, pad));
+          },
+        );
+        return (
+          image: img,
+          box: Rect.fromLTWH(pad - 2, pad - 2, tp.width + 4, tp.height + 4),
+        );
+      }
+
+      for (final theme in [
+        (name: 'light', bg: Colors.white, fg: const Color(0xFF141414)),
+        (name: 'dark', bg: const Color(0xFF1A1025), fg: Colors.white),
+      ]) {
+        for (final size in [28.0, 56.0]) {
+          final rupee300 = await renderFontText(
+            '₹300',
+            bg: theme.bg,
+            fg: theme.fg,
+            fontSize: size,
+          );
+          final singleRupee = await renderFontText(
+            '₹',
+            bg: theme.bg,
+            fg: theme.fg,
+            fontSize: size,
+          );
+          expect(
+            RupeeGlyphDetector.isRupeeGlyph(
+              singleRupee.image,
+              singleRupee.box,
+              isolateFirstGlyph: false,
+            ),
+            isTrue,
+            reason: '${entry.key} ${theme.name} ${size}px ₹ metrics: '
+                '${RupeeGlyphDetector.analyzeRegion(singleRupee.image, singleRupee.box)}',
+          );
+          expect(
+            RupeeGlyphDetector.isRupeeGlyph(
+              rupee300.image,
+              rupee300.box,
+              isolateFirstGlyph: true,
+            ),
+            isTrue,
+            reason: '${entry.key} ${theme.name} ${size}px ₹300 metrics: '
+                '${RupeeGlyphDetector.analyzeRegion(rupee300.image, rupee300.box, isolateFirstGlyph: true)}',
+          );
+
+          final ocrFixed = UpiProofOcrService.parseRecognizedTextWithImage(
+            buildSingleLineOcr('7300', rupee300.box),
+            rgbaImage: rupee300.image,
+            expectedAmount: 1500,
+          );
+          expect(ocrFixed.amountInr, 300);
+
+          for (final negCompound in ['7300', '2300', '3300']) {
+            final sample = await renderFontText(
+              negCompound,
+              bg: theme.bg,
+              fg: theme.fg,
+              fontSize: size,
+            );
+            expect(
+              RupeeGlyphDetector.isRupeeGlyph(
+                sample.image,
+                sample.box,
+                isolateFirstGlyph: true,
+              ),
+              isFalse,
+              reason: '${entry.key} ${theme.name} ${size}px $negCompound metrics: '
+                  '${RupeeGlyphDetector.analyzeRegion(sample.image, sample.box, isolateFirstGlyph: true)}',
+            );
+          }
+          for (final negSingle in ['7', '2', '3', 'F', 'R', 'T', 'E', 'Z']) {
+            final sample = await renderFontText(
+              negSingle,
+              bg: theme.bg,
+              fg: theme.fg,
+              fontSize: size,
+            );
+            expect(
+              RupeeGlyphDetector.isRupeeGlyph(
+                sample.image,
+                sample.box,
+                isolateFirstGlyph: false,
+              ),
+              isFalse,
+              reason: '${entry.key} ${theme.name} ${size}px $negSingle metrics: '
+                  '${RupeeGlyphDetector.analyzeRegion(sample.image, sample.box)}',
+            );
+          }
+        }
+      }
+    }
+
+    // 3. Real user-uploaded CRED payment screenshot verification when present.
+    final credFile = File(
+      '/Users/mani/.gemini/antigravity/brain/fb52a5ba-eb36-48d2-8bd5-74f488c2c817/.user_uploaded/media_1795513345971_a92d7f3b.jpg',
+    );
+    if (credFile.existsSync()) {
+      final credBytes = await credFile.readAsBytes();
+      final credRgba = await RupeeGlyphDetector.decodeBytes(credBytes);
+      expect(credRgba, isNotNull);
+      expect(credRgba!.width, 656);
+      expect(credRgba.height, 1024);
+
+      // In the 656x1024 CRED receipt, `₹300` sits dead center around x:[240..420], y:[465..555].
+      const heroBox = Rect.fromLTRB(240, 465, 420, 555);
+      final metrics = RupeeGlyphDetector.analyzeRegion(
+        credRgba,
+        heroBox,
+        isolateFirstGlyph: true,
+      );
+      expect(
+        RupeeGlyphDetector.isRupeeGlyph(
+          credRgba,
+          heroBox,
+          isolateFirstGlyph: true,
+        ),
+        isTrue,
+        reason: 'CRED ₹300 hero metrics: $metrics',
+      );
+
+      // Simulate ML Kit Latin misreading CRED's centered `₹300` as `7300`.
+      const txnBox = Rect.fromLTRB(60, 970, 595, 1005);
+      final fakeCredOcr = RecognizedText(
+        text: 'Mani paid\nMydeen D\n9360056026@slc\n7300\npaid securely by CRED\n24 NOV 2026, 11:19AM | TXN ID: 669407427418',
+        blocks: [
+          TextBlock(
+            text: '7300',
+            lines: [
+              TextLine(
+                text: '7300',
+                elements: [
+                  TextElement(
+                    text: '7300',
+                    symbols: const [],
+                    boundingBox: heroBox,
+                    recognizedLanguages: const ['en'],
+                    cornerPoints: const [],
+                    confidence: 0.9,
+                    angle: 0,
+                  ),
+                ],
+                boundingBox: heroBox,
+                recognizedLanguages: const ['en'],
+                cornerPoints: const [],
+                confidence: 0.9,
+                angle: 0,
+              ),
+              TextLine(
+                text: '24 NOV 2026, 11:19AM | TXN ID: 669407427418',
+                elements: [
+                  TextElement(
+                    text: '669407427418',
+                    symbols: const [],
+                    boundingBox: txnBox,
+                    recognizedLanguages: const ['en'],
+                    cornerPoints: const [],
+                    confidence: 0.9,
+                    angle: 0,
+                  ),
+                ],
+                boundingBox: txnBox,
+                recognizedLanguages: const ['en'],
+                cornerPoints: const [],
+                confidence: 0.9,
+                angle: 0,
+              ),
+            ],
+            boundingBox: heroBox,
+            recognizedLanguages: const ['en'],
+            cornerPoints: const [],
+          ),
+        ],
+      );
+      final parsedCred = UpiProofOcrService.parseRecognizedTextWithImage(
+        fakeCredOcr,
+        rgbaImage: credRgba,
+        expectedAmount: 1500, // default entered fee differs from ₹300!
+      );
+      expect(parsedCred.amountInr, 300);
+      expect(parsedCred.utr, '669407427418');
+      expect(parsedCred.hasPixelVerification, isTrue);
+
+      // Tight CRED hero crop + Android TextSymbol boundingBox path.
+      const tightCredBox = Rect.fromLTRB(260, 485, 398, 535);
+      const rupeeSymbolBox = Rect.fromLTRB(260, 485, 294, 535);
+      const digitsBox = Rect.fromLTRB(295, 485, 398, 535);
+      expect(
+        RupeeGlyphDetector.isRupeeGlyph(
+          credRgba,
+          tightCredBox,
+          isolateFirstGlyph: true,
+        ),
+        isTrue,
+        reason: 'CRED tight ₹300 metrics: '
+            '${RupeeGlyphDetector.analyzeRegion(credRgba, tightCredBox, isolateFirstGlyph: true)}',
+      );
+      final androidSymbolsCredOcr = RecognizedText(
+        text: 'Mani paid\n7300\nTXN ID: 669407427418',
+        blocks: [
+          TextBlock(
+            text: '7300',
+            lines: [
+              TextLine(
+                text: '7300',
+                elements: [
+                  TextElement(
+                    text: '7300',
+                    symbols: [
+                      TextSymbol(
+                        text: '7',
+                        boundingBox: rupeeSymbolBox,
+                        recognizedLanguages: const ['en'],
+                        cornerPoints: const [],
+                        confidence: 0.9,
+                        angle: 0,
+                      ),
+                      TextSymbol(
+                        text: '3',
+                        boundingBox: const Rect.fromLTRB(295, 485, 329, 535),
+                        recognizedLanguages: const ['en'],
+                        cornerPoints: const [],
+                        confidence: 0.9,
+                        angle: 0,
+                      ),
+                      TextSymbol(
+                        text: '0',
+                        boundingBox: const Rect.fromLTRB(330, 485, 363, 535),
+                        recognizedLanguages: const ['en'],
+                        cornerPoints: const [],
+                        confidence: 0.9,
+                        angle: 0,
+                      ),
+                      TextSymbol(
+                        text: '0',
+                        boundingBox: const Rect.fromLTRB(364, 485, 398, 535),
+                        recognizedLanguages: const ['en'],
+                        cornerPoints: const [],
+                        confidence: 0.9,
+                        angle: 0,
+                      ),
+                    ],
+                    boundingBox: tightCredBox,
+                    recognizedLanguages: const ['en'],
+                    cornerPoints: const [],
+                    confidence: 0.9,
+                    angle: 0,
+                  ),
+                ],
+                boundingBox: tightCredBox,
+                recognizedLanguages: const ['en'],
+                cornerPoints: const [],
+                confidence: 0.9,
+                angle: 0,
+              ),
+            ],
+            boundingBox: tightCredBox,
+            recognizedLanguages: const ['en'],
+            cornerPoints: const [],
+          ),
+        ],
+      );
+      expect(
+        UpiProofOcrService.parseRecognizedTextWithImage(
+          androidSymbolsCredOcr,
+          rgbaImage: credRgba,
+          expectedAmount: 1500,
+        ).amountInr,
+        300,
+      );
+
+      // Split `7` + `300` adjacent tokens also normalize to `₹ 300`.
+      final splitTokenCredOcr = RecognizedText(
+        text: '7 300',
+        blocks: [
+          TextBlock(
+            text: '7 300',
+            lines: [
+              TextLine(
+                text: '7 300',
+                elements: [
+                  TextElement(
+                    text: '7',
+                    symbols: const [],
+                    boundingBox: rupeeSymbolBox,
+                    recognizedLanguages: const ['en'],
+                    cornerPoints: const [],
+                    confidence: 0.9,
+                    angle: 0,
+                  ),
+                  TextElement(
+                    text: '300',
+                    symbols: const [],
+                    boundingBox: digitsBox,
+                    recognizedLanguages: const ['en'],
+                    cornerPoints: const [],
+                    confidence: 0.9,
+                    angle: 0,
+                  ),
+                ],
+                boundingBox: tightCredBox,
+                recognizedLanguages: const ['en'],
+                cornerPoints: const [],
+                confidence: 0.9,
+                angle: 0,
+              ),
+            ],
+            boundingBox: tightCredBox,
+            recognizedLanguages: const ['en'],
+            cornerPoints: const [],
+          ),
+        ],
+      );
+      expect(
+        UpiProofOcrService.parseRecognizedTextWithImage(
+          splitTokenCredOcr,
+          rgbaImage: credRgba,
+          expectedAmount: 1500,
+        ).amountInr,
+        300,
+      );
+    }
   });
 }

@@ -803,8 +803,13 @@ class TrainerMembersOnboardingScreen extends StatelessWidget {
                             });
                             return;
                           }
+                          final effectiveOcr =
+                              UpiProofOcrService.refineForExpectedAmount(
+                            ocrExtraction,
+                            fee,
+                          );
                           final audit = UpiProofOcrService.auditProof(
-                            extracted: ocrExtraction,
+                            extracted: effectiveOcr,
                             enteredAmount: fee,
                             existingMembers: state.members,
                           );

@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
@@ -105,32 +106,71 @@ class _UpiPaymentProofSectionState extends State<UpiPaymentProofSection> {
 
     final picked = await _picker.pickImage(
       source: source,
-      maxWidth: 720,
-      imageQuality: 55,
+      maxWidth: 1600,
+      imageQuality: 92,
     );
     if (picked == null || !mounted) return;
 
-    final bytes = await picked.readAsBytes();
-    final encoded = base64Encode(bytes);
+    final rawBytes = await picked.readAsBytes();
+    setState(() => _scanning = true);
+    final ocr = await _ocrService.scanFromFilePath(
+      picked.path,
+      imageBytes: rawBytes,
+      expectedAmount: widget.enteredAmount,
+    );
+    if (!mounted) return;
+
+    final compressedBytes = await _fitWithinStorageLimit(rawBytes);
+    final encoded = base64Encode(compressedBytes);
     if (encoded.length > 140000) {
       if (mounted) {
+        setState(() => _scanning = false);
         widget.onError('Screenshot too large. Please pick a smaller image.');
       }
       return;
     }
 
-    setState(() => _scanning = true);
-    final ocr = await _ocrService.scanFromFilePath(picked.path);
-    if (!mounted) return;
-
     setState(() => _scanning = false);
-    widget.onProofSelected((bytes: bytes, base64: encoded, ocr: ocr));
+    widget.onProofSelected((bytes: compressedBytes, base64: encoded, ocr: ocr));
+  }
+
+  /// Downscales oversized images after OCR so Firestore base64 stays <= 140KB
+  /// without hurting on-device ML Kit text recognition accuracy.
+  Future<Uint8List> _fitWithinStorageLimit(Uint8List rawBytes) async {
+    if (base64Encode(rawBytes).length <= 140000) return rawBytes;
+    for (final width in const [560, 420, 320, 240]) {
+      try {
+        final codec = await ui.instantiateImageCodec(
+          rawBytes,
+          targetWidth: width,
+        );
+        final frame = await codec.getNextFrame();
+        final data = await frame.image.toByteData(
+          format: ui.ImageByteFormat.png,
+        );
+        frame.image.dispose();
+        codec.dispose();
+        if (data != null) {
+          final candidate = data.buffer.asUint8List();
+          if (base64Encode(candidate).length <= 140000) {
+            return candidate;
+          }
+        }
+      } catch (_) {
+        break;
+      }
+    }
+    return rawBytes;
   }
 
   @override
   Widget build(BuildContext context) {
+    final effectiveOcr = UpiProofOcrService.refineForExpectedAmount(
+      widget.ocrExtraction,
+      widget.enteredAmount,
+    );
     final audit = UpiProofOcrService.auditProof(
-      extracted: widget.ocrExtraction,
+      extracted: effectiveOcr,
       enteredAmount: widget.enteredAmount,
       existingMembers: widget.existingMembers,
     );
@@ -274,9 +314,9 @@ class _UpiPaymentProofSectionState extends State<UpiPaymentProofSection> {
                         ),
                       ),
                       const SizedBox(height: 2),
-                      if (widget.ocrExtraction.amountInr != null) ...[
+                      if (effectiveOcr.amountInr != null) ...[
                         Text(
-                          'Paid Entered: ₹${widget.enteredAmount}  •  Screenshot: ₹${widget.ocrExtraction.amountInr}',
+                          'Paid Entered: ₹${widget.enteredAmount}  •  Screenshot: ₹${effectiveOcr.amountInr}',
                           style: TextStyle(
                             color: audit.isBlocked
                                 ? AppTheme.danger

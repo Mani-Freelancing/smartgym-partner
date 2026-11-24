@@ -181,8 +181,12 @@ class _OwnerAddMemberScreenState extends State<OwnerAddMemberScreen> {
         });
         return;
       }
+      final effectiveOcr = UpiProofOcrService.refineForExpectedAmount(
+        _ocrExtraction,
+        fee,
+      );
       final audit = UpiProofOcrService.auditProof(
-        extracted: _ocrExtraction,
+        extracted: effectiveOcr,
         enteredAmount: fee,
         existingMembers: state.members,
       );
