@@ -129,11 +129,16 @@ class GymMember extends Equatable {
     String? planTitle,
     int? feePaid,
     int? dueAmount,
+    String? joinedDate,
     String? expiryDate,
     int? daysLeft,
     String? assignedTrainer,
+    bool clearAssignedTrainer = false,
     bool? isPtClient,
     double? currentWeightKg,
+    String? paymentMode,
+    String? paymentReference,
+    String? paymentProofBase64,
   }) {
     return GymMember(
       id: id,
@@ -143,16 +148,18 @@ class GymMember extends Equatable {
       planTitle: planTitle ?? this.planTitle,
       feePaid: feePaid ?? this.feePaid,
       dueAmount: dueAmount ?? this.dueAmount,
-      joinedDate: joinedDate,
+      joinedDate: joinedDate ?? this.joinedDate,
       expiryDate: expiryDate ?? this.expiryDate,
       daysLeft: daysLeft ?? this.daysLeft,
-      assignedTrainer: assignedTrainer ?? this.assignedTrainer,
+      assignedTrainer: clearAssignedTrainer
+          ? null
+          : (assignedTrainer ?? this.assignedTrainer),
       isPtClient: isPtClient ?? this.isPtClient,
       addedByTrainer: addedByTrainer,
       currentWeightKg: currentWeightKg ?? this.currentWeightKg,
-      paymentMode: paymentMode,
-      paymentReference: paymentReference,
-      paymentProofBase64: paymentProofBase64,
+      paymentMode: paymentMode ?? this.paymentMode,
+      paymentReference: paymentReference ?? this.paymentReference,
+      paymentProofBase64: paymentProofBase64 ?? this.paymentProofBase64,
     );
   }
 

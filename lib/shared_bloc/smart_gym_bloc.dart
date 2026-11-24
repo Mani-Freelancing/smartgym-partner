@@ -95,6 +95,8 @@ class SmartGymBloc extends Bloc<SmartGymEvent, SmartGymState> {
     on<LogoutPartnerEvent>(_onLogoutPartner);
     on<AddNewGymMemberEvent>(_onAddNewGymMember);
     on<CollectMemberDueEvent>(_onCollectMemberDue);
+    on<RenewMemberPlanEvent>(_onRenewMemberPlan);
+    on<UpdateTrainerDetailsEvent>(_onUpdateTrainerDetails);
     on<ImportBulkMembersEvent>(_onImportBulkMembers);
     on<AddWalkInEnquiryEvent>(_onAddWalkInEnquiry);
     on<ConvertEnquiryToMemberEvent>(_onConvertEnquiryToMember);
@@ -243,17 +245,36 @@ class SmartGymBloc extends Bloc<SmartGymEvent, SmartGymState> {
     SyncGymTenantEvent event,
     Emitter<SmartGymState> emit,
   ) {
-    final existingIndex = state.gyms.indexWhere((g) => g.id == event.gym.id);
+    final todayKey = GymTenant.dateKeyFor();
+    final needsDailyReset = event.gym.isCrowdStaleForDate();
+    final effectiveGym = needsDailyReset
+        ? event.gym.copyWith(activeCrowd: 0, crowdDate: todayKey)
+        : event.gym;
+
+    final existingIndex = state.gyms.indexWhere((g) => g.id == effectiveGym.id);
     if (existingIndex == -1) {
       emit(state.copyWith(
-        gyms: [event.gym],
+        gyms: [effectiveGym],
         selectedGymIndex: 0,
         crowdDelta: 0,
       ));
     } else {
       final updated = List<GymTenant>.from(state.gyms);
-      updated[existingIndex] = event.gym;
+      updated[existingIndex] = effectiveGym;
       emit(state.copyWith(gyms: updated, crowdDelta: 0));
+    }
+
+    // Partners auto-persist the new-day reset to Firestore once per day.
+    if (needsDailyReset &&
+        state.isPartnerLoggedIn &&
+        effectiveGym.id.isNotEmpty) {
+      _syncAsync(
+        () => firestoreService!.incrementGymCrowd(
+          effectiveGym.id,
+          0,
+          crowdDate: todayKey,
+        ),
+      );
     }
   }
 
@@ -380,6 +401,7 @@ class SmartGymBloc extends Bloc<SmartGymEvent, SmartGymState> {
       phone: event.phone,
       specialty: event.specialty,
       shiftSlot: event.shiftSlot,
+      commissionPercent: event.commissionPercent,
     );
   }
 
@@ -521,6 +543,8 @@ class SmartGymBloc extends Bloc<SmartGymEvent, SmartGymState> {
       area: event.area.trim().isEmpty ? current.area : event.area.trim(),
       monthlyFee: event.monthlyFee,
       ptFee: event.ptFee,
+      ptSplitExcludesBaseFee:
+          event.ptSplitExcludesBaseFee ?? current.ptSplitExcludesBaseFee,
       maxCapacity: event.maxCapacity,
       feePlans: event.feePlans,
       latitude: event.latitude,
@@ -544,6 +568,7 @@ class SmartGymBloc extends Bloc<SmartGymEvent, SmartGymState> {
         clearLocation: event.clearLocation,
         checkInRadiusMeters: event.checkInRadiusMeters,
         requireGpsCheckIn: event.requireGpsCheckIn,
+        ptSplitExcludesBaseFee: event.ptSplitExcludesBaseFee,
       ),
     );
   }
@@ -733,6 +758,79 @@ class SmartGymBloc extends Bloc<SmartGymEvent, SmartGymState> {
     );
   }
 
+  void _onRenewMemberPlan(
+    RenewMemberPlanEvent event,
+    Emitter<SmartGymState> emit,
+  ) {
+    final idx = state.members.indexWhere((m) => m.id == event.memberId);
+    if (idx == -1) return;
+    final target = state.members[idx];
+    final renewed = target.copyWith(
+      planTitle: event.planTitle,
+      feePaid: event.feePaid,
+      dueAmount: event.dueAmount,
+      joinedDate: event.joinedDate,
+      expiryDate: event.expiryDate,
+      daysLeft: event.daysLeft,
+      assignedTrainer: event.isPtClient ? event.assignedTrainer : null,
+      clearAssignedTrainer: !event.isPtClient,
+      isPtClient: event.isPtClient,
+      paymentMode: event.paymentMode,
+      paymentReference: event.paymentReference,
+      paymentProofBase64: event.paymentProofBase64,
+    );
+
+    final updatedList = List<GymMember>.from(state.members);
+    updatedList[idx] = renewed;
+
+    final updatedCurrent = state.currentMember?.id == event.memberId
+        ? renewed
+        : state.currentMember;
+
+    emit(
+      state.copyWith(
+        members: updatedList,
+        currentMember: updatedCurrent,
+      ),
+    );
+    _syncAsync(
+      () => firestoreService!.renewMember(state.currentGym.id, renewed),
+    );
+  }
+
+  void _onUpdateTrainerDetails(
+    UpdateTrainerDetailsEvent event,
+    Emitter<SmartGymState> emit,
+  ) {
+    final idx = state.trainers.indexWhere((t) => t.id == event.trainerId);
+    if (idx == -1) return;
+    final cleanSpecialty = event.specialty.trim().isEmpty
+        ? state.trainers[idx].specialty
+        : event.specialty.trim();
+    final cleanShift = event.shiftSlot.trim().isEmpty
+        ? state.trainers[idx].shiftSlot
+        : event.shiftSlot.trim();
+    final cleanPct = event.commissionPercent.clamp(0, 100);
+
+    final updatedList = List<TrainerProfile>.from(state.trainers);
+    updatedList[idx] = updatedList[idx].copyWith(
+      specialty: cleanSpecialty,
+      shiftSlot: cleanShift,
+      commissionPercent: cleanPct,
+    );
+
+    emit(state.copyWith(trainers: updatedList));
+    _syncAsync(
+      () => firestoreService!.updateTrainerDetails(
+        gymId: state.currentGym.id,
+        trainerId: event.trainerId,
+        specialty: cleanSpecialty,
+        shiftSlot: cleanShift,
+        commissionPercent: cleanPct,
+      ),
+    );
+  }
+
   void _onImportBulkMembers(
     ImportBulkMembersEvent event,
     Emitter<SmartGymState> emit,
@@ -865,10 +963,11 @@ class SmartGymBloc extends Bloc<SmartGymEvent, SmartGymState> {
     SimulateQrCheckInEvent event,
     Emitter<SmartGymState> emit,
   ) {
+    final todayKey = GymTenant.dateKeyFor();
     final nextScoops = state.wheyScoopsLeft > 1
         ? state.wheyScoopsLeft - 1
         : state.wheyScoopsLeft;
-    final nextCrowd = (state.currentGym.activeCrowd + 1)
+    final nextCrowd = (state.currentGym.activeCrowdForDate() + 1)
         .clamp(0, state.currentGym.maxCapacity);
     final currentHours = state.currentGym.hourlyCheckIns;
     final nextHours = List<int>.generate(
@@ -883,6 +982,7 @@ class SmartGymBloc extends Bloc<SmartGymEvent, SmartGymState> {
       final idx = state.selectedGymIndex.clamp(0, updatedGyms.length - 1);
       updatedGyms[idx] = updatedGyms[idx].copyWith(
         activeCrowd: nextCrowd,
+        crowdDate: todayKey,
         hourlyCheckIns: nextHours,
       );
     }
@@ -900,6 +1000,7 @@ class SmartGymBloc extends Bloc<SmartGymEvent, SmartGymState> {
           state.currentGym.id,
           nextCrowd,
           hourlyCheckIns: nextHours,
+          crowdDate: todayKey,
         ),
       );
     }
@@ -909,17 +1010,25 @@ class SmartGymBloc extends Bloc<SmartGymEvent, SmartGymState> {
     CustomerCheckOutEvent event,
     Emitter<SmartGymState> emit,
   ) {
-    final nextCrowd = (state.currentGym.activeCrowd - 1)
+    final todayKey = GymTenant.dateKeyFor();
+    final nextCrowd = (state.currentGym.activeCrowdForDate() - 1)
         .clamp(0, state.currentGym.maxCapacity);
     final updatedGyms = List<GymTenant>.from(state.gyms);
     if (updatedGyms.isNotEmpty) {
       final idx = state.selectedGymIndex.clamp(0, updatedGyms.length - 1);
-      updatedGyms[idx] = updatedGyms[idx].copyWith(activeCrowd: nextCrowd);
+      updatedGyms[idx] = updatedGyms[idx].copyWith(
+        activeCrowd: nextCrowd,
+        crowdDate: todayKey,
+      );
     }
     emit(state.copyWith(gyms: updatedGyms, crowdDelta: 0));
     if (state.currentGym.id.isNotEmpty) {
       _syncAsync(
-        () => firestoreService!.incrementGymCrowd(state.currentGym.id, nextCrowd),
+        () => firestoreService!.incrementGymCrowd(
+          state.currentGym.id,
+          nextCrowd,
+          crowdDate: todayKey,
+        ),
       );
     }
   }
@@ -928,15 +1037,23 @@ class SmartGymBloc extends Bloc<SmartGymEvent, SmartGymState> {
     ResetGymFloorCrowdEvent event,
     Emitter<SmartGymState> emit,
   ) {
+    final todayKey = GymTenant.dateKeyFor();
     final updatedGyms = List<GymTenant>.from(state.gyms);
     if (updatedGyms.isNotEmpty) {
       final idx = state.selectedGymIndex.clamp(0, updatedGyms.length - 1);
-      updatedGyms[idx] = updatedGyms[idx].copyWith(activeCrowd: 0);
+      updatedGyms[idx] = updatedGyms[idx].copyWith(
+        activeCrowd: 0,
+        crowdDate: todayKey,
+      );
     }
     emit(state.copyWith(gyms: updatedGyms, crowdDelta: 0));
     if (state.currentGym.id.isNotEmpty) {
       _syncAsync(
-        () => firestoreService!.incrementGymCrowd(state.currentGym.id, 0),
+        () => firestoreService!.incrementGymCrowd(
+          state.currentGym.id,
+          0,
+          crowdDate: todayKey,
+        ),
       );
     }
   }

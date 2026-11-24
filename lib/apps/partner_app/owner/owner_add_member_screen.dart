@@ -7,6 +7,7 @@ import '../../../data/services/member_whatsapp_service.dart';
 import '../../../data/services/upi_proof_ocr_service.dart';
 import '../../../domain/models/gym_fee_plan.dart';
 import '../../../domain/models/gym_member.dart';
+import '../../../domain/services/pt_split_calculator.dart';
 import '../../../shared_bloc/smart_gym_bloc.dart';
 import '../../../shared_bloc/smart_gym_event.dart';
 import '../../../shared_bloc/smart_gym_state.dart';
@@ -726,79 +727,148 @@ class _OwnerAddMemberScreenState extends State<OwnerAddMemberScreen> {
                 const SizedBox(height: 16),
 
                 // 5. Personal Training Toggle + Trainer Selector
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF1A1E29),
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(
-                      color: _isPt
-                          ? AppTheme.champagne.withValues(alpha: 0.45)
-                          : Colors.white12,
-                    ),
-                  ),
-                  child: Column(
-                    children: [
-                      SwitchListTile(
-                        contentPadding: EdgeInsets.zero,
-                        activeThumbColor: AppTheme.champagne,
-                        title: const Text(
-                          'Personal Training (PT VIP)',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                        subtitle: const Text(
-                          'Includes 50/50 trainer split & meal tracking',
-                          style: TextStyle(color: Colors.white54, fontSize: 11.5),
-                        ),
-                        value: _isPt,
-                        onChanged: (v) {
-                          HapticFeedback.selectionClick();
-                          setState(() {
-                            _isPt = v;
-                            _selectedPlan = GymFeePlan.matchPlanForDuration(
-                              gym.effectiveFeePlans,
-                              months: _months,
-                              isPt: _isPt,
-                            );
-                            _recalculateSuggestedAmount(state);
-                          });
-                        },
+                Builder(
+                  builder: (context) {
+                    final activeTrainer = state.trainers.isNotEmpty
+                        ? state.trainers.firstWhere(
+                            (t) => t.name == _selectedTrainer,
+                            orElse: () => state.trainers.first,
+                          )
+                        : null;
+                    final splitPct = activeTrainer?.commissionPercent ?? 0;
+                    final splitPreview = (_isPt && activeTrainer != null)
+                        ? PtSplitCalculator.computeMemberSplit(
+                            member: GymMember(
+                              id: 'preview',
+                              name: '',
+                              phone: '',
+                              planTitle: '',
+                              feePaid: feePreview,
+                              joinedDate: '',
+                              expiryDate: '',
+                              daysLeft: 0,
+                              assignedTrainer: activeTrainer.name,
+                              isPtClient: true,
+                              addedByTrainer: '',
+                            ),
+                            trainers: state.trainers,
+                            gym: gym,
+                          )
+                        : null;
+
+                    final ptSubtitle = !_isPt
+                        ? (activeTrainer != null
+                            ? 'Assign a coach ($splitPct% split) & unlock meal tracking'
+                            : 'Assign a personal trainer & unlock meal tracking')
+                        : activeTrainer == null
+                            ? 'Personal training & meal tracking included'
+                            : (gym.ptSplitExcludesBaseFee
+                                ? 'Base ₹${gym.monthlyFee} Owner • $splitPct% split on PT add-on'
+                                : 'Coach gets $splitPct% • Owner gets ${100 - splitPct}% & meal tracking');
+
+                    return Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 6,
                       ),
-                      if (_isPt && state.trainers.isNotEmpty) ...[
-                        const Divider(color: Colors.white12, height: 8),
-                        DropdownButtonFormField<String>(
-                          initialValue:
-                              _selectedTrainer ?? state.trainers.first.name,
-                          dropdownColor: const Color(0xFF1A1E29),
-                          decoration: const InputDecoration(
-                            labelText: 'Assign Personal Trainer',
-                            labelStyle: TextStyle(color: Colors.white60),
-                            border: InputBorder.none,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF1A1E29),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(
+                          color: _isPt
+                              ? AppTheme.champagne.withValues(alpha: 0.45)
+                              : Colors.white12,
+                        ),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          SwitchListTile(
+                            key: const ValueKey('enroll_pt_switch'),
+                            contentPadding: EdgeInsets.zero,
+                            activeThumbColor: AppTheme.champagne,
+                            title: const Text(
+                              'Personal Training (PT VIP)',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 14,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                            subtitle: Text(
+                              ptSubtitle,
+                              style: const TextStyle(
+                                color: Colors.white54,
+                                fontSize: 11.5,
+                              ),
+                            ),
+                            value: _isPt,
+                            onChanged: (v) {
+                              HapticFeedback.selectionClick();
+                              setState(() {
+                                _isPt = v;
+                                _selectedPlan = GymFeePlan.matchPlanForDuration(
+                                  gym.effectiveFeePlans,
+                                  months: _months,
+                                  isPt: _isPt,
+                                );
+                                _recalculateSuggestedAmount(state);
+                              });
+                            },
                           ),
-                          items: state.trainers
-                              .map(
-                                (t) => DropdownMenuItem<String>(
-                                  value: t.name,
-                                  child: Text(
-                                    t.name,
-                                    style: const TextStyle(color: Colors.white),
+                          if (_isPt && state.trainers.isNotEmpty) ...[
+                            const Divider(color: Colors.white12, height: 8),
+                            DropdownButtonFormField<String>(
+                              key: const ValueKey('enroll_pt_trainer_dropdown'),
+                              initialValue:
+                                  _selectedTrainer ?? state.trainers.first.name,
+                              isExpanded: true,
+                              dropdownColor: const Color(0xFF1A1E29),
+                              decoration: const InputDecoration(
+                                labelText: 'Assign Personal Trainer',
+                                labelStyle: TextStyle(color: Colors.white60),
+                                border: InputBorder.none,
+                              ),
+                              items: state.trainers
+                                  .map(
+                                    (t) => DropdownMenuItem<String>(
+                                      value: t.name,
+                                      child: Text(
+                                        '${t.name} (${t.commissionPercent}% PT)',
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                        ),
+                                      ),
+                                    ),
+                                  )
+                                  .toList(),
+                              onChanged: (val) =>
+                                  setState(() => _selectedTrainer = val),
+                            ),
+                            if (splitPreview != null && feePreview > 0) ...[
+                              Padding(
+                                padding: const EdgeInsets.only(bottom: 8),
+                                child: Text(
+                                  gym.ptSplitExcludesBaseFee &&
+                                          splitPreview.baseOwnerKeep > 0
+                                      ? 'Split Preview: Owner ₹${splitPreview.ownerShare} (incl. ₹${splitPreview.baseOwnerKeep} base)  |  ${activeTrainer!.name} ₹${splitPreview.trainerShare}'
+                                      : 'Split Preview: Owner ₹${splitPreview.ownerShare}  |  ${activeTrainer!.name} ₹${splitPreview.trainerShare}',
+                                  key: const ValueKey('enroll_pt_split_preview'),
+                                  style: const TextStyle(
+                                    color: AppTheme.champagne,
+                                    fontSize: 11.5,
+                                    fontWeight: FontWeight.w800,
                                   ),
                                 ),
-                              )
-                              .toList(),
-                          onChanged: (val) =>
-                              setState(() => _selectedTrainer = val),
-                        ),
-                      ],
-                    ],
-                  ),
+                              ),
+                            ],
+                          ],
+                        ],
+                      ),
+                    );
+                  },
                 ),
                 const SizedBox(height: 22),
 

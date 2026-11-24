@@ -1,5 +1,7 @@
 {
   "projects": {
-    "default": "smartgym-os"
+    "default": "smartgym-os-staging",
+    "staging": "smartgym-os-staging",
+    "prod": "smartgym-os"
   }
 }

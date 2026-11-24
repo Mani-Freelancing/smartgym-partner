@@ -13,12 +13,10 @@ import 'owner_analytics_engine.dart';
 /// and multi-type interactive analytics (`Area`, `Bar`, `Mix`).
 class OwnerCeoHeroCard extends StatefulWidget {
   final SmartGymState state;
-  final VoidCallback onResetCrowd;
 
   const OwnerCeoHeroCard({
     super.key,
     required this.state,
-    required this.onResetCrowd,
   });
 
   @override
@@ -121,35 +119,21 @@ class _OwnerCeoHeroCardState extends State<OwnerCeoHeroCard> {
                 ),
               ),
               const SizedBox(width: 8),
-              GestureDetector(
-                onTap: widget.onResetCrowd,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 3,
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppTheme.accent.withValues(alpha: 0.14),
-                    borderRadius: BorderRadius.circular(99),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        '${widget.state.liveCrowd}/${gym.maxCapacity} IN FLOOR',
-                        style: const TextStyle(
-                          fontSize: 9.5,
-                          fontWeight: FontWeight.w900,
-                          color: AppTheme.accent,
-                        ),
-                      ),
-                      const SizedBox(width: 4),
-                      const Icon(
-                        Icons.refresh_rounded,
-                        size: 11,
-                        color: AppTheme.accent,
-                      ),
-                    ],
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 8,
+                  vertical: 3,
+                ),
+                decoration: BoxDecoration(
+                  color: AppTheme.accent.withValues(alpha: 0.14),
+                  borderRadius: BorderRadius.circular(99),
+                ),
+                child: Text(
+                  '${widget.state.liveCrowd}/${gym.maxCapacity} IN FLOOR',
+                  style: const TextStyle(
+                    fontSize: 9.5,
+                    fontWeight: FontWeight.w900,
+                    color: AppTheme.accent,
                   ),
                 ),
               ),
@@ -171,19 +155,17 @@ class _OwnerCeoHeroCardState extends State<OwnerCeoHeroCard> {
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
+                      style: const TextStyle(
                         fontSize: 32,
                         fontWeight: FontWeight.w900,
                         letterSpacing: -0.9,
-                        color: selectedBucket?.isForecast == true
-                            ? AppTheme.trainerCyan
-                            : Colors.white,
+                        color: Colors.white,
                       ),
                     ),
                     const SizedBox(height: 2),
                     Text(
                       selectedBucket != null
-                          ? '${selectedBucket.detailLabel}${selectedBucket.isForecast ? ' (AI Est.)' : ''}'
+                          ? selectedBucket.detailLabel
                           : '${report.rangeTitle} Collection',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -198,7 +180,9 @@ class _OwnerCeoHeroCardState extends State<OwnerCeoHeroCard> {
                             report.totalPeriodRevenue) ...[
                       const SizedBox(height: 2),
                       Text(
-                        'Total Enrolled: ${formatInr(widget.state.totalMonthlyRevenue)}',
+                        report.totalCoachPayout > 0
+                            ? 'Total Enrolled: ${formatInr(widget.state.totalMonthlyRevenue)} • Net: ${formatInr(report.totalOwnerNetRevenue)}'
+                            : 'Total Enrolled: ${formatInr(widget.state.totalMonthlyRevenue)}',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
@@ -378,6 +362,36 @@ class _OwnerCeoHeroCardState extends State<OwnerCeoHeroCard> {
               ],
             ),
           ],
+
+          // 7. Net Owner vs Coach Payout Summary (visible whenever trainers take PT cut)
+          if ((selectedBucket?.coachPayout ?? report.coachPayout) > 0) ...[
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: _HeroSplitChip(
+                    key: const ValueKey('hero_net_owner_chip'),
+                    label: 'Net Owner',
+                    amount: formatInr(
+                      selectedBucket?.ownerNetRevenue ?? report.ownerNetRevenue,
+                    ),
+                    accent: AppTheme.champagne,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _HeroSplitChip(
+                    key: const ValueKey('hero_coach_payout_chip'),
+                    label: 'Coach Payout',
+                    amount: formatInr(
+                      selectedBucket?.coachPayout ?? report.coachPayout,
+                    ),
+                    accent: AppTheme.trainerCyan,
+                  ),
+                ),
+              ],
+            ),
+          ],
         ],
       ),
     );
@@ -435,39 +449,13 @@ class _OwnerCeoHeroCardState extends State<OwnerCeoHeroCard> {
                   style: TextStyle(
                     fontSize: 9.5,
                     fontWeight: active ? FontWeight.w900 : FontWeight.w600,
-                    color: b.isForecast
-                        ? AppTheme.trainerCyan
-                        : (active ? AppTheme.ownerGold : Colors.white38),
+                    color: active ? AppTheme.ownerGold : Colors.white38,
                   ),
                 ),
               ),
             );
           }),
         ),
-        if (buckets.any((b) => b.isForecast)) ...[
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              const Icon(
-                Icons.auto_awesome_rounded,
-                size: 12,
-                color: AppTheme.trainerCyan,
-              ),
-              const SizedBox(width: 5),
-              Expanded(
-                child: Text(
-                  'Tap or slide any point to inspect • AI+ shows next period projection',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 10,
-                    color: Colors.white.withValues(alpha: 0.45),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ],
       ],
     );
   }
@@ -520,23 +508,18 @@ class _GlowingSplineChartPainter extends CustomPainter {
       points.add(Offset(x, y));
     }
 
-    // Separate actual points from optional AI+ forecast point at end
-    final hasForecast = buckets.last.isForecast && points.length >= 2;
-    final actualPoints =
-        hasForecast ? points.sublist(0, points.length - 1) : points;
-
-    if (actualPoints.length >= 2) {
-      final path = Path()..moveTo(actualPoints.first.dx, actualPoints.first.dy);
-      for (var i = 0; i < actualPoints.length - 1; i++) {
-        final p0 = actualPoints[i];
-        final p1 = actualPoints[i + 1];
+    if (points.length >= 2) {
+      final path = Path()..moveTo(points.first.dx, points.first.dy);
+      for (var i = 0; i < points.length - 1; i++) {
+        final p0 = points[i];
+        final p1 = points[i + 1];
         final midX = (p0.dx + p1.dx) / 2;
         path.cubicTo(midX, p0.dy, midX, p1.dy, p1.dx, p1.dy);
       }
 
       final areaPath = Path.from(path)
-        ..lineTo(actualPoints.last.dx, topPad + chartH)
-        ..lineTo(actualPoints.first.dx, topPad + chartH)
+        ..lineTo(points.last.dx, topPad + chartH)
+        ..lineTo(points.first.dx, topPad + chartH)
         ..close();
 
       final fillPaint = Paint()
@@ -566,43 +549,21 @@ class _GlowingSplineChartPainter extends CustomPainter {
         ..strokeWidth = 2.6
         ..strokeCap = StrokeCap.round;
       canvas.drawPath(path, linePaint);
-    } else if (actualPoints.length == 1) {
+    } else if (points.length == 1) {
       canvas.drawLine(
-        Offset(horizPad, actualPoints.first.dy),
-        Offset(size.width - horizPad, actualPoints.first.dy),
+        Offset(horizPad, points.first.dy),
+        Offset(size.width - horizPad, points.first.dy),
         Paint()
           ..color = AppTheme.ownerGold
           ..strokeWidth = 2.4,
       );
     }
 
-    // Forecast leg from last actual point to AI+ point
-    if (hasForecast) {
-      final from = actualPoints.last;
-      final to = points.last;
-      final dashPaint = Paint()
-        ..color = AppTheme.trainerCyan
-        ..strokeWidth = 2.2
-        ..strokeCap = StrokeCap.round;
-      const segments = 6;
-      for (var s = 0; s < segments; s++) {
-        if (s.isOdd) continue;
-        final t1 = s / segments;
-        final t2 = (s + 0.7) / segments;
-        canvas.drawLine(
-          Offset.lerp(from, to, t1)!,
-          Offset.lerp(from, to, t2)!,
-          dashPaint,
-        );
-      }
-    }
-
     // Selected vertical crosshair + dot highlights
     for (var i = 0; i < points.length; i++) {
       final p = points[i];
-      final isForecast = buckets[i].isForecast;
       final isSelected = selectedIndex == i;
-      final dotColor = isForecast ? AppTheme.trainerCyan : AppTheme.ownerGold;
+      const dotColor = AppTheme.ownerGold;
 
       if (isSelected) {
         canvas.drawLine(
@@ -686,12 +647,9 @@ class _GlowingBarChartPainter extends CustomPainter {
       );
 
       final isSelected = selectedIndex == i;
-      final topColor = b.isForecast
-          ? AppTheme.trainerCyan
-          : (isSelected ? Colors.white : AppTheme.ownerGold);
-      final bottomColor = b.isForecast
-          ? AppTheme.trainerCyan.withValues(alpha: 0.22)
-          : AppTheme.ownerGold.withValues(alpha: isSelected ? 0.45 : 0.25);
+      final topColor = isSelected ? Colors.white : AppTheme.ownerGold;
+      final bottomColor =
+          AppTheme.ownerGold.withValues(alpha: isSelected ? 0.45 : 0.25);
 
       canvas.drawRRect(
         rect,
@@ -931,448 +889,6 @@ class _BreakdownBarRow extends StatelessWidget {
   }
 }
 
-/// Futuristic AI Copilot widget highlighting real predictive risks, 30d run-rate,
-/// and 1-tap owner actions computed from live [SmartGymState].
-class OwnerAiCopilotCard extends StatelessWidget {
-  final SmartGymState state;
-  final ValueChanged<String> onOpenAuditFilter;
-  final VoidCallback? onOpenWalkInLeads;
-
-  const OwnerAiCopilotCard({
-    super.key,
-    required this.state,
-    required this.onOpenAuditFilter,
-    this.onOpenWalkInLeads,
-  });
-
-  Color _toneColor(AiInsightTone tone) => switch (tone) {
-        AiInsightTone.positive => AppTheme.accent,
-        AiInsightTone.warning => AppTheme.amber,
-        AiInsightTone.alert => AppTheme.softRed,
-        AiInsightTone.info => AppTheme.trainerCyan,
-      };
-
-  void _triggerInsightAction(BuildContext context, AiInsight insight) {
-    HapticFeedback.selectionClick();
-    if (insight.openLeads) {
-      onOpenWalkInLeads?.call();
-    } else if (insight.auditFilter != null) {
-      onOpenAuditFilter(insight.auditFilter!);
-    }
-  }
-
-  void _showFullBrief(BuildContext context, OwnerAnalyticsReport report) {
-    HapticFeedback.selectionClick();
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: const Color(0xFF151923),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(26)),
-      ),
-      builder: (ctx) => SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(20, 14, 20, 28),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Center(
-                child: Container(
-                  width: 40,
-                  height: 4,
-                  margin: const EdgeInsets.only(bottom: 14),
-                  decoration: BoxDecoration(
-                    color: Colors.white12,
-                    borderRadius: BorderRadius.circular(99),
-                  ),
-                ),
-              ),
-              Row(
-                children: [
-                  Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [
-                          AppTheme.trainerCyan.withValues(alpha: 0.25),
-                          AppTheme.ownerGold.withValues(alpha: 0.22),
-                        ],
-                      ),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: const Icon(
-                      Icons.auto_awesome_rounded,
-                      color: AppTheme.ownerGold,
-                      size: 20,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  const Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'AI CEO Forecast & Health Brief',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 16.5,
-                            fontWeight: FontWeight.w900,
-                          ),
-                        ),
-                        Text(
-                          'Computed live from memberships, dues & leads',
-                          style: TextStyle(color: Colors.white54, fontSize: 11.5),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                    decoration: BoxDecoration(
-                      color: AppTheme.trainerCyan.withValues(alpha: 0.16),
-                      borderRadius: BorderRadius.circular(99),
-                    ),
-                    child: Text(
-                      '${report.healthScore}/100',
-                      style: const TextStyle(
-                        color: AppTheme.trainerCyan,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              Container(
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF10131C),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                    color: AppTheme.trainerCyan.withValues(alpha: 0.25),
-                  ),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'PROJECTED NEXT 30-DAY RUN-RATE',
-                      style: TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: 1.3,
-                        color: AppTheme.trainerCyan,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      formatInr(report.projectedNext30dRevenue),
-                      style: const TextStyle(
-                        fontSize: 26,
-                        fontWeight: FontWeight.w900,
-                        color: Colors.white,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    _BreakdownBarRow(
-                      label: 'Retention Health',
-                      amount: '${report.retentionScore}%',
-                      fraction: report.retentionScore / 100,
-                      color: AppTheme.accent,
-                    ),
-                    const SizedBox(height: 8),
-                    _BreakdownBarRow(
-                      label: 'Cash Collection Score',
-                      amount: '${report.collectionScore}%',
-                      fraction: report.collectionScore / 100,
-                      color: AppTheme.ownerGold,
-                    ),
-                    const SizedBox(height: 8),
-                    _BreakdownBarRow(
-                      label: 'PT VIP Penetration',
-                      amount: '${report.ptMixScore}%',
-                      fraction: report.ptMixScore / 100,
-                      color: AppTheme.trainerCyan,
-                    ),
-                    const SizedBox(height: 8),
-                    _BreakdownBarRow(
-                      label: 'Lead Momentum',
-                      amount: '${report.pipelineScore}%',
-                      fraction: report.pipelineScore / 100,
-                      color: AppTheme.purple,
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 14),
-              ...report.insights.map((ins) {
-                final c = _toneColor(ins.tone);
-                return Container(
-                  margin: const EdgeInsets.only(bottom: 10),
-                  padding: const EdgeInsets.all(13),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF1A1E29),
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: c.withValues(alpha: 0.28)),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        ins.tag,
-                        style: TextStyle(
-                          fontSize: 9.5,
-                          fontWeight: FontWeight.w900,
-                          letterSpacing: 1.2,
-                          color: c,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        ins.title,
-                        style: const TextStyle(
-                          fontSize: 13.5,
-                          fontWeight: FontWeight.w900,
-                          color: Colors.white,
-                        ),
-                      ),
-                      const SizedBox(height: 3),
-                      Text(
-                        ins.detail,
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: Colors.white70,
-                          height: 1.4,
-                        ),
-                      ),
-                      if (ins.actionLabel != null &&
-                          (ins.auditFilter != null ||
-                              (ins.openLeads && onOpenWalkInLeads != null))) ...[
-                        const SizedBox(height: 8),
-                        Align(
-                          alignment: Alignment.centerRight,
-                          child: TextButton(
-                            onPressed: () {
-                              Navigator.pop(ctx);
-                              _triggerInsightAction(context, ins);
-                            },
-                            child: Text(
-                              '${ins.actionLabel} →',
-                              style: TextStyle(
-                                color: c,
-                                fontWeight: FontWeight.w900,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                );
-              }),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final report = OwnerAnalyticsEngine.buildReport(
-      state: state,
-      range: AnalyticsRange.month1,
-    );
-    final topInsights = report.insights.take(2).toList();
-
-    return Container(
-      key: const ValueKey('ai_copilot_card'),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            AppTheme.trainerCyan.withValues(alpha: 0.14),
-            AppTheme.ownerGold.withValues(alpha: 0.10),
-            const Color(0xFF151923),
-          ],
-        ),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: AppTheme.trainerCyan.withValues(alpha: 0.35),
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Icon(
-                Icons.auto_awesome_rounded,
-                size: 16,
-                color: AppTheme.trainerCyan,
-              ),
-              const SizedBox(width: 6),
-              const Expanded(
-                child: Text(
-                  'AI GYM COPILOT',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 10.5,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: 1.4,
-                    color: AppTheme.trainerCyan,
-                  ),
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
-                decoration: BoxDecoration(
-                  color: AppTheme.ownerGold.withValues(alpha: 0.16),
-                  borderRadius: BorderRadius.circular(99),
-                  border: Border.all(
-                    color: AppTheme.ownerGold.withValues(alpha: 0.35),
-                  ),
-                ),
-                child: Text(
-                  'SCORE ${report.healthScore}/100',
-                  style: const TextStyle(
-                    fontSize: 9.5,
-                    fontWeight: FontWeight.w900,
-                    color: AppTheme.ownerGold,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          ...topInsights.map((ins) {
-            final c = _toneColor(ins.tone);
-            final canAct = ins.actionLabel != null &&
-                (ins.auditFilter != null ||
-                    (ins.openLeads && onOpenWalkInLeads != null));
-            return Container(
-              margin: const EdgeInsets.only(bottom: 8),
-              padding: const EdgeInsets.all(11),
-              decoration: BoxDecoration(
-                color: const Color(0xFF11151E).withValues(alpha: 0.85),
-                borderRadius: BorderRadius.circular(13),
-                border: Border.all(color: c.withValues(alpha: 0.25)),
-              ),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  Container(
-                    width: 4,
-                    height: 32,
-                    decoration: BoxDecoration(
-                      color: c,
-                      borderRadius: BorderRadius.circular(99),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          ins.title,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontSize: 12.5,
-                            fontWeight: FontWeight.w800,
-                            color: Colors.white,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          ins.detail,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontSize: 11,
-                            color: Colors.white60,
-                            height: 1.3,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  if (canAct) ...[
-                    const SizedBox(width: 8),
-                    InkWell(
-                      onTap: () => _triggerInsightAction(context, ins),
-                      borderRadius: BorderRadius.circular(10),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 9,
-                          vertical: 6,
-                        ),
-                        decoration: BoxDecoration(
-                          color: c.withValues(alpha: 0.16),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Text(
-                          ins.actionLabel!,
-                          style: TextStyle(
-                            fontSize: 10.5,
-                            fontWeight: FontWeight.w900,
-                            color: c,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            );
-          }),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Flexible(
-                child: Text(
-                  'Next 30d run-rate: ${formatInr(report.projectedNext30dRevenue)}',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    color: Colors.white60,
-                  ),
-                ),
-              ),
-              TextButton(
-                key: const ValueKey('ai_brief_btn'),
-                style: TextButton.styleFrom(
-                  foregroundColor: AppTheme.ownerGold,
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  minimumSize: Size.zero,
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                ),
-                onPressed: () => _showFullBrief(context, report),
-                child: const Text(
-                  'Full AI Brief →',
-                  style: TextStyle(
-                    fontSize: 11.5,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _ChartTypeChip extends StatelessWidget {
   final IconData icon;
   final String label;
@@ -1520,6 +1036,7 @@ class _HeroSplitChip extends StatelessWidget {
   final Color accent;
 
   const _HeroSplitChip({
+    super.key,
     required this.label,
     required this.amount,
     required this.accent,

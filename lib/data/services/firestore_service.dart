@@ -74,6 +74,7 @@ class FirestoreService {
     double? longitude,
     int checkInRadiusMeters = 100,
     bool requireGpsCheckIn = true,
+    bool ptSplitExcludesBaseFee = true,
   }) async {
     final slug = gymName
         .toLowerCase()
@@ -96,9 +97,11 @@ class FirestoreService {
       'ptFee': ptFee,
       'feePlans': effectivePlans.map((p) => p.toJson()).toList(),
       'activeCrowd': 0,
+      'crowdDate': GymTenant.dateKeyFor(),
       'maxCapacity': maxCapacity,
       'checkInRadiusMeters': checkInRadiusMeters,
       'requireGpsCheckIn': requireGpsCheckIn,
+      'ptSplitExcludesBaseFee': ptSplitExcludesBaseFee,
       'ownerUid': uid,
       'createdAt': FieldValue.serverTimestamp(),
     };
@@ -138,6 +141,7 @@ class FirestoreService {
     bool clearLocation = false,
     int? checkInRadiusMeters,
     bool? requireGpsCheckIn,
+    bool? ptSplitExcludesBaseFee,
   }) async {
     final updates = <String, dynamic>{
       'name': name.trim(),
@@ -162,7 +166,20 @@ class FirestoreService {
     if (requireGpsCheckIn != null) {
       updates['requireGpsCheckIn'] = requireGpsCheckIn;
     }
+    if (ptSplitExcludesBaseFee != null) {
+      updates['ptSplitExcludesBaseFee'] = ptSplitExcludesBaseFee;
+    }
     await _db.collection('gyms').doc(gymId).update(updates);
+  }
+
+  Future<void> setPtSplitExcludesBaseFee({
+    required String gymId,
+    required bool excludesBaseFee,
+  }) async {
+    await _db
+        .collection('gyms')
+        .doc(gymId)
+        .update({'ptSplitExcludesBaseFee': excludesBaseFee});
   }
 
   /// Builds a concise diagnostic summary when a gym settings write is denied.
@@ -203,6 +220,7 @@ class FirestoreService {
     required String phone,
     String specialty = 'Floor & Transformation Coach',
     String shiftSlot = 'Morning (6–10 AM)',
+    int commissionPercent = 50,
   }) async {
     final trainerId = 'tr_${DateTime.now().millisecondsSinceEpoch}';
     final batch = _db.batch();
@@ -216,7 +234,7 @@ class FirestoreService {
         'shiftSlot': shiftSlot.trim(),
         'morningCheckInTime': 'Not Checked In',
         'isOnDuty': false,
-        'commissionPercent': 50,
+        'commissionPercent': commissionPercent.clamp(0, 100),
       },
     );
     batch.set(
@@ -434,16 +452,27 @@ class FirestoreService {
     return _db.collection('gyms').doc(gymId).snapshots().map((doc) {
       if (!doc.exists || doc.data() == null) return null;
       final d = doc.data()!;
+      final rawCrowd = (d['activeCrowd'] as num?)?.toInt() ?? 0;
+      var resolvedCrowdDate = (d['crowdDate'] ?? '') as String;
+      if (resolvedCrowdDate.isEmpty && rawCrowd > 0) {
+        final fallbackTs = d['updatedAt'] ?? d['createdAt'];
+        resolvedCrowdDate = fallbackTs is Timestamp
+            ? GymTenant.dateKeyFor(fallbackTs.toDate())
+            : '1970-01-01';
+      }
       return GymTenant(
         id: doc.id,
         name: (d['name'] ?? '') as String,
         area: (d['area'] ?? '') as String,
         headTrainer: (d['headTrainer'] ?? '') as String,
         brandColor: const Color(0xFFE5C158),
-        activeCrowd: (d['activeCrowd'] as num?)?.toInt() ?? 0,
+        activeCrowd: rawCrowd,
+        crowdDate: resolvedCrowdDate,
         maxCapacity: (d['maxCapacity'] as num?)?.toInt() ?? 60,
         monthlyFee: (d['monthlyFee'] as num?)?.toInt() ?? 1500,
         ptFee: (d['ptFee'] as num?)?.toInt() ?? 6000,
+        ptSplitExcludesBaseFee:
+            (d['ptSplitExcludesBaseFee'] as bool?) ?? true,
         feePlans: GymFeePlan.decodeList(d['feePlans']),
         latitude: (d['latitude'] as num?)?.toDouble(),
         longitude: (d['longitude'] as num?)?.toDouble(),
@@ -516,9 +545,11 @@ class FirestoreService {
     String gymId,
     int nextCrowd, {
     List<int>? hourlyCheckIns,
+    String? crowdDate,
   }) async {
     await _db.collection('gyms').doc(gymId).update({
       'activeCrowd': nextCrowd,
+      'crowdDate': crowdDate ?? GymTenant.dateKeyFor(),
       if (hourlyCheckIns != null && hourlyCheckIns.length == 24)
         'hourlyCheckIns': hourlyCheckIns,
     });
@@ -699,6 +730,9 @@ class FirestoreService {
       'area': gym.area,
       'headTrainer': gym.headTrainer,
       'activeCrowd': gym.activeCrowd,
+      'crowdDate': gym.crowdDate.isNotEmpty
+          ? gym.crowdDate
+          : GymTenant.dateKeyFor(),
       'maxCapacity': gym.maxCapacity,
       'monthlyFee': gym.monthlyFee,
       'ptFee': gym.ptFee,
@@ -728,7 +762,7 @@ class FirestoreService {
         'joinedDate': m.joinedDate,
         'expiryDate': m.expiryDate,
         'daysLeft': m.daysLeft,
-        'assignedTrainer': m.assignedTrainer,
+        'assignedTrainer': m.assignedTrainer ?? '',
         'isPtClient': m.isPtClient,
         'addedByTrainer': m.addedByTrainer,
         'currentWeightKg': m.currentWeightKg,
@@ -970,6 +1004,48 @@ class FirestoreService {
         .update({
       'feePaid': newFeePaid,
       'dueAmount': 0,
+    });
+  }
+
+  /// Renews an existing member's plan cycle and payment proof without duplicating the doc.
+  Future<void> renewMember(String gymId, GymMember member) async {
+    await _db
+        .collection('gyms')
+        .doc(gymId)
+        .collection('members')
+        .doc(member.id)
+        .update({
+      'planTitle': member.planTitle,
+      'feePaid': member.feePaid,
+      'dueAmount': member.dueAmount,
+      'joinedDate': member.joinedDate,
+      'expiryDate': member.expiryDate,
+      'daysLeft': member.daysLeft,
+      'assignedTrainer': member.assignedTrainer ?? '',
+      'isPtClient': member.isPtClient,
+      'paymentMode': member.paymentMode,
+      'paymentReference': member.paymentReference,
+      'paymentProofBase64': member.paymentProofBase64,
+    });
+  }
+
+  /// Updates trainer specialty, duty shift slot, and PT commission split.
+  Future<void> updateTrainerDetails({
+    required String gymId,
+    required String trainerId,
+    required String specialty,
+    required String shiftSlot,
+    required int commissionPercent,
+  }) async {
+    await _db
+        .collection('gyms')
+        .doc(gymId)
+        .collection('trainers')
+        .doc(trainerId)
+        .update({
+      'specialty': specialty.trim(),
+      'shiftSlot': shiftSlot.trim(),
+      'commissionPercent': commissionPercent.clamp(0, 100),
     });
   }
 

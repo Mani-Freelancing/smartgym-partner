@@ -6,6 +6,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../core/config/app_config.dart';
+
 class ImportedRegisterRow {
   String name;
   String phone;
@@ -29,9 +31,7 @@ class RegisterAiImporterService {
 
   /// Optional developer key supplied at build time:
   /// flutter build apk --dart-define=GEMINI_API_KEY=your_key
-  static const String _builtInGeminiKey = String.fromEnvironment(
-    'GEMINI_API_KEY',
-  );
+  static String get _builtInGeminiKey => AppConfig.geminiApiKey;
 
   Future<String> getEffectiveApiKey() async {
     final keys = await getEffectiveApiKeys();

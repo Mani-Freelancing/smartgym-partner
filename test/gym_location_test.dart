@@ -4,8 +4,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_demo_application/apps/partner_app/auth/partner_onboarding_screen.dart';
 import 'package:flutter_demo_application/apps/partner_app/owner/analytics/owner_analytics_engine.dart';
+import 'package:flutter_demo_application/apps/partner_app/owner/owner_drawer.dart';
 import 'package:flutter_demo_application/apps/partner_app/owner/owner_shell_screen.dart';
 import 'package:flutter_demo_application/apps/partner_app/owner/screens/owner_audit_log_screen.dart';
+import 'package:flutter_demo_application/apps/partner_app/owner/screens/owner_orders_leads_screen.dart';
 import 'package:flutter_demo_application/apps/partner_app/owner/screens/owner_revenue_screen.dart';
 import 'package:flutter_demo_application/data/repositories/gym_repository.dart';
 import 'package:flutter_demo_application/data/services/gym_location_service.dart';
@@ -13,6 +15,8 @@ import 'package:flutter_demo_application/data/services/onboarding_draft_service.
 import 'package:flutter_demo_application/domain/models/gym_fee_plan.dart';
 import 'package:flutter_demo_application/domain/models/gym_member.dart';
 import 'package:flutter_demo_application/domain/models/gym_tenant.dart';
+import 'package:flutter_demo_application/domain/models/removed_record.dart';
+import 'package:flutter_demo_application/domain/models/trainer_profile.dart';
 import 'package:flutter_demo_application/domain/models/walk_in_enquiry.dart';
 import 'package:flutter_demo_application/shared_bloc/smart_gym_bloc.dart';
 import 'package:flutter_demo_application/shared_bloc/smart_gym_event.dart';
@@ -693,7 +697,8 @@ void main() {
     );
     expect(w1.totalPeriodRevenue, 5000);
     expect(w1.periodJoins, 1);
-    expect(w1.buckets.last.isForecast, isTrue);
+    expect(w1.buckets.length, 7);
+    expect(w1.buckets.every((b) => b.label != 'AI+'), isTrue);
 
     final m1 = OwnerAnalyticsEngine.buildReport(
       state: state,
@@ -722,15 +727,9 @@ void main() {
     );
     expect(custom.totalPeriodRevenue, 2000);
     expect(custom.periodJoins, 1);
-
-    expect(m1.healthScore, inInclusiveRange(0, 100));
-    expect(m1.insights.any((i) => i.id == 'collect_dues'), isTrue);
-    expect(m1.insights.any((i) => i.id == 'renewal_risk'), isTrue);
-    expect(m1.insights.any((i) => i.id == 'lead_pipeline'), isTrue);
-    expect(m1.insights.any((i) => i.id == 'crowd_peak'), isTrue);
   });
 
-  testWidgets('Owner Home Analytics Studio switches timeframes, chart types, and AI Brief cleanly', (
+  testWidgets('Owner Home Analytics Studio switches timeframes, chart types, and custom calendar cleanly', (
     WidgetTester tester,
   ) async {
     tester.view.physicalSize = const Size(360, 900);
@@ -752,9 +751,6 @@ void main() {
       ),
     );
     await tester.pump(const Duration(milliseconds: 500));
-
-    final scrollState =
-        tester.state<ScrollableState>(find.byType(Scrollable).first);
 
     // Analytics lives directly inside the starting CEO OVERVIEW card with no duplicate card
     expect(find.text('ANALYTICS STUDIO'), findsNothing);
@@ -798,15 +794,422 @@ void main() {
     await tester.pump(const Duration(milliseconds: 400));
     expect(find.text('Custom (90 d) Collection'), findsOneWidget);
 
-    // Scroll to AI Copilot card & open Full AI Brief
-    scrollState.position.jumpTo(scrollState.position.maxScrollExtent);
+    // Assumption-based AI Gym Copilot & forecast points are removed
+    expect(find.byKey(const ValueKey('ai_copilot_card')), findsNothing);
+    expect(find.byKey(const ValueKey('ai_brief_btn')), findsNothing);
+    expect(find.text('AI GYM COPILOT'), findsNothing);
+    expect(find.byIcon(Icons.refresh_rounded), findsNothing);
+  });
+
+  test('Daily floor crowd auto-resets to 0 on a new calendar day and starts fresh on check-in', () async {
+    final now = DateTime.now();
+    final yesterday = now.subtract(const Duration(days: 1));
+    final todayKey = GymTenant.dateKeyFor(now);
+    final yesterdayKey = GymTenant.dateKeyFor(yesterday);
+
+    final staleGym = GymTenant(
+      id: 'gym_daily_reset',
+      name: 'Pulse Barbell',
+      area: 'Kondapur',
+      headTrainer: 'Mani',
+      brandColor: const Color(0xFFE5C158),
+      activeCrowd: 22,
+      crowdDate: yesterdayKey,
+      maxCapacity: 60,
+      monthlyFee: 2000,
+      ptFee: 5000,
+    );
+
+    expect(staleGym.activeCrowdForDate(yesterday), 22);
+    expect(staleGym.activeCrowdForDate(now), 0);
+    expect(staleGym.isCrowdStaleForDate(now), isTrue);
+
+    final bloc = SmartGymBloc(repository: GymRepository());
+    addTearDown(bloc.close);
+
+    bloc.add(SyncGymTenantEvent(staleGym));
+    await Future<void>.delayed(const Duration(milliseconds: 50));
+    expect(bloc.state.liveCrowd, 0);
+    expect(bloc.state.currentGym.activeCrowd, 0);
+    expect(bloc.state.currentGym.crowdDate, todayKey);
+
+    // First morning QR check-in increments from 0 -> 1 rather than adding to yesterday's 22
+    bloc.add(const SimulateQrCheckInEvent());
+    await Future<void>.delayed(const Duration(milliseconds: 50));
+    expect(bloc.state.liveCrowd, 1);
+    expect(bloc.state.currentGym.activeCrowd, 1);
+    expect(bloc.state.currentGym.crowdDate, todayKey);
+  });
+
+  testWidgets('Removed Staff & Members empty bottom sheet spans full width with no outer margins', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final bloc = SmartGymBloc(repository: GymRepository());
+    addTearDown(bloc.close);
+
+    final scaffoldKey = GlobalKey<ScaffoldState>();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: BlocProvider.value(
+          value: bloc,
+          child: Scaffold(
+            key: scaffoldKey,
+            drawer: const OwnerDrawer(),
+            body: const SizedBox.expand(),
+          ),
+        ),
+      ),
+    );
+    scaffoldKey.currentState!.openDrawer();
+    await tester.pumpAndSettle();
+
+    final removedItem = find.text('Removed Staff & Members');
+    await tester.scrollUntilVisible(
+      removedItem,
+      200,
+      scrollable: find.descendant(
+        of: find.byType(Drawer),
+        matching: find.byType(Scrollable),
+      ),
+    );
+    await tester.tap(removedItem);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Removed Staff & Members (0)'), findsOneWidget);
+    expect(find.text('No removed trainers or members yet.'), findsOneWidget);
+
+    final sheetRect = tester.getRect(find.byType(BottomSheet));
+    expect(sheetRect.left, 0.0);
+    expect(sheetRect.right, 390.0);
+  });
+
+  testWidgets('OwnerAuditLogScreen renews expired member plan and updates fee & validity', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final bloc = SmartGymBloc(repository: GymRepository());
+    addTearDown(bloc.close);
+    bloc.add(
+      const SyncMembersEvent([
+        GymMember(
+          id: 'm_exp',
+          name: 'Vikram Das',
+          phone: '+919800077788',
+          planTitle: 'Monthly Regular',
+          feePaid: 1500,
+          dueAmount: 0,
+          joinedDate: '20 Oct 2026',
+          expiryDate: '19 Nov 2026',
+          daysLeft: -2,
+          isPtClient: false,
+          addedByTrainer: 'Owner',
+          paymentMode: 'Cash',
+        ),
+      ]),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: BlocProvider.value(
+          value: bloc,
+          child: const OwnerAuditLogScreen(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('renew_member_m_exp')), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('renew_member_m_exp')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Renew Vikram Das'), findsOneWidget);
+
+    // Online renewal without screenshot proof stays blocked
+    await tester.tap(find.byKey(const ValueKey('renew_mode_online')));
     await tester.pump();
-    expect(find.byKey(const ValueKey('ai_copilot_card')), findsOneWidget);
-    await tester.tap(find.byKey(const ValueKey('ai_brief_btn')));
-    await tester.pump(const Duration(milliseconds: 400));
-    expect(find.text('AI CEO Forecast & Health Brief'), findsOneWidget);
-    expect(find.text('PROJECTED NEXT 30-DAY RUN-RATE'), findsOneWidget);
-    expect(find.text('Retention Health'), findsOneWidget);
-    expect(find.text('Cash Collection Score'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('renew_submit_btn')));
+    await tester.pump();
+    expect(
+      find.text('Please upload UPI screenshot proof for Online renewal.'),
+      findsOneWidget,
+    );
+
+    // Cash renewal succeeds and extends validity
+    await tester.tap(find.byKey(const ValueKey('renew_mode_cash')));
+    await tester.pump();
+    await tester.enterText(
+      find.byKey(const ValueKey('renew_fee_input')),
+      '2200',
+    );
+    await tester.tap(find.byKey(const ValueKey('renew_submit_btn')));
+    await tester.pumpAndSettle();
+
+    final renewed = bloc.state.members.firstWhere((m) => m.id == 'm_exp');
+    expect(renewed.feePaid, 2200);
+    expect(renewed.daysLeft, greaterThanOrEqualTo(28));
+    expect(renewed.isExpired, isFalse);
+  });
+
+  testWidgets('OwnerOrdersLeadsScreen edits trainer PT commission & shift and omits duplicate removed section', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 900);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final bloc = SmartGymBloc(repository: GymRepository());
+    addTearDown(bloc.close);
+    bloc.add(
+      const SyncTrainersEvent([
+        TrainerProfile(
+          id: 'tr_edit_1',
+          name: 'Coach Arjun',
+          phone: '+919800044455',
+          specialty: 'Strength',
+          shiftSlot: 'Morning (6–10 AM)',
+          isOnDuty: true,
+          morningCheckInTime: '06:00 AM',
+          commissionPercent: 50,
+        ),
+      ]),
+    );
+    bloc.add(
+      const SyncMembersEvent([
+        GymMember(
+          id: 'm_pt_1',
+          name: 'Meera Nair',
+          phone: '+919800055566',
+          planTitle: 'PT VIP',
+          feePaid: 6000,
+          joinedDate: '01 Nov 2026',
+          expiryDate: '01 Dec 2026',
+          daysLeft: 10,
+          assignedTrainer: 'Coach Arjun',
+          isPtClient: true,
+          addedByTrainer: 'Owner',
+        ),
+      ]),
+    );
+    bloc.add(
+      const SyncRemovedRecordsEvent([
+        RemovedRecord(
+          id: 'rem_1',
+          type: 'member',
+          name: 'Old Member',
+          phone: '+919800099900',
+          details: 'Monthly • ₹1500',
+        ),
+      ]),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: BlocProvider.value(
+            value: bloc,
+            child: const OwnerOrdersLeadsScreen(),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // Duplicate Removed Staff & Members list was cleaned out of Trainers tab, and Keep Base Fee is ON by default
+    expect(find.textContaining('REMOVED STAFF & MEMBERS'), findsNothing);
+    expect(bloc.state.currentGym.ptSplitExcludesBaseFee, isTrue);
+    expect(find.text('Owner: ₹4000  |  Trainer: ₹2000'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('trainer_menu_tr_edit_1')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Edit Commission & Shift'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Edit Coach Arjun'), findsOneWidget);
+    await tester.enterText(
+      find.byKey(const ValueKey('edit_trainer_comm_input')),
+      '40',
+    );
+    await tester.tap(find.text('Evening (5–9:30 PM)'));
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('edit_trainer_save_btn')));
+    await tester.pumpAndSettle();
+
+    final updated = bloc.state.trainers.first;
+    expect(updated.commissionPercent, 40);
+    expect(updated.shiftSlot, 'Evening (5–9:30 PM)');
+    expect(find.text('Assigned PT (1) • 40% Split'), findsOneWidget);
+    expect(find.text('Owner: ₹4400  |  Trainer: ₹1600'), findsOneWidget);
+
+    // 100% quick chip in Edit Commission sets full PT add-on payout while keeping ₹2000 base fee for Owner
+    await tester.tap(find.byKey(const ValueKey('trainer_menu_tr_edit_1')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Edit Commission & Shift'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.byKey(const ValueKey('edit_trainer_comm_100')));
+    await tester.tap(find.byKey(const ValueKey('edit_trainer_comm_100')));
+    await tester.pump();
+    expect(
+      find.text('PT Split Preview: Coach gets 100% (Freelance PT) • Owner gets 0%'),
+      findsOneWidget,
+    );
+    await tester.tap(find.byKey(const ValueKey('edit_trainer_save_btn')));
+    await tester.pumpAndSettle();
+    expect(bloc.state.trainers.first.commissionPercent, 100);
+    expect(find.text('Owner: ₹2000  |  Trainer: ₹4000'), findsOneWidget);
+    expect(
+      find.text('Base ₹2000 kept 100% by Owner • Split on ₹4000 PT add-on'),
+      findsOneWidget,
+    );
+
+    // Toggling off applies 100% to whole PT package fee; toggling back on restores base-fee separation
+    await tester.tap(find.byKey(const ValueKey('trainers_exclude_base_switch')));
+    await tester.pumpAndSettle();
+    expect(bloc.state.currentGym.ptSplitExcludesBaseFee, isFalse);
+    expect(find.text('Owner: ₹0  |  Trainer: ₹6000'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('trainers_exclude_base_switch')));
+    await tester.pumpAndSettle();
+    expect(bloc.state.currentGym.ptSplitExcludesBaseFee, isTrue);
+    expect(find.text('Owner: ₹2000  |  Trainer: ₹4000'), findsOneWidget);
+    expect(
+      find.text('Base ₹2000 kept 100% by Owner • Split on ₹4000 PT add-on'),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('CEO Overview shows Coach Payout vs Net Owner Revenue and Add Trainer has 100% chip', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 900);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final bloc = SmartGymBloc(repository: GymRepository());
+    addTearDown(bloc.close);
+
+    bloc.add(
+      const SyncGymTenantEvent(
+        GymTenant(
+          id: 'gym_net_1',
+          name: 'Apex Iron',
+          area: 'Hitech',
+          headTrainer: 'Owner',
+          brandColor: Color(0xFFE5C158),
+          activeCrowd: 2,
+          maxCapacity: 60,
+          monthlyFee: 1500,
+          ptFee: 6000,
+          ptSplitExcludesBaseFee: true,
+        ),
+      ),
+    );
+    bloc.add(
+      const SyncTrainersEvent([
+        TrainerProfile(
+          id: 'tr_100',
+          name: 'Coach Dev',
+          phone: '+919800088899',
+          specialty: 'Freelance PT',
+          isOnDuty: true,
+          morningCheckInTime: '06:00 AM',
+          commissionPercent: 100,
+        ),
+      ]),
+    );
+    bloc.add(
+      const SyncMembersEvent([
+        GymMember(
+          id: 'm_pt',
+          name: 'Karan',
+          phone: '+919800011111',
+          planTitle: 'PT VIP',
+          feePaid: 6000,
+          joinedDate: 'Today',
+          expiryDate: '30d from today',
+          daysLeft: 30,
+          assignedTrainer: 'Coach Dev',
+          isPtClient: true,
+          addedByTrainer: 'Owner',
+        ),
+        GymMember(
+          id: 'm_reg',
+          name: 'Neha',
+          phone: '+919800022222',
+          planTitle: 'Monthly',
+          feePaid: 2000,
+          joinedDate: 'Today',
+          expiryDate: '30d from today',
+          daysLeft: 30,
+          isPtClient: false,
+          addedByTrainer: 'Owner',
+        ),
+      ]),
+    );
+
+    final report = OwnerAnalyticsEngine.buildReport(
+      state: bloc.state,
+      range: AnalyticsRange.month1,
+    );
+    // Wait a tick if events are queued asynchronously
+    await tester.pump();
+    final syncedReport = OwnerAnalyticsEngine.buildReport(
+      state: bloc.state,
+      range: AnalyticsRange.month1,
+    );
+    expect(syncedReport.totalPeriodRevenue, 8000);
+    // Base ₹1500 of m_pt + ₹2000 of m_reg = ₹3500 Net Owner; ₹4500 Coach Payout
+    expect(syncedReport.coachPayout, 4500);
+    expect(syncedReport.ownerNetRevenue, 3500);
+    // Suppress unused warning on pre-pump report if any
+    expect(report.range, AnalyticsRange.month1);
+
+    final scaffoldKey = GlobalKey<ScaffoldState>();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: BlocProvider.value(
+          value: bloc,
+          child: Scaffold(
+            key: scaffoldKey,
+            drawer: const OwnerDrawer(),
+            body: const OwnerRevenueScreen(),
+          ),
+        ),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 500));
+
+    expect(find.byKey(const ValueKey('hero_net_owner_chip')), findsOneWidget);
+    expect(find.byKey(const ValueKey('hero_coach_payout_chip')), findsOneWidget);
+    expect(find.text('Net Owner'), findsOneWidget);
+    expect(find.text('₹3,500'), findsOneWidget);
+    expect(find.text('Coach Payout'), findsOneWidget);
+    expect(find.text('₹4,500'), findsOneWidget);
+
+    // Drawer -> Add Trainer sheet includes 100% quick chip
+    scaffoldKey.currentState!.openDrawer();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+    await tester.tap(find.text('Add Trainer by Phone'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+
+    expect(find.byKey(const ValueKey('add_trainer_comm_100')), findsOneWidget);
+    await tester.ensureVisible(find.byKey(const ValueKey('add_trainer_comm_100')));
+    await tester.tap(find.byKey(const ValueKey('add_trainer_comm_100')));
+    await tester.pump();
+    final tf = tester.widget<TextField>(
+      find.byKey(const ValueKey('add_trainer_comm_input')),
+    );
+    expect(tf.controller?.text, '100');
   });
 }

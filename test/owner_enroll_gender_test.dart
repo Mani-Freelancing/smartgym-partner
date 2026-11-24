@@ -5,6 +5,8 @@ import 'package:flutter_demo_application/apps/partner_app/owner/owner_add_member
 import 'package:flutter_demo_application/apps/partner_app/owner/screens/owner_audit_log_screen.dart';
 import 'package:flutter_demo_application/data/repositories/gym_repository.dart';
 import 'package:flutter_demo_application/domain/models/gym_member.dart';
+import 'package:flutter_demo_application/domain/models/gym_tenant.dart';
+import 'package:flutter_demo_application/domain/models/trainer_profile.dart';
 import 'package:flutter_demo_application/shared_bloc/smart_gym_bloc.dart';
 import 'package:flutter_demo_application/shared_bloc/smart_gym_event.dart';
 
@@ -286,5 +288,111 @@ void main() {
     expect(find.text('Mx. Sam Nair'), findsOneWidget);
     expect(find.text('Mr. Arjun Rao'), findsNothing);
     expect(find.text('Ms. Priya Das'), findsNothing);
+  });
+
+  testWidgets(
+      'OwnerAddMemberScreen Personal Training shows dynamic trainer % split and base-fee rule',
+      (WidgetTester tester) async {
+    tester.view.physicalSize = const Size(390, 900);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final bloc = SmartGymBloc(repository: GymRepository());
+    addTearDown(bloc.close);
+    bloc.add(
+      const SyncGymTenantEvent(
+        GymTenant(
+          id: 'gym_pt_test',
+          name: 'Apex Iron',
+          area: 'Hitech',
+          headTrainer: 'Owner',
+          brandColor: Color(0xFFE5C158),
+          activeCrowd: 2,
+          maxCapacity: 60,
+          monthlyFee: 1500,
+          ptFee: 5000,
+          ptSplitExcludesBaseFee: false,
+        ),
+      ),
+    );
+    bloc.add(
+      const SyncTrainersEvent([
+        TrainerProfile(
+          id: 'tr_dev',
+          name: 'Coach Dev',
+          phone: '+919800088899',
+          specialty: 'Freelance PT',
+          isOnDuty: true,
+          morningCheckInTime: '06:00 AM',
+          commissionPercent: 100,
+        ),
+      ]),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: BlocProvider.value(
+          value: bloc,
+          child: const OwnerAddMemberScreen(),
+        ),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 200));
+
+    expect(find.textContaining('50/50'), findsNothing);
+
+    final ptSwitch = find.byKey(const ValueKey('enroll_pt_switch'));
+    await tester.ensureVisible(ptSwitch);
+    await tester.pump();
+    expect(
+      find.text('Assign a coach (100% split) & unlock meal tracking'),
+      findsOneWidget,
+    );
+
+    await tester.tap(ptSwitch);
+    await tester.pump();
+
+    expect(
+      find.text('Coach gets 100% • Owner gets 0% & meal tracking'),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('enroll_pt_trainer_dropdown')),
+      findsOneWidget,
+    );
+    expect(find.text('Coach Dev (100% PT)'), findsOneWidget);
+
+    final preview = find.byKey(const ValueKey('enroll_pt_split_preview'));
+    await tester.ensureVisible(preview);
+    await tester.pump();
+    expect(
+      find.text('Split Preview: Owner ₹0  |  Coach Dev ₹5000'),
+      findsOneWidget,
+    );
+
+    // Enable Base Gym Fee 100% Owner rule and verify live PT preview updates.
+    bloc.add(
+      const UpdateGymSettingsEvent(
+        name: 'Apex Iron',
+        area: 'Hitech',
+        monthlyFee: 1500,
+        ptFee: 5000,
+        maxCapacity: 60,
+        ptSplitExcludesBaseFee: true,
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(
+      find.text('Base ₹1500 Owner • 100% split on PT add-on'),
+      findsOneWidget,
+    );
+    expect(
+      find.text(
+        'Split Preview: Owner ₹1500 (incl. ₹1500 base)  |  Coach Dev ₹3500',
+      ),
+      findsOneWidget,
+    );
   });
 }

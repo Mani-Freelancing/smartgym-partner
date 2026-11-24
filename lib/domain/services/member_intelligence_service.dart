@@ -146,7 +146,7 @@ class MemberIntelligenceService {
       final currentIsBusy =
           (hour >= bestPeakStart && hour < bestPeakStart + 3) ||
               (gym.maxCapacity > 0 &&
-                  gym.activeCrowd / gym.maxCapacity >= 0.7);
+                  gym.activeCrowdForDate() / gym.maxCapacity >= 0.7);
       return GymRushForecast(
         peakHoursLabel: peakLabel,
         quietestWindowLabel: quietLabel,
@@ -163,7 +163,7 @@ class MemberIntelligenceService {
     final isTypicalPeak =
         (hour >= 6 && hour < 9) || (hour >= 18 && hour < 21);
     final isLiveBusy =
-        gym.maxCapacity > 0 && gym.activeCrowd / gym.maxCapacity >= 0.7;
+        gym.maxCapacity > 0 && gym.activeCrowdForDate() / gym.maxCapacity >= 0.7;
     final busyNow = isTypicalPeak || isLiveBusy;
 
     return GymRushForecast(

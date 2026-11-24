@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1043626652907",
+    "project_id": "smartgym-os-staging",
+    "storage_bucket": "smartgym-os-staging.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1043626652907:android:1bd1a56374a77b85407aae",
+        "android_client_info": {
+          "package_name": "com.smartgym.partner.staging"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC6Z26Rv29MwRAkiIqBaHDaYGZeAK74xS8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

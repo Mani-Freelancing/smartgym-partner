@@ -88,7 +88,8 @@ class SmartGymState extends Equatable {
           : emptyGym;
 
   int get liveCrowd =>
-      (currentGym.activeCrowd + crowdDelta).clamp(0, currentGym.maxCapacity);
+      (currentGym.activeCrowdForDate() + crowdDelta)
+          .clamp(0, currentGym.maxCapacity);
 
   // Computed Owner CEO metrics (100% live from real members)
   int get totalMonthlyRevenue =>

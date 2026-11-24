@@ -28,58 +28,6 @@ class OwnerRevenueScreen extends StatelessWidget {
     }
   }
 
-  void _showResetCrowdDialog(BuildContext context, int liveCrowd) {
-    showDialog<void>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1A1E29),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-        ),
-        title: const Text(
-          'Reset Live Floor Count?',
-          style: TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.w900,
-            fontSize: 17,
-          ),
-        ),
-        content: Text(
-          'Currently showing $liveCrowd member(s) on the floor. Reset count to 0 for a fresh shift/day?',
-          style: const TextStyle(
-            color: Colors.white70,
-            fontSize: 13,
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text(
-              'Cancel',
-              style: TextStyle(color: Colors.white54),
-            ),
-          ),
-          FilledButton(
-            style: FilledButton.styleFrom(
-              backgroundColor: AppTheme.accent,
-              foregroundColor: Colors.black,
-            ),
-            onPressed: () {
-              context.read<SmartGymBloc>().add(const ResetGymFloorCrowdEvent());
-              Navigator.pop(ctx);
-            },
-            child: const Text(
-              'Reset to 0',
-              style: TextStyle(
-                fontWeight: FontWeight.w900,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return BlocBuilder<SmartGymBloc, SmartGymState>(
@@ -106,8 +54,6 @@ class OwnerRevenueScreen extends StatelessWidget {
                 index: 0,
                 child: OwnerCeoHeroCard(
                   state: state,
-                  onResetCrowd: () =>
-                      _showResetCrowdDialog(context, state.liveCrowd),
                 ),
               ),
               const SizedBox(height: 18),
@@ -192,15 +138,7 @@ class OwnerRevenueScreen extends StatelessWidget {
               ),
               const SizedBox(height: 18),
 
-              // 3. Futuristic AI Gym Copilot
-              OwnerAiCopilotCard(
-                state: state,
-                onOpenAuditFilter: (f) => _openAudit(context, f),
-                onOpenWalkInLeads: onOpenWalkInLeads,
-              ),
-              const SizedBox(height: 18),
-
-              // 4. Primary Quick Action
+              // 3. Primary Quick Action
               const Text(
                 'QUICK ACTION',
                 style: TextStyle(

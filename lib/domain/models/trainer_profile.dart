@@ -22,18 +22,21 @@ class TrainerProfile extends Equatable {
   });
 
   TrainerProfile copyWith({
+    String? specialty,
+    String? shiftSlot,
     String? morningCheckInTime,
     bool? isOnDuty,
+    int? commissionPercent,
   }) {
     return TrainerProfile(
       id: id,
       name: name,
       phone: phone,
-      specialty: specialty,
-      shiftSlot: shiftSlot,
+      specialty: specialty ?? this.specialty,
+      shiftSlot: shiftSlot ?? this.shiftSlot,
       morningCheckInTime: morningCheckInTime ?? this.morningCheckInTime,
       isOnDuty: isOnDuty ?? this.isOnDuty,
-      commissionPercent: commissionPercent,
+      commissionPercent: commissionPercent ?? this.commissionPercent,
     );
   }
 

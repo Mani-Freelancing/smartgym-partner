@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
+import '../../../core/config/app_config.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../data/services/gym_location_service.dart';
 
@@ -12,7 +13,7 @@ import '../../../data/services/gym_location_service.dart';
 class GymMapTileConfig {
   static const String urlTemplate =
       'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
-  static const String userAgentPackageName = 'com.smartgym.partner';
+  static String get userAgentPackageName => AppConfig.packageId;
   static const String attributionLabel = '© OpenStreetMap contributors';
 }
 

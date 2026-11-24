@@ -333,16 +333,24 @@ class AddTrainerToGymEvent extends SmartGymEvent {
   final String phone;
   final String specialty;
   final String shiftSlot;
+  final int commissionPercent;
 
   const AddTrainerToGymEvent({
     required this.name,
     required this.phone,
     this.specialty = 'Floor & Transformation Coach',
     this.shiftSlot = 'Morning (6–10 AM)',
+    this.commissionPercent = 50,
   });
 
   @override
-  List<Object?> get props => [name, phone, specialty, shiftSlot];
+  List<Object?> get props => [
+        name,
+        phone,
+        specialty,
+        shiftSlot,
+        commissionPercent,
+      ];
 }
 
 class JoinGymWithInviteQrEvent extends SmartGymEvent {
@@ -498,6 +506,7 @@ class UpdateGymSettingsEvent extends SmartGymEvent {
   final bool clearLocation;
   final int? checkInRadiusMeters;
   final bool? requireGpsCheckIn;
+  final bool? ptSplitExcludesBaseFee;
 
   const UpdateGymSettingsEvent({
     required this.name,
@@ -511,6 +520,7 @@ class UpdateGymSettingsEvent extends SmartGymEvent {
     this.clearLocation = false,
     this.checkInRadiusMeters,
     this.requireGpsCheckIn,
+    this.ptSplitExcludesBaseFee,
   });
 
   @override
@@ -526,6 +536,7 @@ class UpdateGymSettingsEvent extends SmartGymEvent {
         clearLocation,
         checkInRadiusMeters,
         requireGpsCheckIn,
+        ptSplitExcludesBaseFee,
       ];
 }
 
@@ -556,4 +567,72 @@ class ImportBulkMembersEvent extends SmartGymEvent {
 
   @override
   List<Object?> get props => [members];
+}
+
+class RenewMemberPlanEvent extends SmartGymEvent {
+  final String memberId;
+  final String planTitle;
+  final int feePaid;
+  final int dueAmount;
+  final String joinedDate;
+  final String expiryDate;
+  final int daysLeft;
+  final bool isPtClient;
+  final String? assignedTrainer;
+  final String paymentMode;
+  final String paymentReference;
+  final String paymentProofBase64;
+
+  const RenewMemberPlanEvent({
+    required this.memberId,
+    required this.planTitle,
+    required this.feePaid,
+    this.dueAmount = 0,
+    required this.joinedDate,
+    required this.expiryDate,
+    required this.daysLeft,
+    required this.isPtClient,
+    this.assignedTrainer,
+    this.paymentMode = 'Cash',
+    this.paymentReference = '',
+    this.paymentProofBase64 = '',
+  });
+
+  @override
+  List<Object?> get props => [
+        memberId,
+        planTitle,
+        feePaid,
+        dueAmount,
+        joinedDate,
+        expiryDate,
+        daysLeft,
+        isPtClient,
+        assignedTrainer,
+        paymentMode,
+        paymentReference,
+        paymentProofBase64,
+      ];
+}
+
+class UpdateTrainerDetailsEvent extends SmartGymEvent {
+  final String trainerId;
+  final String specialty;
+  final String shiftSlot;
+  final int commissionPercent;
+
+  const UpdateTrainerDetailsEvent({
+    required this.trainerId,
+    required this.specialty,
+    required this.shiftSlot,
+    required this.commissionPercent,
+  });
+
+  @override
+  List<Object?> get props => [
+        trainerId,
+        specialty,
+        shiftSlot,
+        commissionPercent,
+      ];
 }

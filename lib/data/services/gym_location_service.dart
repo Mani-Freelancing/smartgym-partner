@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:geolocator/geolocator.dart';
+import '../../core/config/app_config.dart';
 
 class GymPlaceSuggestion {
   final String title;
@@ -608,7 +609,7 @@ class GymLocationService {
           );
       request.headers.set(
         HttpHeaders.userAgentHeader,
-        'SmartGymPartner/1.0 (com.smartgym.partner)',
+        'SmartGymPartner/1.0 (${AppConfig.packageId})',
       );
       request.headers.set(HttpHeaders.acceptHeader, 'application/json');
       final response = await request.close().timeout(

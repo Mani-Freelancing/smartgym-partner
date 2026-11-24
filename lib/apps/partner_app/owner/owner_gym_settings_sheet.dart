@@ -72,6 +72,7 @@ void showOwnerGymSettingsSheet(BuildContext context, SmartGymState state) {
   double? pinnedLng = gym.longitude;
   bool clearPin = false;
   bool requireGps = gym.requireGpsCheckIn;
+  bool ptSplitExcludesBaseFee = gym.ptSplitExcludesBaseFee;
   int radiusMeters = gym.checkInRadiusMeters;
   bool fetchingGps = false;
   bool saving = false;
@@ -286,6 +287,62 @@ void showOwnerGymSettingsSheet(BuildContext context, SmartGymState state) {
                             decoration: fieldDecoration(
                               'Max Floor Capacity',
                               icon: Icons.groups_rounded,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 10,
+                            ),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF12151C),
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(
+                                color: ptSplitExcludesBaseFee
+                                    ? AppTheme.ownerGold.withValues(alpha: 0.45)
+                                    : Colors.white12,
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                const Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'Keep Base Fee 100% Owner',
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w800,
+                                        ),
+                                      ),
+                                      SizedBox(height: 2),
+                                      Text(
+                                        'Apply trainer PT % only to coaching fee above base membership.',
+                                        style: TextStyle(
+                                          color: Colors.white54,
+                                          fontSize: 11,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Switch.adaptive(
+                                  key: const ValueKey(
+                                      'settings_pt_base_fee_switch'),
+                                  value: ptSplitExcludesBaseFee,
+                                  activeThumbColor: AppTheme.ownerGold,
+                                  onChanged: (v) {
+                                    HapticFeedback.selectionClick();
+                                    setModalState(
+                                        () => ptSplitExcludesBaseFee = v);
+                                  },
+                                ),
+                              ],
                             ),
                           ),
                           const SizedBox(height: 18),
@@ -800,9 +857,9 @@ void showOwnerGymSettingsSheet(BuildContext context, SmartGymState state) {
                                         cap > 10000) {
                                       error =
                                           'Enter a valid Max Floor Capacity (1 – 10,000).';
-                                    } else if (cap < gym.activeCrowd) {
+                                    } else if (cap < gym.activeCrowdForDate()) {
                                       error =
-                                          'Capacity cannot be less than current floor crowd (${gym.activeCrowd}).';
+                                          'Capacity cannot be less than current floor crowd (${gym.activeCrowdForDate()}).';
                                     } else if (requireGps &&
                                         (pinnedLat == null ||
                                             pinnedLng == null)) {
@@ -847,6 +904,8 @@ void showOwnerGymSettingsSheet(BuildContext context, SmartGymState state) {
                                               clearLocation: clearPin,
                                               checkInRadiusMeters: radiusMeters,
                                               requireGpsCheckIn: requireGps,
+                                              ptSplitExcludesBaseFee:
+                                                  ptSplitExcludesBaseFee,
                                             )
                                             .timeout(
                                               const Duration(seconds: 10),
@@ -858,6 +917,8 @@ void showOwnerGymSettingsSheet(BuildContext context, SmartGymState state) {
                                               area: gymArea,
                                               monthlyFee: mFee,
                                               ptFee: pFee,
+                                              ptSplitExcludesBaseFee:
+                                                  ptSplitExcludesBaseFee,
                                               maxCapacity: cap,
                                               feePlans: feePlans,
                                               latitude: pinnedLat,
@@ -894,6 +955,8 @@ void showOwnerGymSettingsSheet(BuildContext context, SmartGymState state) {
                                           area: gymArea,
                                           monthlyFee: mFee,
                                           ptFee: pFee,
+                                          ptSplitExcludesBaseFee:
+                                              ptSplitExcludesBaseFee,
                                           maxCapacity: cap!,
                                           feePlans: feePlans,
                                           latitude: pinnedLat,

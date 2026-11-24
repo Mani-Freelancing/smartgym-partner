@@ -20,6 +20,7 @@ class OwnerDrawer extends StatelessWidget {
     final phoneCtrl = TextEditingController();
     final specCtrl =
         TextEditingController(text: 'Floor & Transformation Coach');
+    final commCtrl = TextEditingController(text: '50');
     String selectedSlot = 'Morning (6–10 AM)';
     String? errorText;
 
@@ -35,6 +36,7 @@ class OwnerDrawer extends StatelessWidget {
       'Evening (5–9:30 PM)',
       'Full Day',
     ];
+    const commPresets = [30, 40, 50, 60, 100];
 
     showModalBottomSheet(
       context: context,
@@ -254,6 +256,77 @@ class OwnerDrawer extends StatelessWidget {
                     );
                   }).toList(),
                 ),
+                const SizedBox(height: 14),
+                const Text(
+                  'TRAINER PT COMMISSION (%)',
+                  style: TextStyle(
+                    color: Colors.white54,
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 1.3,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    SizedBox(
+                      width: 96,
+                      child: TextField(
+                        key: const ValueKey('add_trainer_comm_input'),
+                        controller: commCtrl,
+                        keyboardType: TextInputType.number,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.digitsOnly,
+                        ],
+                        onChanged: (_) => setModalState(() => errorText = null),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w900,
+                        ),
+                        decoration: InputDecoration(
+                          suffixText: '%',
+                          filled: true,
+                          fillColor: const Color(0xFF12151C),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(14),
+                            borderSide: BorderSide.none,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Wrap(
+                        spacing: 6,
+                        runSpacing: 6,
+                        children: commPresets.map((p) {
+                          final currentPct =
+                              int.tryParse(commCtrl.text.trim()) ?? 50;
+                          final sel = currentPct == p;
+                          return ChoiceChip(
+                            key: ValueKey('add_trainer_comm_$p'),
+                            label: Text('$p%'),
+                            selected: sel,
+                            selectedColor: AppTheme.trainerCyan,
+                            labelStyle: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w800,
+                              color: sel ? Colors.black : Colors.white70,
+                            ),
+                            backgroundColor: const Color(0xFF12151C),
+                            onSelected: (_) {
+                              HapticFeedback.selectionClick();
+                              setModalState(() {
+                                commCtrl.text = '$p';
+                                errorText = null;
+                              });
+                            },
+                          );
+                        }).toList(),
+                      ),
+                    ),
+                  ],
+                ),
                 if (errorText != null) ...[
                   const SizedBox(height: 10),
                   Text(
@@ -280,11 +353,19 @@ class OwnerDrawer extends StatelessWidget {
                       final name = nameCtrl.text.trim();
                       final digits =
                           phoneCtrl.text.replaceAll(RegExp(r'\D'), '');
+                      final commPct = int.tryParse(commCtrl.text.trim());
                       if (name.isEmpty || digits.length != 10) {
                         HapticFeedback.heavyImpact();
                         setModalState(() {
                           errorText =
                               'Enter trainer name and valid 10-digit mobile number.';
+                        });
+                        return;
+                      }
+                      if (commPct == null || commPct < 0 || commPct > 100) {
+                        HapticFeedback.heavyImpact();
+                        setModalState(() {
+                          errorText = 'Commission % must be between 0 and 100.';
                         });
                         return;
                       }
@@ -297,6 +378,7 @@ class OwnerDrawer extends StatelessWidget {
                               ? 'Floor & Transformation Coach'
                               : specCtrl.text.trim(),
                           shiftSlot: selectedSlot,
+                          commissionPercent: commPct,
                         ),
                       );
                       Navigator.pop(ctx);
@@ -332,75 +414,94 @@ class OwnerDrawer extends StatelessWidget {
   }
 
   void _showRemovedModal(BuildContext context, SmartGymState state) {
-    showModalBottomSheet(
+    showModalBottomSheet<void>(
       context: context,
+      isScrollControlled: true,
+      constraints: const BoxConstraints(minWidth: double.infinity),
       backgroundColor: const Color(0xFF1A1E29),
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      builder: (ctx) => Padding(
-        padding: const EdgeInsets.fromLTRB(20, 20, 20, 28),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Removed Staff & Members (${state.removedRecords.length})',
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 17,
-                fontWeight: FontWeight.w900,
-              ),
+      builder: (ctx) => SafeArea(
+        top: false,
+        child: SizedBox(
+          width: double.infinity,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 14, 20, 28),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    margin: const EdgeInsets.only(bottom: 16),
+                    decoration: BoxDecoration(
+                      color: Colors.white12,
+                      borderRadius: BorderRadius.circular(99),
+                    ),
+                  ),
+                ),
+                Text(
+                  'Removed Staff & Members (${state.removedRecords.length})',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 17,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                if (state.removedRecords.isEmpty)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 20),
+                    child: Text(
+                      'No removed trainers or members yet.',
+                      style: TextStyle(color: Colors.white54),
+                    ),
+                  )
+                else
+                  Flexible(
+                    child: ListView.builder(
+                      shrinkWrap: true,
+                      itemCount: state.removedRecords.length,
+                      itemBuilder: (_, i) {
+                        final r = state.removedRecords[i];
+                        return ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          leading: const Icon(
+                            Icons.person_remove_rounded,
+                            color: AppTheme.danger,
+                          ),
+                          title: Text(
+                            r.name,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                          subtitle: Text(
+                            '${r.phone.isNotEmpty ? '${r.phone} • ' : ''}${r.details}',
+                            style: const TextStyle(
+                              color: Colors.white60,
+                              fontSize: 12,
+                            ),
+                          ),
+                          trailing: Text(
+                            r.type.toUpperCase(),
+                            style: const TextStyle(
+                              color: AppTheme.danger,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+              ],
             ),
-            const SizedBox(height: 12),
-            if (state.removedRecords.isEmpty)
-              const Padding(
-                padding: EdgeInsets.symmetric(vertical: 20),
-                child: Text(
-                  'No removed trainers or members yet.',
-                  style: TextStyle(color: Colors.white54),
-                ),
-              )
-            else
-              Flexible(
-                child: ListView.builder(
-                  shrinkWrap: true,
-                  itemCount: state.removedRecords.length,
-                  itemBuilder: (_, i) {
-                    final r = state.removedRecords[i];
-                    return ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      leading: const Icon(
-                        Icons.person_remove_rounded,
-                        color: AppTheme.danger,
-                      ),
-                      title: Text(
-                        r.name,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                      subtitle: Text(
-                        '${r.phone.isNotEmpty ? '${r.phone} • ' : ''}${r.details}',
-                        style: const TextStyle(
-                          color: Colors.white60,
-                          fontSize: 12,
-                        ),
-                      ),
-                      trailing: Text(
-                        r.type.toUpperCase(),
-                        style: const TextStyle(
-                          color: AppTheme.danger,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              ),
-          ],
+          ),
         ),
       ),
     );

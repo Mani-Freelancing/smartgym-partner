@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -6,12 +7,30 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/cred_neopop_widgets.dart';
 import '../../../../domain/models/gym_member.dart';
 import '../../../../domain/models/trainer_profile.dart';
+import '../../../../domain/services/pt_split_calculator.dart';
 import '../../../../shared_bloc/smart_gym_bloc.dart';
 import '../../../../shared_bloc/smart_gym_event.dart';
 import '../../../../shared_bloc/smart_gym_state.dart';
 
 class OwnerOrdersLeadsScreen extends StatelessWidget {
   const OwnerOrdersLeadsScreen({super.key});
+
+  void _showEditTrainerSheet(BuildContext context, TrainerProfile trainer) {
+    HapticFeedback.selectionClick();
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      constraints: const BoxConstraints(minWidth: double.infinity),
+      backgroundColor: const Color(0xFF1A1E29),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(26)),
+      ),
+      builder: (_) => BlocProvider.value(
+        value: context.read<SmartGymBloc>(),
+        child: _EditTrainerSheet(trainer: trainer),
+      ),
+    );
+  }
 
   Future<void> _sendEnquiryWhatsApp(
     BuildContext context,
@@ -230,10 +249,201 @@ class OwnerOrdersLeadsScreen extends StatelessWidget {
             ),
             const SizedBox(height: 6),
             const Text(
-              'See which trainer checked in on time, which PT customers are assigned to them, and the automatic 50/50 PT split.',
+              'See trainer check-ins, assigned PT clients, and configurable PT commission splits.',
               style: TextStyle(fontSize: 12.5, color: Colors.white60),
             ),
-            const SizedBox(height: 14),
+            const SizedBox(height: 12),
+            if (state.trainers.isNotEmpty) ...[
+              Builder(
+                builder: (ctx) {
+                  final gym = state.currentGym;
+                  final totalCoachPayout = state.members.fold<int>(
+                    0,
+                    (sum, m) =>
+                        sum +
+                        PtSplitCalculator.computeMemberSplit(
+                          member: m,
+                          trainers: state.trainers,
+                          gym: gym,
+                        ).trainerShare,
+                  );
+                  final totalOwnerNet =
+                      state.totalMonthlyRevenue - totalCoachPayout;
+                  return CredMetalCard(
+                    glowColor: AppTheme.ownerGold,
+                    padding: const EdgeInsets.all(14),
+                    borderRadius: 16,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        if (state.members.isNotEmpty) ...[
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Text(
+                                      'COACH PAYOUTS',
+                                      style: TextStyle(
+                                        fontSize: 9.5,
+                                        fontWeight: FontWeight.w900,
+                                        letterSpacing: 1.1,
+                                        color: AppTheme.trainerCyan,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      '₹$totalCoachPayout',
+                                      style: const TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w900,
+                                        color: AppTheme.trainerCyan,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.end,
+                                  children: [
+                                    const Text(
+                                      'OWNER NET REVENUE',
+                                      style: TextStyle(
+                                        fontSize: 9.5,
+                                        fontWeight: FontWeight.w900,
+                                        letterSpacing: 1.1,
+                                        color: AppTheme.ownerGold,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      '₹$totalOwnerNet',
+                                      style: const TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w900,
+                                        color: AppTheme.ownerGold,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                          const Divider(height: 18, color: Colors.white12),
+                        ],
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Keep Base Fee (₹${gym.monthlyFee}) 100% Owner',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 12.5,
+                                      fontWeight: FontWeight.w800,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    gym.ptSplitExcludesBaseFee
+                                        ? 'Trainer % applies only above base gym fee.'
+                                        : 'Trainer % applies to whole PT package fee.',
+                                    style: const TextStyle(
+                                      color: Colors.white54,
+                                      fontSize: 11,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Switch.adaptive(
+                              key: const ValueKey('trainers_exclude_base_switch'),
+                              value: gym.ptSplitExcludesBaseFee,
+                              activeThumbColor: AppTheme.ownerGold,
+                              onChanged: (nextVal) async {
+                                HapticFeedback.selectionClick();
+                                final bloc = context.read<SmartGymBloc>();
+                                final messenger = ScaffoldMessenger.of(context);
+                                final fs = bloc.firestoreService;
+                                if (fs != null && gym.id.isNotEmpty) {
+                                  bloc.add(
+                                    SyncGymTenantEvent(
+                                      gym.copyWith(
+                                        ptSplitExcludesBaseFee: nextVal,
+                                      ),
+                                    ),
+                                  );
+                                  try {
+                                    await fs
+                                        .setPtSplitExcludesBaseFee(
+                                          gymId: gym.id,
+                                          excludesBaseFee: nextVal,
+                                        )
+                                        .timeout(const Duration(seconds: 10));
+                                  } on TimeoutException {
+                                    bloc.add(SyncGymTenantEvent(gym));
+                                    if (!context.mounted) return;
+                                    messenger.showSnackBar(
+                                      const SnackBar(
+                                        backgroundColor: AppTheme.danger,
+                                        content: Text(
+                                          'Could not reach database — turn on internet and try again.',
+                                          style: TextStyle(color: Colors.white),
+                                        ),
+                                      ),
+                                    );
+                                  } catch (e) {
+                                    bloc.add(SyncGymTenantEvent(gym));
+                                    final diag = await fs
+                                        .diagnoseGymWriteAccess(gym.id);
+                                    if (!context.mounted) return;
+                                    messenger.showSnackBar(
+                                      SnackBar(
+                                        backgroundColor: AppTheme.danger,
+                                        duration: const Duration(seconds: 6),
+                                        content: Text(
+                                          'Failed to save PT base-fee setting: $e ($diag)',
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                          ),
+                                        ),
+                                      ),
+                                    );
+                                  }
+                                  return;
+                                }
+                                bloc.add(
+                                  UpdateGymSettingsEvent(
+                                    name: gym.name,
+                                    area: gym.area,
+                                    monthlyFee: gym.monthlyFee,
+                                    ptFee: gym.ptFee,
+                                    ptSplitExcludesBaseFee: nextVal,
+                                    maxCapacity: gym.maxCapacity,
+                                    feePlans: gym.feePlans,
+                                    latitude: gym.latitude,
+                                    longitude: gym.longitude,
+                                    checkInRadiusMeters:
+                                        gym.checkInRadiusMeters,
+                                    requireGpsCheckIn: gym.requireGpsCheckIn,
+                                  ),
+                                );
+                              },
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+              const SizedBox(height: 14),
+            ],
             if (state.trainerRequests.isNotEmpty) ...[
               const Text(
                 'PENDING TRAINER APPROVALS',
@@ -332,16 +542,27 @@ class OwnerOrdersLeadsScreen extends StatelessWidget {
               final TrainerProfile trainer = state.trainers[i];
               final List<GymMember> assignedPtClients = state.members
                   .where(
-                    (m) => m.isPtClient && m.assignedTrainer == trainer.name,
+                    (m) =>
+                        m.isPtClient &&
+                        (m.assignedTrainer ?? '').trim().toLowerCase() ==
+                            trainer.name.trim().toLowerCase(),
                   )
                   .toList();
-              final totalPtCollected = assignedPtClients.fold<int>(
-                0,
-                (sum, m) => sum + m.feePaid,
-              );
-              final trainerShare =
-                  (totalPtCollected * trainer.commissionPercent) ~/ 100;
-              final ownerShare = totalPtCollected - trainerShare;
+              var trainerShare = 0;
+              var ownerShare = 0;
+              var totalBaseKeep = 0;
+              var totalPtPortion = 0;
+              for (final client in assignedPtClients) {
+                final split = PtSplitCalculator.computeMemberSplit(
+                  member: client,
+                  trainers: state.trainers,
+                  gym: state.currentGym,
+                );
+                trainerShare += split.trainerShare;
+                ownerShare += split.ownerShare;
+                totalBaseKeep += split.baseOwnerKeep;
+                totalPtPortion += split.ptPortion;
+              }
 
               return CredStaggeredItem(
                 index: i,
@@ -405,6 +626,7 @@ class OwnerOrdersLeadsScreen extends StatelessWidget {
                                 ),
                               ),
                             PopupMenuButton<String>(
+                              key: ValueKey('trainer_menu_${trainer.id}'),
                               icon: const Icon(
                                 Icons.more_vert_rounded,
                                 color: Colors.white54,
@@ -412,6 +634,10 @@ class OwnerOrdersLeadsScreen extends StatelessWidget {
                               ),
                               color: const Color(0xFF1A1E29),
                               onSelected: (val) async {
+                                if (val == 'edit') {
+                                  _showEditTrainerSheet(context, trainer);
+                                  return;
+                                }
                                 if (val != 'remove') return;
                                 final confirm = await showDialog<bool>(
                                   context: context,
@@ -468,6 +694,30 @@ class OwnerOrdersLeadsScreen extends StatelessWidget {
                               },
                               itemBuilder: (_) => const [
                                 PopupMenuItem<String>(
+                                  value: 'edit',
+                                  child: Row(
+                                    children: [
+                                      Icon(
+                                        Icons.tune_rounded,
+                                        color: AppTheme.trainerCyan,
+                                        size: 18,
+                                      ),
+                                      SizedBox(width: 8),
+                                      Flexible(
+                                        child: Text(
+                                          'Edit Commission & Shift',
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: TextStyle(
+                                            color: AppTheme.trainerCyan,
+                                            fontWeight: FontWeight.w800,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                PopupMenuItem<String>(
                                   value: 'remove',
                                   child: Row(
                                     children: [
@@ -477,11 +727,15 @@ class OwnerOrdersLeadsScreen extends StatelessWidget {
                                         size: 18,
                                       ),
                                       SizedBox(width: 8),
-                                      Text(
-                                        'Remove Trainer',
-                                        style: TextStyle(
-                                          color: AppTheme.danger,
-                                          fontWeight: FontWeight.w700,
+                                      Flexible(
+                                        child: Text(
+                                          'Remove Trainer',
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: TextStyle(
+                                            color: AppTheme.danger,
+                                            fontWeight: FontWeight.w700,
+                                          ),
                                         ),
                                       ),
                                     ],
@@ -499,7 +753,7 @@ class OwnerOrdersLeadsScreen extends StatelessWidget {
                           crossAxisAlignment: WrapCrossAlignment.center,
                           children: [
                             Text(
-                              'Assigned PT Clients (${assignedPtClients.length})',
+                              'Assigned PT (${assignedPtClients.length}) • ${trainer.commissionPercent}% Split',
                               style: const TextStyle(
                                 fontSize: 11.5,
                                 fontWeight: FontWeight.w800,
@@ -516,6 +770,18 @@ class OwnerOrdersLeadsScreen extends StatelessWidget {
                             ),
                           ],
                         ),
+                        if (state.currentGym.ptSplitExcludesBaseFee &&
+                            assignedPtClients.isNotEmpty) ...[
+                          const SizedBox(height: 4),
+                          Text(
+                            'Base ₹$totalBaseKeep kept 100% by Owner • Split on ₹$totalPtPortion PT add-on',
+                            style: const TextStyle(
+                              fontSize: 10.5,
+                              fontWeight: FontWeight.w700,
+                              color: AppTheme.ownerGold,
+                            ),
+                          ),
+                        ],
                         const SizedBox(height: 10),
                         if (assignedPtClients.isEmpty)
                           const Text(
@@ -765,87 +1031,339 @@ class OwnerOrdersLeadsScreen extends StatelessWidget {
                 ),
               );
             }),
-            if (state.removedRecords.isNotEmpty) ...[
-              const SizedBox(height: 16),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _EditTrainerSheet extends StatefulWidget {
+  final TrainerProfile trainer;
+
+  const _EditTrainerSheet({required this.trainer});
+
+  @override
+  State<_EditTrainerSheet> createState() => _EditTrainerSheetState();
+}
+
+class _EditTrainerSheetState extends State<_EditTrainerSheet> {
+  static const _presets = [
+    'Floor & Transformation Coach',
+    'Strength & Hypertrophy',
+    'Fat Loss & Conditioning',
+    'CrossFit & Mobility',
+  ];
+  static const _slots = [
+    'Morning (6–10 AM)',
+    'Afternoon (12–4 PM)',
+    'Evening (5–9:30 PM)',
+    'Full Day',
+  ];
+  static const _commPresets = [30, 40, 50, 60, 100];
+
+  late TextEditingController _specCtrl;
+  late TextEditingController _commCtrl;
+  late String _selectedSlot;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _specCtrl = TextEditingController(text: widget.trainer.specialty);
+    _commCtrl =
+        TextEditingController(text: '${widget.trainer.commissionPercent}');
+    _selectedSlot = _slots.contains(widget.trainer.shiftSlot)
+        ? widget.trainer.shiftSlot
+        : _slots.first;
+  }
+
+  @override
+  void dispose() {
+    _specCtrl.dispose();
+    _commCtrl.dispose();
+    super.dispose();
+  }
+
+  void _save() {
+    final pct = int.tryParse(_commCtrl.text.trim());
+    if (pct == null || pct < 0 || pct > 100) {
+      HapticFeedback.heavyImpact();
+      setState(() => _error = 'Enter a commission between 0% and 100%.');
+      return;
+    }
+    HapticFeedback.mediumImpact();
+    context.read<SmartGymBloc>().add(
+          UpdateTrainerDetailsEvent(
+            trainerId: widget.trainer.id,
+            specialty: _specCtrl.text.trim(),
+            shiftSlot: _selectedSlot,
+            commissionPercent: pct,
+          ),
+        );
+    final messenger = ScaffoldMessenger.of(context);
+    Navigator.pop(context);
+    messenger.showSnackBar(
+      SnackBar(
+        backgroundColor: const Color(0xFF1A1E29),
+        content: Text(
+          '✅ Updated ${widget.trainer.name} ($pct% PT split • $_selectedSlot)',
+          style: const TextStyle(
+            color: AppTheme.trainerCyan,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final pct = (int.tryParse(_commCtrl.text.trim()) ??
+            widget.trainer.commissionPercent)
+        .clamp(0, 100);
+    return SafeArea(
+      top: false,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.86,
+        ),
+        child: Padding(
+          padding: EdgeInsets.fromLTRB(
+            20,
+            14,
+            20,
+            MediaQuery.of(context).viewInsets.bottom + 20,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 14),
+                  decoration: BoxDecoration(
+                    color: Colors.white12,
+                    borderRadius: BorderRadius.circular(99),
+                  ),
+                ),
+              ),
+              Flexible(
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
               Text(
-                'REMOVED STAFF & MEMBERS (${state.removedRecords.length})',
+                'Edit ${widget.trainer.name}',
                 style: const TextStyle(
-                  fontSize: 10.5,
+                  color: Colors.white,
+                  fontSize: 18,
                   fontWeight: FontWeight.w900,
-                  letterSpacing: 1.5,
-                  color: Colors.white38,
+                ),
+              ),
+              const SizedBox(height: 4),
+              const Text(
+                'Configure trainer specialty, duty shift slot & PT split.',
+                style: TextStyle(color: Colors.white54, fontSize: 12),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: _specCtrl,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w700,
+                ),
+                decoration: InputDecoration(
+                  labelText: 'Specialty',
+                  filled: true,
+                  fillColor: const Color(0xFF12151C),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: BorderSide.none,
+                  ),
                 ),
               ),
               const SizedBox(height: 8),
-              ...state.removedRecords.map(
-                (entry) => Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: CredMetalCard(
-                    glowColor: AppTheme.danger,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 14,
-                      vertical: 12,
+              Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children: _presets.map((p) {
+                  return ActionChip(
+                    backgroundColor: const Color(0xFF12151C),
+                    side: BorderSide(
+                      color: AppTheme.trainerCyan.withValues(alpha: 0.35),
                     ),
-                    borderRadius: 14,
-                    child: Row(
-                      children: [
-                        const Icon(
-                          Icons.person_remove_rounded,
-                          color: AppTheme.danger,
-                          size: 18,
+                    label: Text(
+                      p,
+                      style: const TextStyle(
+                        color: Colors.white70,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    onPressed: () {
+                      HapticFeedback.selectionClick();
+                      setState(() => _specCtrl.text = p);
+                    },
+                  );
+                }).toList(),
+              ),
+              const SizedBox(height: 14),
+              const Text(
+                'DUTY SHIFT SLOT',
+                style: TextStyle(
+                  color: Colors.white54,
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 1.3,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: _slots.map((slot) {
+                  final sel = _selectedSlot == slot;
+                  return ChoiceChip(
+                    label: Text(
+                      slot,
+                      style: TextStyle(
+                        color: sel ? Colors.black : Colors.white70,
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    selected: sel,
+                    selectedColor: AppTheme.ownerGold,
+                    backgroundColor: const Color(0xFF12151C),
+                    side: BorderSide(
+                      color: sel ? AppTheme.ownerGold : Colors.white12,
+                    ),
+                    onSelected: (_) => setState(() => _selectedSlot = slot),
+                  );
+                }).toList(),
+              ),
+              const SizedBox(height: 14),
+              const Text(
+                'TRAINER PT COMMISSION (%)',
+                style: TextStyle(
+                  color: Colors.white54,
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 1.3,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  SizedBox(
+                    width: 110,
+                    child: TextField(
+                      key: const ValueKey('edit_trainer_comm_input'),
+                      controller: _commCtrl,
+                      keyboardType: TextInputType.number,
+                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w900,
+                      ),
+                      onChanged: (_) => setState(() => _error = null),
+                      decoration: InputDecoration(
+                        suffixText: '%',
+                        filled: true,
+                        fillColor: const Color(0xFF12151C),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                          borderSide: BorderSide.none,
                         ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                entry.name,
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 13.5,
-                                  fontWeight: FontWeight.w800,
-                                ),
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                '${entry.phone.isNotEmpty ? '${entry.phone} • ' : ''}${entry.details}',
-                                style: const TextStyle(
-                                  color: Colors.white60,
-                                  fontSize: 11.5,
-                                ),
-                              ),
-                            ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
+                      children: _commPresets.map((p) {
+                        final sel = pct == p;
+                        return ChoiceChip(
+                          key: ValueKey('edit_trainer_comm_$p'),
+                          label: Text('$p%'),
+                          selected: sel,
+                          selectedColor: AppTheme.trainerCyan,
+                          labelStyle: TextStyle(
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w800,
+                            color: sel ? Colors.black : Colors.white70,
                           ),
+                          backgroundColor: const Color(0xFF12151C),
+                          onSelected: (_) => setState(() {
+                            _commCtrl.text = '$p';
+                            _error = null;
+                          }),
+                        );
+                      }).toList(),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Text(
+                pct == 100
+                    ? 'PT Split Preview: Coach gets 100% (Freelance PT) • Owner gets 0%'
+                    : 'PT Split Preview: Coach gets $pct% • Owner gets ${100 - pct}%',
+                style: const TextStyle(
+                  color: AppTheme.champagne,
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+                    if (_error != null) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        _error!,
+                        style: const TextStyle(
+                          color: AppTheme.softRed,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
                         ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: AppTheme.danger.withValues(alpha: 0.14),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Text(
-                            entry.type.toUpperCase(),
-                            style: const TextStyle(
-                              color: AppTheme.danger,
-                              fontSize: 9.5,
-                              fontWeight: FontWeight.w900,
-                            ),
-                          ),
-                        ),
-                      ],
+                      ),
+                    ],
+                    const SizedBox(height: 12),
+                  ],
+                ),
+              ),
+              ),
+              SizedBox(
+                height: 50,
+                child: ElevatedButton.icon(
+                  key: const ValueKey('edit_trainer_save_btn'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.trainerCyan,
+                    foregroundColor: Colors.black,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                  onPressed: _save,
+                  icon: const Icon(Icons.check_circle_rounded, size: 19),
+                  label: const Text(
+                    'SAVE TRAINER SETTINGS',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 0.8,
                     ),
                   ),
                 ),
               ),
             ],
-            ],
           ),
-        );
-      },
+        ),
+      ),
     );
   }
 }
