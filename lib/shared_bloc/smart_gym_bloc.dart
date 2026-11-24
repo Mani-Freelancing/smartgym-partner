@@ -678,6 +678,7 @@ class SmartGymBloc extends Bloc<SmartGymEvent, SmartGymState> {
     final newMember = GymMember(
       id: 'mem_${DateTime.now().millisecondsSinceEpoch}',
       name: event.name.trim(),
+      gender: event.gender.trim(),
       phone: event.phone.trim(),
       planTitle: event.planTitle,
       feePaid: event.feePaid,
@@ -869,10 +870,21 @@ class SmartGymBloc extends Bloc<SmartGymEvent, SmartGymState> {
         : state.wheyScoopsLeft;
     final nextCrowd = (state.currentGym.activeCrowd + 1)
         .clamp(0, state.currentGym.maxCapacity);
+    final currentHours = state.currentGym.hourlyCheckIns;
+    final nextHours = List<int>.generate(
+      24,
+      (h) => h < currentHours.length ? currentHours[h] : 0,
+    );
+    final currentHour = DateTime.now().hour.clamp(0, 23);
+    nextHours[currentHour] = nextHours[currentHour] + 1;
+
     final updatedGyms = List<GymTenant>.from(state.gyms);
     if (updatedGyms.isNotEmpty) {
       final idx = state.selectedGymIndex.clamp(0, updatedGyms.length - 1);
-      updatedGyms[idx] = updatedGyms[idx].copyWith(activeCrowd: nextCrowd);
+      updatedGyms[idx] = updatedGyms[idx].copyWith(
+        activeCrowd: nextCrowd,
+        hourlyCheckIns: nextHours,
+      );
     }
     emit(
       state.copyWith(
@@ -884,7 +896,11 @@ class SmartGymBloc extends Bloc<SmartGymEvent, SmartGymState> {
     );
     if (state.currentGym.id.isNotEmpty) {
       _syncAsync(
-        () => firestoreService!.incrementGymCrowd(state.currentGym.id, nextCrowd),
+        () => firestoreService!.incrementGymCrowd(
+          state.currentGym.id,
+          nextCrowd,
+          hourlyCheckIns: nextHours,
+        ),
       );
     }
   }
@@ -930,7 +946,7 @@ class SmartGymBloc extends Bloc<SmartGymEvent, SmartGymState> {
     Emitter<SmartGymState> emit,
   ) {
     final memberName =
-        state.currentMember?.name ?? state.loggedInTrainerName;
+        state.currentMember?.respectfulName ?? state.loggedInTrainerName;
     final phone = state.authenticatedPhone.isNotEmpty
         ? state.authenticatedPhone
         : (firestoreService?.currentUser?.phoneNumber ?? '');

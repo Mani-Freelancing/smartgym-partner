@@ -21,7 +21,7 @@ class TrainerMealQueueScreen extends StatelessWidget {
         backgroundColor: AppTheme.cardSurface,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: Text(
-          '15-Day Body Check • ${member.name}',
+          '15-Day Body Check • ${member.respectfulName}',
           style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
         ),
         content: Column(
@@ -226,7 +226,7 @@ class TrainerMealQueueScreen extends StatelessWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              m.name,
+                              m.respectfulName,
                               style: const TextStyle(
                                 fontWeight: FontWeight.w900,
                                 fontSize: 14.5,

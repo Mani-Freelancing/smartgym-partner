@@ -72,6 +72,7 @@ class LogoutPartnerEvent extends SmartGymEvent {
 
 class AddNewGymMemberEvent extends SmartGymEvent {
   final String name;
+  final String gender;
   final String phone;
   final String planTitle;
   final int feePaid;
@@ -89,6 +90,7 @@ class AddNewGymMemberEvent extends SmartGymEvent {
 
   const AddNewGymMemberEvent({
     required this.name,
+    this.gender = '',
     required this.phone,
     required this.planTitle,
     required this.feePaid,
@@ -108,6 +110,7 @@ class AddNewGymMemberEvent extends SmartGymEvent {
   @override
   List<Object?> get props => [
         name,
+        gender,
         phone,
         planTitle,
         feePaid,

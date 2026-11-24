@@ -1,16 +1,16 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:image_picker/image_picker.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/cred_neopop_widgets.dart';
 import '../../../../data/services/member_whatsapp_service.dart';
+import '../../../../data/services/upi_proof_ocr_service.dart';
 import '../../../../domain/models/gym_fee_plan.dart';
 import '../../../../domain/models/gym_member.dart';
 import '../../../../shared_bloc/smart_gym_bloc.dart';
 import '../../../../shared_bloc/smart_gym_event.dart';
 import '../../../../shared_bloc/smart_gym_state.dart';
+import '../../shared/upi_payment_proof_section.dart';
 
 class TrainerMembersOnboardingScreen extends StatelessWidget {
   const TrainerMembersOnboardingScreen({super.key});
@@ -20,19 +20,23 @@ class TrainerMembersOnboardingScreen extends StatelessWidget {
     final messenger = ScaffoldMessenger.of(context);
     final nameCtrl = TextEditingController();
     final phoneCtrl = TextEditingController();
-    final amountCtrl =
-        TextEditingController(text: state.currentGym.monthlyFee.toString());
+    final defaultPlan = GymFeePlan.resolveDefaultRegularPlan(
+      state.currentGym.effectiveFeePlans,
+    );
+    int months = defaultPlan?.durationMonths ?? 1;
+    GymFeePlan? selectedPlan = defaultPlan;
+    bool isPt = defaultPlan?.includesPt ?? false;
+    final amountCtrl = TextEditingController(
+      text: (defaultPlan?.price ?? state.currentGym.monthlyFee).toString(),
+    );
     final dueCtrl = TextEditingController(text: '0');
     final joinDateCtrl = TextEditingController();
-    final picker = ImagePicker();
 
-    int months = 1;
-    GymFeePlan? selectedPlan;
-    bool isPt = false;
     bool amountEdited = false;
     String paymentMode = 'Cash';
     String proofBase64 = '';
     Uint8List? proofBytes;
+    UpiProofExtraction ocrExtraction = const UpiProofExtraction();
     DateTime joiningDate = DateTime.now();
     String selectedTrainer = state.loggedInTrainerName;
     String? errorText;
@@ -349,53 +353,6 @@ class TrainerMembersOnboardingScreen extends StatelessWidget {
                     }).toList(),
                   ),
                   const SizedBox(height: 10),
-                  Row(
-                    children: [1, 3, 6, 12].map((m) {
-                      final sel = selectedPlan == null && months == m;
-                      return Expanded(
-                        child: Padding(
-                          padding: EdgeInsets.only(right: m == 12 ? 0 : 8),
-                          child: GestureDetector(
-                            onTap: () {
-                              HapticFeedback.selectionClick();
-                              setModalState(() {
-                                selectedPlan = null;
-                                months = m;
-                                recalcFee();
-                              });
-                            },
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(vertical: 10),
-                              decoration: BoxDecoration(
-                                color: sel
-                                    ? AppTheme.trainerCyan
-                                        .withValues(alpha: 0.18)
-                                    : const Color(0xFF12151C),
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(
-                                  color: sel
-                                      ? AppTheme.trainerCyan
-                                      : Colors.white12,
-                                ),
-                              ),
-                              child: Text(
-                                '${m}M',
-                                textAlign: TextAlign.center,
-                                style: TextStyle(
-                                  color: sel
-                                      ? AppTheme.trainerCyan
-                                      : Colors.white70,
-                                  fontWeight: FontWeight.w800,
-                                  fontSize: 12.5,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      );
-                    }).toList(),
-                  ),
-                  const SizedBox(height: 10),
                   Container(
                     padding:
                         const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
@@ -422,8 +379,13 @@ class TrainerMembersOnboardingScreen extends StatelessWidget {
                                   ? () {
                                       HapticFeedback.selectionClick();
                                       setModalState(() {
-                                        selectedPlan = null;
                                         months--;
+                                        selectedPlan =
+                                            GymFeePlan.matchPlanForDuration(
+                                          state.currentGym.effectiveFeePlans,
+                                          months: months,
+                                          isPt: isPt,
+                                        );
                                         recalcFee();
                                       });
                                     }
@@ -450,8 +412,13 @@ class TrainerMembersOnboardingScreen extends StatelessWidget {
                                   ? () {
                                       HapticFeedback.selectionClick();
                                       setModalState(() {
-                                        selectedPlan = null;
                                         months++;
+                                        selectedPlan =
+                                            GymFeePlan.matchPlanForDuration(
+                                          state.currentGym.effectiveFeePlans,
+                                          months: months,
+                                          isPt: isPt,
+                                        );
                                         recalcFee();
                                       });
                                     }
@@ -612,6 +579,11 @@ class TrainerMembersOnboardingScreen extends StatelessWidget {
                             HapticFeedback.selectionClick();
                             setModalState(() {
                               isPt = v;
+                              selectedPlan = GymFeePlan.matchPlanForDuration(
+                                state.currentGym.effectiveFeePlans,
+                                months: months,
+                                isPt: isPt,
+                              );
                               recalcFee();
                             });
                           },
@@ -757,161 +729,22 @@ class TrainerMembersOnboardingScreen extends StatelessWidget {
                   ),
                   if (paymentMode == 'Online') ...[
                     const SizedBox(height: 10),
-                    InkWell(
-                      onTap: () async {
-                        HapticFeedback.selectionClick();
-                        final source = await showModalBottomSheet<ImageSource>(
-                          context: ctx,
-                          backgroundColor: const Color(0xFF1A1E29),
-                          shape: const RoundedRectangleBorder(
-                            borderRadius: BorderRadius.vertical(
-                              top: Radius.circular(22),
-                            ),
-                          ),
-                          builder: (sCtx) => SafeArea(
-                            child: Padding(
-                              padding:
-                                  const EdgeInsets.fromLTRB(20, 16, 20, 16),
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Text(
-                                    'Upload Payment Proof',
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w900,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 10),
-                                  ListTile(
-                                    leading: const Icon(
-                                      Icons.camera_alt_rounded,
-                                      color: AppTheme.ownerGold,
-                                    ),
-                                    title: const Text(
-                                      'Take Photo (Camera)',
-                                      style: TextStyle(
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.w800,
-                                      ),
-                                    ),
-                                    subtitle: const Text(
-                                      'Snap customer\'s payment screen directly',
-                                      style: TextStyle(
-                                        color: Colors.white54,
-                                        fontSize: 12,
-                                      ),
-                                    ),
-                                    onTap: () =>
-                                        Navigator.pop(sCtx, ImageSource.camera),
-                                  ),
-                                  ListTile(
-                                    leading: const Icon(
-                                      Icons.photo_library_rounded,
-                                      color: AppTheme.trainerCyan,
-                                    ),
-                                    title: const Text(
-                                      'Choose from Gallery',
-                                      style: TextStyle(
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.w800,
-                                      ),
-                                    ),
-                                    onTap: () => Navigator.pop(
-                                      sCtx,
-                                      ImageSource.gallery,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        );
-                        if (source == null) return;
-                        final picked = await picker.pickImage(
-                          source: source,
-                          maxWidth: 480,
-                          imageQuality: 50,
-                        );
-                        if (picked == null) return;
-                        final bytes = await picked.readAsBytes();
-                        final encoded = base64Encode(bytes);
-                        if (encoded.length > 140000) {
-                          setModalState(() {
-                            errorText =
-                                'Screenshot too large. Pick a smaller image.';
-                          });
-                          return;
-                        }
+                    UpiPaymentProofSection(
+                      proofBytes: proofBytes,
+                      ocrExtraction: ocrExtraction,
+                      enteredAmount: feePreview,
+                      existingMembers: state.members,
+                      accentColor: AppTheme.ownerGold,
+                      cardBackground: const Color(0xFF12151C),
+                      onProofSelected: (result) {
                         setModalState(() {
-                          proofBytes = bytes;
-                          proofBase64 = encoded;
+                          proofBytes = result.bytes;
+                          proofBase64 = result.base64;
+                          ocrExtraction = result.ocr;
                           errorText = null;
                         });
                       },
-                      borderRadius: BorderRadius.circular(14),
-                      child: Container(
-                        padding: const EdgeInsets.all(14),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF12151C),
-                          borderRadius: BorderRadius.circular(14),
-                          border: Border.all(
-                            color: proofBytes != null
-                                ? AppTheme.accent.withValues(alpha: 0.5)
-                                : AppTheme.ownerGold.withValues(alpha: 0.4),
-                          ),
-                        ),
-                        child: proofBytes != null
-                            ? Row(
-                                children: [
-                                  ClipRRect(
-                                    borderRadius: BorderRadius.circular(8),
-                                    child: Image.memory(
-                                      proofBytes!,
-                                      width: 48,
-                                      height: 48,
-                                      fit: BoxFit.cover,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  const Expanded(
-                                    child: Text(
-                                      'Payment Screenshot Attached',
-                                      style: TextStyle(
-                                        color: AppTheme.accent,
-                                        fontWeight: FontWeight.w800,
-                                        fontSize: 12.5,
-                                      ),
-                                    ),
-                                  ),
-                                  const Icon(
-                                    Icons.check_circle_rounded,
-                                    color: AppTheme.accent,
-                                  ),
-                                ],
-                              )
-                            : const Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(
-                                    Icons.upload_file_rounded,
-                                    color: AppTheme.ownerGold,
-                                    size: 19,
-                                  ),
-                                  SizedBox(width: 8),
-                                  Text(
-                                    'UPLOAD PAYMENT SCREENSHOT',
-                                    style: TextStyle(
-                                      color: AppTheme.ownerGold,
-                                      fontWeight: FontWeight.w900,
-                                      fontSize: 12,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                      ),
+                      onError: (msg) => setModalState(() => errorText = msg),
                     ),
                   ],
                   if (errorText != null) ...[
@@ -958,13 +791,28 @@ class TrainerMembersOnboardingScreen extends StatelessWidget {
                           });
                           return;
                         }
-                        if (paymentMode == 'Online' && proofBase64.isEmpty) {
-                          HapticFeedback.heavyImpact();
-                          setModalState(() {
-                            errorText =
-                                'Please upload payment screenshot for Online payment.';
-                          });
-                          return;
+                        final utr = paymentMode == 'Online'
+                            ? ocrExtraction.utr.trim()
+                            : '';
+                        if (paymentMode == 'Online') {
+                          if (proofBase64.isEmpty) {
+                            HapticFeedback.heavyImpact();
+                            setModalState(() {
+                              errorText =
+                                  'Please upload payment screenshot for Online payment.';
+                            });
+                            return;
+                          }
+                          final audit = UpiProofOcrService.auditProof(
+                            extracted: ocrExtraction,
+                            enteredAmount: fee,
+                            existingMembers: state.members,
+                          );
+                          if (audit.isBlocked) {
+                            HapticFeedback.heavyImpact();
+                            setModalState(() => errorText = null);
+                            return;
+                          }
                         }
                         final planLabel = selectedPlan?.name ??
                             '$months ${months == 1 ? 'Month' : 'Months'} ${isPt ? 'PT VIP' : 'Regular'}';
@@ -982,6 +830,7 @@ class TrainerMembersOnboardingScreen extends StatelessWidget {
                           isPtClient: isPt,
                           addedByTrainer: state.loggedInTrainerName,
                           paymentMode: paymentMode,
+                          paymentReference: utr,
                         );
                         HapticFeedback.mediumImpact();
                         bloc.add(
@@ -998,6 +847,7 @@ class TrainerMembersOnboardingScreen extends StatelessWidget {
                             joinedDate: fmtDate(joiningDate),
                             expiryDate: fmtDate(expiryDate),
                             paymentMode: paymentMode,
+                            paymentReference: utr,
                             paymentProofBase64:
                                 paymentMode == 'Online' ? proofBase64 : '',
                           ),
@@ -1514,7 +1364,7 @@ class TrainerMembersOnboardingScreen extends StatelessWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              m.name,
+                              m.respectfulName,
                               style: const TextStyle(
                                 fontWeight: FontWeight.w900,
                                 fontSize: 14.5,

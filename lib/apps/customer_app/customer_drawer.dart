@@ -556,7 +556,9 @@ class CustomerDrawer extends StatelessWidget {
       builder: (context, state) {
         final gym = state.currentGym;
         final member = state.currentMember;
-        final memberName = member?.name ?? 'Club Member';
+        final memberName = member != null && member.respectfulName.isNotEmpty
+            ? member.respectfulName
+            : 'Club Member';
         final phone = member?.phone ?? state.authenticatedPhone;
         final planTitle = member?.planTitle ?? '1-Month Regular';
         final expiry = member?.expiryDate ?? '30d validity';

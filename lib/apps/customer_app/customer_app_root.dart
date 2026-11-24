@@ -238,7 +238,9 @@ class _CustomerAppRootState extends State<CustomerAppRoot> {
         _launchPowerCinematicOnce(
           context,
           gymName: gym.name,
-          memberName: state.currentMember?.name ?? 'Club Athlete',
+          memberName: state.currentMember?.respectfulName.isNotEmpty == true
+              ? state.currentMember!.respectfulName
+              : 'Club Athlete',
           planTitle: state.currentMember?.planTitle ?? '1-Month Regular',
         );
 

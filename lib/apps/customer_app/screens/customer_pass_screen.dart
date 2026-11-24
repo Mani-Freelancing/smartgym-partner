@@ -11,6 +11,7 @@ import '../../../core/widgets/cred_neopop_widgets.dart';
 import '../../../data/services/attendance_guard_service.dart';
 import '../../../data/services/gym_location_service.dart';
 import '../../../data/services/hero_avatar_service.dart';
+import '../../../domain/services/member_intelligence_service.dart';
 import '../../../shared_bloc/smart_gym_bloc.dart';
 import '../../../shared_bloc/smart_gym_event.dart';
 import '../../../shared_bloc/smart_gym_state.dart';
@@ -595,7 +596,9 @@ class _CustomerPassScreenState extends State<CustomerPassScreen>
         _syncPassiveProximity(context, state);
         final gym = state.currentGym;
         final member = state.currentMember;
-        final memberName = member?.name ?? 'Club Member';
+        final memberName = member != null && member.respectfulName.isNotEmpty
+            ? member.respectfulName
+            : 'Club Member';
         final planTitle = member?.planTitle ?? '1-Month Regular';
         final daysLeft = member?.daysLeft ?? (state.isMembershipExpired ? 0 : 24);
         final expiryDate = member?.expiryDate ?? '30d validity';
@@ -1411,12 +1414,16 @@ class _CustomerPassScreenState extends State<CustomerPassScreen>
                                               ),
                                             ),
                                             const SizedBox(width: 7),
-                                            Text(
-                                              '/ $maxCap active',
-                                              style: const TextStyle(
-                                                color: Colors.white54,
-                                                fontSize: 13.5,
-                                                fontWeight: FontWeight.w700,
+                                            Flexible(
+                                              child: Text(
+                                                '/ $maxCap active',
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                                style: const TextStyle(
+                                                  color: Colors.white54,
+                                                  fontSize: 13.5,
+                                                  fontWeight: FontWeight.w700,
+                                                ),
                                               ),
                                             ),
                                           ],
@@ -1478,6 +1485,53 @@ class _CustomerPassScreenState extends State<CustomerPassScreen>
                                     ),
                                   ),
                                 ],
+                              ),
+                              const SizedBox(height: 14),
+                              Builder(
+                                builder: (_) {
+                                  final rush =
+                                      MemberIntelligenceService.forecastRushHours(
+                                    gym,
+                                  );
+                                  return Container(
+                                    key: const ValueKey('rush_forecast_strip'),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                      vertical: 9,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: Colors.white.withValues(
+                                        alpha: 0.04,
+                                      ),
+                                      borderRadius: BorderRadius.circular(12),
+                                      border: Border.all(color: Colors.white10),
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        Icon(
+                                          Icons.schedule_rounded,
+                                          size: 15,
+                                          color: rush.isCurrentHourBusy
+                                              ? AppTheme.amber
+                                              : AppTheme.trainerCyan,
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Expanded(
+                                          child: Text(
+                                            'Quiet: ${rush.quietestWindowLabel} • Peak: ${rush.peakHoursLabel}',
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: const TextStyle(
+                                              color: Colors.white70,
+                                              fontSize: 11.5,
+                                              fontWeight: FontWeight.w700,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                },
                               ),
                             ],
                           );

@@ -72,7 +72,9 @@ class _CustomerStoreScreenState extends State<CustomerStoreScreen> {
     return BlocBuilder<SmartGymBloc, SmartGymState>(
       builder: (context, state) {
         final gym = state.currentGym;
-        final memberName = state.currentMember?.name ?? 'Club Athlete';
+        final memberName = state.currentMember?.respectfulName.isNotEmpty == true
+            ? state.currentMember!.respectfulName
+            : 'Club Athlete';
         final scoopRatio = (state.wheyScoopsLeft / 30.0).clamp(0.0, 1.0);
         final lowScoops = state.wheyScoopsLeft <= 5;
 

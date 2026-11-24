@@ -110,7 +110,7 @@ class _OwnerAuditLogScreenState extends State<OwnerAuditLogScreen> {
       SnackBar(
         backgroundColor: const Color(0xFF1A1E29),
         content: Text(
-          '✅ Collected ₹$collected balance from ${m.name}',
+          '✅ Collected ₹$collected balance from ${m.respectfulName}',
           style: const TextStyle(
             color: AppTheme.accent,
             fontWeight: FontWeight.w800,
@@ -134,6 +134,8 @@ class _OwnerAuditLogScreenState extends State<OwnerAuditLogScreen> {
       if (_searchQuery.isEmpty) return true;
       final q = _searchQuery.toLowerCase();
       return m.name.toLowerCase().contains(q) ||
+          m.respectfulName.toLowerCase().contains(q) ||
+          m.genderLabel.toLowerCase().contains(q) ||
           m.phone.toLowerCase().contains(q);
     }).toList();
   }
@@ -144,7 +146,7 @@ class _OwnerAuditLogScreenState extends State<OwnerAuditLogScreen> {
       builder: (ctx) => AlertDialog(
         backgroundColor: const Color(0xFF1A1E29),
         title: Text(
-          'Remove ${m.name}?',
+          'Remove ${m.respectfulName}?',
           style: const TextStyle(
             color: Colors.white,
             fontWeight: FontWeight.w800,
@@ -174,7 +176,7 @@ class _OwnerAuditLogScreenState extends State<OwnerAuditLogScreen> {
             RemoveMemberFromGymEvent(
               memberId: m.id,
               phone: m.phone,
-              memberName: m.name,
+              memberName: m.respectfulName,
               details: '${m.planTitle} • ₹${m.feePaid}',
             ),
           );
@@ -182,7 +184,7 @@ class _OwnerAuditLogScreenState extends State<OwnerAuditLogScreen> {
         SnackBar(
           backgroundColor: const Color(0xFF1A1E29),
           content: Text(
-            '${m.name} removed from gym.',
+            '${m.respectfulName} removed from gym.',
             style: const TextStyle(color: Colors.white),
           ),
         ),
@@ -196,7 +198,7 @@ class _OwnerAuditLogScreenState extends State<OwnerAuditLogScreen> {
       builder: (ctx) => AlertDialog(
         backgroundColor: const Color(0xFF1A1E29),
         title: Text(
-          '${m.name} • Payment Proof',
+          '${m.respectfulName} • Payment Proof',
           style: const TextStyle(
             color: Colors.white,
             fontSize: 15,
@@ -406,15 +408,44 @@ class _OwnerAuditLogScreenState extends State<OwnerAuditLogScreen> {
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               Expanded(
-                                child: Text(
-                                  m.name,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.w900,
-                                    fontSize: 15,
-                                    color: Colors.white,
-                                  ),
+                                child: Row(
+                                  children: [
+                                    Flexible(
+                                      child: Text(
+                                        m.respectfulName,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.w900,
+                                          fontSize: 15,
+                                          color: Colors.white,
+                                        ),
+                                      ),
+                                    ),
+                                    if (m.genderLabel.isNotEmpty) ...[
+                                      const SizedBox(width: 6),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 6,
+                                          vertical: 2,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: Colors.white
+                                              .withValues(alpha: 0.08),
+                                          borderRadius:
+                                              BorderRadius.circular(6),
+                                        ),
+                                        child: Text(
+                                          m.genderLabel,
+                                          style: const TextStyle(
+                                            fontSize: 9.5,
+                                            fontWeight: FontWeight.w800,
+                                            color: Colors.white70,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ],
                                 ),
                               ),
                               const SizedBox(width: 8),

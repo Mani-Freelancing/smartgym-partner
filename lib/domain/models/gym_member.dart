@@ -1,8 +1,76 @@
 import 'package:equatable/equatable.dart';
 
+/// Canonical gender categories with respectful labels and salutations.
+enum MemberGender {
+  male(
+    value: 'Male',
+    label: 'Male',
+    honorific: 'Mr.',
+    respectfulAddress: 'Sir',
+  ),
+  female(
+    value: 'Female',
+    label: 'Female',
+    honorific: 'Ms.',
+    respectfulAddress: "Ma'am",
+  ),
+  transgender(
+    value: 'Transgender',
+    label: 'Transgender',
+    honorific: 'Mx.',
+    respectfulAddress: 'Mx.',
+  );
+
+  final String value;
+  final String label;
+  final String honorific;
+  final String respectfulAddress;
+
+  const MemberGender({
+    required this.value,
+    required this.label,
+    required this.honorific,
+    required this.respectfulAddress,
+  });
+
+  /// Normalizes stored or user-entered gender strings into [MemberGender].
+  static MemberGender? fromString(String? raw) {
+    final normalized = raw?.trim().toLowerCase() ?? '';
+    if (normalized.isEmpty) return null;
+    if (normalized == 'male' ||
+        normalized == 'm' ||
+        normalized == 'mr' ||
+        normalized == 'mr.') {
+      return MemberGender.male;
+    }
+    if (normalized == 'female' ||
+        normalized == 'f' ||
+        normalized == 'ms' ||
+        normalized == 'ms.' ||
+        normalized == 'mrs' ||
+        normalized == 'mrs.') {
+      return MemberGender.female;
+    }
+    if (normalized == 'transgender' ||
+        normalized == 'trans' ||
+        normalized == 'tg' ||
+        normalized == 'mx' ||
+        normalized == 'mx.') {
+      return MemberGender.transgender;
+    }
+    return null;
+  }
+}
+
 class GymMember extends Equatable {
+  static final _existingHonorificPattern = RegExp(
+    r'^(mr|mrs|ms|miss|mx|dr)\.?\s+',
+    caseSensitive: false,
+  );
+
   final String id;
   final String name;
+  final String gender;
   final String phone;
   final String planTitle;
   final int feePaid;
@@ -21,6 +89,7 @@ class GymMember extends Equatable {
   const GymMember({
     required this.id,
     required this.name,
+    this.gender = '',
     required this.phone,
     required this.planTitle,
     required this.feePaid,
@@ -41,7 +110,22 @@ class GymMember extends Equatable {
   bool get isExpiringSoon => daysLeft > 0 && daysLeft <= 5;
   bool get hasDue => dueAmount > 0;
 
+  MemberGender? get memberGender => MemberGender.fromString(gender);
+  String get genderLabel => memberGender?.label ?? '';
+  String get honorific => memberGender?.honorific ?? '';
+
+  /// Returns the member's name prefixed with a respectful honorific when known.
+  String get respectfulName {
+    final trimmed = name.trim();
+    if (trimmed.isEmpty) return '';
+    if (honorific.isEmpty || _existingHonorificPattern.hasMatch(trimmed)) {
+      return trimmed;
+    }
+    return '$honorific $trimmed';
+  }
+
   GymMember copyWith({
+    String? gender,
     String? planTitle,
     int? feePaid,
     int? dueAmount,
@@ -54,6 +138,7 @@ class GymMember extends Equatable {
     return GymMember(
       id: id,
       name: name,
+      gender: gender ?? this.gender,
       phone: phone,
       planTitle: planTitle ?? this.planTitle,
       feePaid: feePaid ?? this.feePaid,
@@ -75,6 +160,7 @@ class GymMember extends Equatable {
   List<Object?> get props => [
         id,
         name,
+        gender,
         phone,
         planTitle,
         feePaid,

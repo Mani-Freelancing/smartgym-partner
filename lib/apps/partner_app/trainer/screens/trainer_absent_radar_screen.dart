@@ -3,6 +3,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/cred_neopop_widgets.dart';
+import '../../../../data/services/member_whatsapp_service.dart';
+import '../../../../domain/services/member_intelligence_service.dart';
 import '../../../../shared_bloc/smart_gym_bloc.dart';
 import '../../../../shared_bloc/smart_gym_event.dart';
 import '../../../../shared_bloc/smart_gym_state.dart';
@@ -226,7 +228,131 @@ class TrainerAbsentRadarScreen extends StatelessWidget {
 
             const SizedBox(height: 16),
 
-            // 2. 5-Day Absent Member Radar
+            // 2. Live Churn Risk & 5-Day Absent Member Radar
+            Builder(
+              builder: (context) {
+                final churnRisks = MemberIntelligenceService.evaluateChurnRisks(
+                  members: state.members,
+                  gymName: state.currentGym.name,
+                );
+                if (churnRisks.isEmpty) return const SizedBox.shrink();
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'CHURN SHIELD • LIVE AT-RISK MEMBERS (${churnRisks.length})',
+                      style: const TextStyle(
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 1.5,
+                        color: Colors.white38,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    ...churnRisks.take(5).map((risk) {
+                      final riskColor = switch (risk.level) {
+                        ChurnRiskLevel.critical => AppTheme.danger,
+                        ChurnRiskLevel.high => AppTheme.amber,
+                        ChurnRiskLevel.moderate => AppTheme.champagne,
+                      };
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 10),
+                        child: CredMetalCard(
+                          glowColor: riskColor,
+                          padding: const EdgeInsets.all(16),
+                          borderRadius: 18,
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Flexible(
+                                          child: Text(
+                                            risk.member.respectfulName,
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: const TextStyle(
+                                              fontWeight: FontWeight.w900,
+                                              fontSize: 14.5,
+                                              color: Colors.white,
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 6),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 6,
+                                            vertical: 2,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: riskColor.withValues(
+                                              alpha: 0.16,
+                                            ),
+                                            borderRadius: BorderRadius.circular(
+                                              6,
+                                            ),
+                                          ),
+                                          child: Text(
+                                            'RISK ${risk.score}%',
+                                            style: TextStyle(
+                                              fontSize: 9,
+                                              fontWeight: FontWeight.w900,
+                                              color: riskColor,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 3),
+                                    Text(
+                                      '${risk.member.planTitle} • ${risk.reason}',
+                                      style: const TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.white60,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              FilledButton.tonal(
+                                style: FilledButton.styleFrom(
+                                  backgroundColor: MemberWhatsAppService
+                                      .whatsappGreen
+                                      .withValues(alpha: 0.16),
+                                ),
+                                onPressed: () {
+                                  HapticFeedback.mediumImpact();
+                                  MemberWhatsAppService.launchMessage(
+                                    context: context,
+                                    phone: risk.member.phone,
+                                    message: risk.suggestedWhatsAppMessage,
+                                  );
+                                },
+                                child: const Text(
+                                  'WhatsApp',
+                                  style: TextStyle(
+                                    fontSize: 11.5,
+                                    fontWeight: FontWeight.w900,
+                                    color: MemberWhatsAppService.whatsappGreen,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    }),
+                    const SizedBox(height: 10),
+                  ],
+                );
+              },
+            ),
+
+            // 3. 5-Day Absent Member Radar
             const Text(
               '5-DAY ABSENT MEMBER RADAR',
               style: TextStyle(
@@ -282,6 +408,20 @@ class TrainerAbsentRadarScreen extends StatelessWidget {
                           context
                               .read<SmartGymBloc>()
                               .add(RescueMissingMemberEvent(i));
+                          final matched = state.members.where(
+                            (gm) =>
+                                gm.name.trim().toLowerCase() ==
+                                m.name.trim().toLowerCase(),
+                          );
+                          if (matched.isNotEmpty) {
+                            final gm = matched.first;
+                            MemberWhatsAppService.launchMessage(
+                              context: context,
+                              phone: gm.phone,
+                              message:
+                                  'Hi ${gm.respectfulName}, we missed you at *${state.currentGym.name}* (${m.daysMissing} days since your ${m.lastMuscleTrained} session). Ready for a quick comeback workout today?',
+                            );
+                          }
                         },
                         child: Text(
                           m.contacted ? 'Pinged' : 'WhatsApp',

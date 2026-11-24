@@ -17,6 +17,7 @@ class GymTenant extends Equatable {
   final double? longitude;
   final int checkInRadiusMeters;
   final bool requireGpsCheckIn;
+  final List<int> hourlyCheckIns;
 
   const GymTenant({
     required this.id,
@@ -33,7 +34,18 @@ class GymTenant extends Equatable {
     this.longitude,
     this.checkInRadiusMeters = 100,
     this.requireGpsCheckIn = true,
+    this.hourlyCheckIns = const [],
   });
+
+  static List<int> decodeHourlyCheckIns(dynamic raw) {
+    if (raw is! List) return const [];
+    final list = <int>[];
+    for (int i = 0; i < 24; i++) {
+      final v = i < raw.length ? (raw[i] as num?)?.toInt() ?? 0 : 0;
+      list.add(v < 0 ? 0 : v);
+    }
+    return list;
+  }
 
   bool get hasLocation => latitude != null && longitude != null;
 
@@ -55,6 +67,7 @@ class GymTenant extends Equatable {
     bool clearLocation = false,
     int? checkInRadiusMeters,
     bool? requireGpsCheckIn,
+    List<int>? hourlyCheckIns,
   }) {
     return GymTenant(
       id: id,
@@ -71,6 +84,7 @@ class GymTenant extends Equatable {
       longitude: clearLocation ? null : (longitude ?? this.longitude),
       checkInRadiusMeters: checkInRadiusMeters ?? this.checkInRadiusMeters,
       requireGpsCheckIn: requireGpsCheckIn ?? this.requireGpsCheckIn,
+      hourlyCheckIns: hourlyCheckIns ?? this.hourlyCheckIns,
     );
   }
 
@@ -90,5 +104,6 @@ class GymTenant extends Equatable {
         longitude,
         checkInRadiusMeters,
         requireGpsCheckIn,
+        hourlyCheckIns,
       ];
 }

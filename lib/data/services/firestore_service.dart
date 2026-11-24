@@ -450,6 +450,7 @@ class FirestoreService {
         checkInRadiusMeters:
             (d['checkInRadiusMeters'] as num?)?.toInt() ?? 100,
         requireGpsCheckIn: (d['requireGpsCheckIn'] as bool?) ?? true,
+        hourlyCheckIns: GymTenant.decodeHourlyCheckIns(d['hourlyCheckIns']),
       );
     });
   }
@@ -469,6 +470,7 @@ class FirestoreService {
       return GymMember(
         id: doc.id,
         name: (d['name'] ?? '') as String,
+        gender: (d['gender'] ?? '') as String,
         phone: (d['phone'] ?? '') as String,
         planTitle: (d['planTitle'] ?? '') as String,
         feePaid: (d['feePaid'] as num?)?.toInt() ?? 0,
@@ -510,9 +512,15 @@ class FirestoreService {
     });
   }
 
-  Future<void> incrementGymCrowd(String gymId, int nextCrowd) async {
+  Future<void> incrementGymCrowd(
+    String gymId,
+    int nextCrowd, {
+    List<int>? hourlyCheckIns,
+  }) async {
     await _db.collection('gyms').doc(gymId).update({
       'activeCrowd': nextCrowd,
+      if (hourlyCheckIns != null && hourlyCheckIns.length == 24)
+        'hourlyCheckIns': hourlyCheckIns,
     });
   }
 
@@ -528,6 +536,7 @@ class FirestoreService {
             return GymMember(
               id: doc.id,
               name: (d['name'] ?? '') as String,
+              gender: (d['gender'] ?? '') as String,
               phone: (d['phone'] ?? '') as String,
               planTitle: (d['planTitle'] ?? '') as String,
               feePaid: (d['feePaid'] as num?)?.toInt() ?? 0,
@@ -712,6 +721,7 @@ class FirestoreService {
       batch.set(gymRef.collection('members').doc(m.id), {
         'id': m.id,
         'name': m.name,
+        'gender': m.gender,
         'phone': m.phone,
         'planTitle': m.planTitle,
         'feePaid': m.feePaid,
@@ -864,6 +874,7 @@ class FirestoreService {
         .set({
       'id': member.id,
       'name': member.name,
+      'gender': member.gender,
       'phone': member.phone,
       'planTitle': member.planTitle,
       'feePaid': member.feePaid,

@@ -1,16 +1,16 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:image_picker/image_picker.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/cred_neopop_widgets.dart';
 import '../../../data/services/member_whatsapp_service.dart';
+import '../../../data/services/upi_proof_ocr_service.dart';
 import '../../../domain/models/gym_fee_plan.dart';
 import '../../../domain/models/gym_member.dart';
 import '../../../shared_bloc/smart_gym_bloc.dart';
 import '../../../shared_bloc/smart_gym_event.dart';
 import '../../../shared_bloc/smart_gym_state.dart';
+import '../shared/upi_payment_proof_section.dart';
 
 class OwnerAddMemberScreen extends StatefulWidget {
   const OwnerAddMemberScreen({super.key});
@@ -26,14 +26,15 @@ class _OwnerAddMemberScreenState extends State<OwnerAddMemberScreen> {
   final _dueCtrl = TextEditingController(text: '0');
   final _weightCtrl = TextEditingController(text: '70.0');
   final _joinDateCtrl = TextEditingController();
-  final ImagePicker _picker = ImagePicker();
 
   int _months = 1;
   GymFeePlan? _selectedPlan;
+  MemberGender? _selectedGender;
   bool _isPt = false;
   String _paymentMode = 'Cash'; // 'Cash' | 'Online'
   String _paymentProofBase64 = '';
   Uint8List? _paymentProofBytes;
+  UpiProofExtraction _ocrExtraction = const UpiProofExtraction();
   DateTime _joiningDate = DateTime.now();
   String? _selectedTrainer;
   String? _errorText;
@@ -58,7 +59,12 @@ class _OwnerAddMemberScreenState extends State<OwnerAddMemberScreen> {
   void initState() {
     super.initState();
     final gym = context.read<SmartGymBloc>().state.currentGym;
-    _amountCtrl.text = gym.monthlyFee.toString();
+    final defaultPlan =
+        GymFeePlan.resolveDefaultRegularPlan(gym.effectiveFeePlans);
+    _selectedPlan = defaultPlan;
+    _months = defaultPlan?.durationMonths ?? 1;
+    _isPt = defaultPlan?.includesPt ?? false;
+    _amountCtrl.text = (defaultPlan?.price ?? gym.monthlyFee).toString();
     _joinDateCtrl.text = _toInputDate(_joiningDate);
   }
 
@@ -71,91 +77,6 @@ class _OwnerAddMemberScreenState extends State<OwnerAddMemberScreen> {
     _weightCtrl.dispose();
     _joinDateCtrl.dispose();
     super.dispose();
-  }
-
-  Future<void> _pickPaymentScreenshot() async {
-    HapticFeedback.selectionClick();
-    final source = await showModalBottomSheet<ImageSource>(
-      context: context,
-      backgroundColor: const Color(0xFF1A1E29),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
-      ),
-      builder: (ctx) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Upload Payment Proof',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-              const SizedBox(height: 10),
-              ListTile(
-                leading: const Icon(
-                  Icons.camera_alt_rounded,
-                  color: AppTheme.ownerGold,
-                ),
-                title: const Text(
-                  'Take Photo (Camera)',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                subtitle: const Text(
-                  'Snap customer\'s payment screen directly',
-                  style: TextStyle(color: Colors.white54, fontSize: 12),
-                ),
-                onTap: () => Navigator.pop(ctx, ImageSource.camera),
-              ),
-              ListTile(
-                leading: const Icon(
-                  Icons.photo_library_rounded,
-                  color: AppTheme.trainerCyan,
-                ),
-                title: const Text(
-                  'Choose from Gallery',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                onTap: () => Navigator.pop(ctx, ImageSource.gallery),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-    if (source == null || !mounted) return;
-    final picked = await _picker.pickImage(
-      source: source,
-      maxWidth: 480,
-      imageQuality: 50,
-    );
-    if (picked == null || !mounted) return;
-    final bytes = await picked.readAsBytes();
-    final encoded = base64Encode(bytes);
-    if (encoded.length > 140000) {
-      if (!mounted) return;
-      setState(() {
-        _errorText = 'Screenshot too large. Please pick a smaller image.';
-      });
-      return;
-    }
-    if (!mounted) return;
-    setState(() {
-      _paymentProofBytes = bytes;
-      _paymentProofBase64 = encoded;
-      _errorText = null;
-    });
   }
 
   String _toInputDate(DateTime dt) =>
@@ -236,6 +157,11 @@ class _OwnerAddMemberScreenState extends State<OwnerAddMemberScreen> {
       setState(() => _errorText = 'Enter member full name.');
       return;
     }
+    if (_selectedGender == null) {
+      HapticFeedback.heavyImpact();
+      setState(() => _errorText = 'Please select member gender.');
+      return;
+    }
     if (digits.length != 10) {
       HapticFeedback.heavyImpact();
       setState(() => _errorText = 'Enter a valid 10-digit mobile number.');
@@ -246,12 +172,25 @@ class _OwnerAddMemberScreenState extends State<OwnerAddMemberScreen> {
       setState(() => _errorText = 'Enter valid fee and due amounts.');
       return;
     }
-    if (_paymentMode == 'Online' && _paymentProofBase64.isEmpty) {
-      HapticFeedback.heavyImpact();
-      setState(() {
-        _errorText = 'Please upload payment screenshot for Online payment.';
-      });
-      return;
+    final utr = _paymentMode == 'Online' ? _ocrExtraction.utr.trim() : '';
+    if (_paymentMode == 'Online') {
+      if (_paymentProofBase64.isEmpty) {
+        HapticFeedback.heavyImpact();
+        setState(() {
+          _errorText = 'Please upload payment screenshot for Online payment.';
+        });
+        return;
+      }
+      final audit = UpiProofOcrService.auditProof(
+        extracted: _ocrExtraction,
+        enteredAmount: fee,
+        existingMembers: state.members,
+      );
+      if (audit.isBlocked) {
+        HapticFeedback.heavyImpact();
+        setState(() => _errorText = null);
+        return;
+      }
     }
 
     final now = DateTime.now();
@@ -270,6 +209,7 @@ class _OwnerAddMemberScreenState extends State<OwnerAddMemberScreen> {
     final enrolledMember = GymMember(
       id: 'tmp',
       name: name,
+      gender: _selectedGender!.value,
       phone: '+91$digits',
       planTitle: planLabel,
       feePaid: fee,
@@ -282,12 +222,14 @@ class _OwnerAddMemberScreenState extends State<OwnerAddMemberScreen> {
       addedByTrainer: 'Owner (${state.currentGym.headTrainer})',
       currentWeightKg: weight.clamp(20.0, 300.0),
       paymentMode: _paymentMode,
+      paymentReference: utr,
     );
 
     HapticFeedback.mediumImpact();
     context.read<SmartGymBloc>().add(
           AddNewGymMemberEvent(
             name: name,
+            gender: _selectedGender!.value,
             phone: '+91$digits',
             planTitle: planLabel,
             feePaid: fee,
@@ -300,6 +242,7 @@ class _OwnerAddMemberScreenState extends State<OwnerAddMemberScreen> {
             expiryDate: expiryStr,
             currentWeightKg: weight.clamp(20.0, 300.0),
             paymentMode: _paymentMode,
+            paymentReference: utr,
             paymentProofBase64:
                 _paymentMode == 'Online' ? _paymentProofBase64 : '',
           ),
@@ -421,6 +364,62 @@ class _OwnerAddMemberScreenState extends State<OwnerAddMemberScreen> {
                           fontWeight: FontWeight.w600,
                         ),
                       ),
+                      if (_nameCtrl.text.trim().isNotEmpty ||
+                          _selectedGender != null) ...[
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            if (_selectedGender != null)
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 3,
+                                ),
+                                margin: const EdgeInsets.only(right: 8),
+                                decoration: BoxDecoration(
+                                  color:
+                                      AppTheme.ownerGold.withValues(alpha: 0.16),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Text(
+                                  _selectedGender!.label.toUpperCase(),
+                                  style: const TextStyle(
+                                    color: AppTheme.ownerGold,
+                                    fontSize: 9.5,
+                                    fontWeight: FontWeight.w900,
+                                    letterSpacing: 0.8,
+                                  ),
+                                ),
+                              ),
+                            Expanded(
+                              child: Text(
+                                GymMember(
+                                  id: 'preview',
+                                  name: _nameCtrl.text.trim().isEmpty
+                                      ? 'New Member'
+                                      : _nameCtrl.text.trim(),
+                                  gender: _selectedGender?.value ?? '',
+                                  phone: '',
+                                  planTitle: '',
+                                  feePaid: 0,
+                                  joinedDate: '',
+                                  expiryDate: '',
+                                  daysLeft: 0,
+                                  isPtClient: false,
+                                  addedByTrainer: '',
+                                ).respectfulName,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 12.5,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
                     ],
                   ),
                 ),
@@ -430,10 +429,12 @@ class _OwnerAddMemberScreenState extends State<OwnerAddMemberScreen> {
                 const _SectionLabel('MEMBER DETAILS'),
                 const SizedBox(height: 10),
                 _PremiumField(
+                  fieldKey: const ValueKey('enroll_name_input'),
                   controller: _nameCtrl,
                   label: 'Full Name',
                   hint: 'e.g. Rahul Sharma',
                   icon: Icons.person_outline_rounded,
+                  onChanged: (_) => setState(() {}),
                 ),
                 const SizedBox(height: 12),
                 Row(
@@ -441,6 +442,7 @@ class _OwnerAddMemberScreenState extends State<OwnerAddMemberScreen> {
                     Expanded(
                       flex: 3,
                       child: _PremiumField(
+                        fieldKey: const ValueKey('enroll_phone_input'),
                         controller: _phoneCtrl,
                         label: 'Mobile Number',
                         hint: '98490 00000',
@@ -466,6 +468,42 @@ class _OwnerAddMemberScreenState extends State<OwnerAddMemberScreen> {
                     ),
                   ],
                 ),
+                const SizedBox(height: 14),
+                const Text(
+                  'Gender',
+                  style: TextStyle(
+                    color: Colors.white70,
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                const Text(
+                  'Respectful salutation (Mr. / Ms. / Mx.)',
+                  style: TextStyle(
+                    color: Colors.white38,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: MemberGender.values.map((g) {
+                    return _GenderChip(
+                      key: ValueKey('gender_chip_${g.name}'),
+                      gender: g,
+                      selected: _selectedGender == g,
+                      onTap: () => setState(() {
+                        _selectedGender = g;
+                        if (_errorText == 'Please select member gender.') {
+                          _errorText = null;
+                        }
+                      }),
+                    );
+                  }).toList(),
+                ),
                 const SizedBox(height: 22),
 
                 // 3. Gym Packages + Plan Duration
@@ -477,6 +515,7 @@ class _OwnerAddMemberScreenState extends State<OwnerAddMemberScreen> {
                   children: gym.effectiveFeePlans.map((plan) {
                     final selected = _selectedPlan?.id == plan.id;
                     return GestureDetector(
+                      key: ValueKey('fee_plan_chip_${plan.id}'),
                       onTap: () {
                         HapticFeedback.selectionClick();
                         setState(() {
@@ -517,49 +556,6 @@ class _OwnerAddMemberScreenState extends State<OwnerAddMemberScreen> {
                     );
                   }).toList(),
                 ),
-                const SizedBox(height: 10),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [1, 3, 6, 12].map((m) {
-                    final selected = _selectedPlan == null && _months == m;
-                    return GestureDetector(
-                      onTap: () {
-                        HapticFeedback.selectionClick();
-                        setState(() {
-                          _selectedPlan = null;
-                          _months = m;
-                          _recalculateSuggestedAmount(state);
-                        });
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 14,
-                          vertical: 9,
-                        ),
-                        decoration: BoxDecoration(
-                          color: selected
-                              ? AppTheme.ownerGold.withValues(alpha: 0.18)
-                              : const Color(0xFF1A1E29),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color:
-                                selected ? AppTheme.ownerGold : Colors.white12,
-                          ),
-                        ),
-                        child: Text(
-                          '$m ${m == 1 ? 'Mo' : 'Mos'}',
-                          style: TextStyle(
-                            color:
-                                selected ? AppTheme.ownerGold : Colors.white70,
-                            fontWeight: FontWeight.w800,
-                            fontSize: 12.5,
-                          ),
-                        ),
-                      ),
-                    );
-                  }).toList(),
-                ),
                 const SizedBox(height: 12),
                 Container(
                   padding:
@@ -572,12 +568,16 @@ class _OwnerAddMemberScreenState extends State<OwnerAddMemberScreen> {
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text(
-                        'Custom Months',
-                        style: TextStyle(
-                          color: Colors.white70,
-                          fontSize: 13.5,
-                          fontWeight: FontWeight.w700,
+                      const Expanded(
+                        child: Text(
+                          'Custom Months',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: Colors.white70,
+                            fontSize: 13.5,
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
                       ),
                       Row(
@@ -587,8 +587,13 @@ class _OwnerAddMemberScreenState extends State<OwnerAddMemberScreen> {
                                 ? () {
                                     HapticFeedback.selectionClick();
                                     setState(() {
-                                      _selectedPlan = null;
                                       _months--;
+                                      _selectedPlan =
+                                          GymFeePlan.matchPlanForDuration(
+                                        gym.effectiveFeePlans,
+                                        months: _months,
+                                        isPt: _isPt,
+                                      );
                                       _recalculateSuggestedAmount(state);
                                     });
                                   }
@@ -615,8 +620,13 @@ class _OwnerAddMemberScreenState extends State<OwnerAddMemberScreen> {
                                 ? () {
                                     HapticFeedback.selectionClick();
                                     setState(() {
-                                      _selectedPlan = null;
                                       _months++;
+                                      _selectedPlan =
+                                          GymFeePlan.matchPlanForDuration(
+                                        gym.effectiveFeePlans,
+                                        months: _months,
+                                        isPt: _isPt,
+                                      );
                                       _recalculateSuggestedAmount(state);
                                     });
                                   }
@@ -748,6 +758,11 @@ class _OwnerAddMemberScreenState extends State<OwnerAddMemberScreen> {
                           HapticFeedback.selectionClick();
                           setState(() {
                             _isPt = v;
+                            _selectedPlan = GymFeePlan.matchPlanForDuration(
+                              gym.effectiveFeePlans,
+                              months: _months,
+                              isPt: _isPt,
+                            );
                             _recalculateSuggestedAmount(state);
                           });
                         },
@@ -817,84 +832,21 @@ class _OwnerAddMemberScreenState extends State<OwnerAddMemberScreen> {
                 ),
                 if (_paymentMode == 'Online') ...[
                   const SizedBox(height: 12),
-                  InkWell(
-                    onTap: _pickPaymentScreenshot,
-                    borderRadius: BorderRadius.circular(14),
-                    child: Container(
-                      padding: const EdgeInsets.all(14),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF1A1E29),
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(
-                          color: _paymentProofBytes != null
-                              ? AppTheme.accent.withValues(alpha: 0.5)
-                              : AppTheme.ownerGold.withValues(alpha: 0.35),
-                        ),
-                      ),
-                      child: _paymentProofBytes != null
-                          ? Row(
-                              children: [
-                                ClipRRect(
-                                  borderRadius: BorderRadius.circular(10),
-                                  child: Image.memory(
-                                    _paymentProofBytes!,
-                                    width: 56,
-                                    height: 56,
-                                    fit: BoxFit.cover,
-                                  ),
-                                ),
-                                const SizedBox(width: 12),
-                                const Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        'Payment Screenshot Attached',
-                                        style: TextStyle(
-                                          color: AppTheme.accent,
-                                          fontSize: 13,
-                                          fontWeight: FontWeight.w800,
-                                        ),
-                                      ),
-                                      SizedBox(height: 2),
-                                      Text(
-                                        'Tap to change screenshot',
-                                        style: TextStyle(
-                                          color: Colors.white54,
-                                          fontSize: 11.5,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                const Icon(
-                                  Icons.check_circle_rounded,
-                                  color: AppTheme.accent,
-                                ),
-                              ],
-                            )
-                          : const Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(
-                                  Icons.upload_file_rounded,
-                                  color: AppTheme.ownerGold,
-                                  size: 20,
-                                ),
-                                SizedBox(width: 8),
-                                Text(
-                                  'UPLOAD PAYMENT SCREENSHOT',
-                                  style: TextStyle(
-                                    color: AppTheme.ownerGold,
-                                    fontSize: 12.5,
-                                    fontWeight: FontWeight.w900,
-                                    letterSpacing: 0.6,
-                                  ),
-                                ),
-                              ],
-                            ),
-                    ),
+                  UpiPaymentProofSection(
+                    proofBytes: _paymentProofBytes,
+                    ocrExtraction: _ocrExtraction,
+                    enteredAmount: feePreview,
+                    existingMembers: state.members,
+                    accentColor: AppTheme.ownerGold,
+                    onProofSelected: (result) {
+                      setState(() {
+                        _paymentProofBytes = result.bytes;
+                        _paymentProofBase64 = result.base64;
+                        _ocrExtraction = result.ocr;
+                        _errorText = null;
+                      });
+                    },
+                    onError: (msg) => setState(() => _errorText = msg),
                   ),
                 ],
 
@@ -914,6 +866,7 @@ class _OwnerAddMemberScreenState extends State<OwnerAddMemberScreen> {
                 SizedBox(
                   height: 52,
                   child: ElevatedButton.icon(
+                    key: const ValueKey('enroll_submit_btn'),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppTheme.ownerGold,
                       foregroundColor: Colors.black,
@@ -960,6 +913,7 @@ class _SectionLabel extends StatelessWidget {
 }
 
 class _PremiumField extends StatelessWidget {
+  final Key? fieldKey;
   final TextEditingController controller;
   final String label;
   final String hint;
@@ -971,6 +925,7 @@ class _PremiumField extends StatelessWidget {
   final ValueChanged<String>? onChanged;
 
   const _PremiumField({
+    this.fieldKey,
     required this.controller,
     required this.label,
     required this.hint,
@@ -985,6 +940,7 @@ class _PremiumField extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return TextField(
+      key: fieldKey,
       controller: controller,
       keyboardType: keyboardType,
       maxLength: maxLength,
@@ -1049,7 +1005,7 @@ class _ModeChip extends StatelessWidget {
         onTap();
       },
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
         decoration: BoxDecoration(
           color: selected
               ? accent.withValues(alpha: 0.16)
@@ -1065,11 +1021,77 @@ class _ModeChip extends StatelessWidget {
           children: [
             Icon(icon, size: 17, color: selected ? accent : Colors.white54),
             const SizedBox(width: 7),
+            Flexible(
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: selected ? accent : Colors.white70,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _GenderChip extends StatelessWidget {
+  static const Map<MemberGender, IconData> _icons = {
+    MemberGender.male: Icons.male_rounded,
+    MemberGender.female: Icons.female_rounded,
+    MemberGender.transgender: Icons.transgender_rounded,
+  };
+
+  final MemberGender gender;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _GenderChip({
+    super.key,
+    required this.gender,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final accent = AppTheme.ownerGold;
+    return GestureDetector(
+      onTap: () {
+        HapticFeedback.selectionClick();
+        onTap();
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 10),
+        decoration: BoxDecoration(
+          color: selected
+              ? accent.withValues(alpha: 0.18)
+              : const Color(0xFF1A1E29),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: selected ? accent : Colors.white12,
+            width: selected ? 1.4 : 1,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              _icons[gender] ?? Icons.person_outline_rounded,
+              size: 17,
+              color: selected ? accent : Colors.white54,
+            ),
+            const SizedBox(width: 6),
             Text(
-              label,
+              '${gender.label} (${gender.honorific})',
               style: TextStyle(
                 color: selected ? accent : Colors.white70,
-                fontSize: 13,
+                fontSize: 12.5,
                 fontWeight: FontWeight.w800,
               ),
             ),

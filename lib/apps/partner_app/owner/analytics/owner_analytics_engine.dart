@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../../domain/models/gym_member.dart';
+import '../../../../domain/services/member_intelligence_service.dart';
 import '../../../../shared_bloc/smart_gym_state.dart';
 
 enum AnalyticsRange { week1, month1, months2, custom }
@@ -478,16 +479,26 @@ class OwnerAnalyticsEngine {
       );
     }
 
-    if (expiringCount > 0) {
+    final churnRisks = MemberIntelligenceService.evaluateChurnRisks(
+      members: state.members,
+      gymName: state.currentGym.name,
+    );
+    if (expiringCount > 0 || churnRisks.isNotEmpty) {
+      final highRiskCount = churnRisks
+          .where((r) => r.level != ChurnRiskLevel.moderate)
+          .length;
       insights.add(
         AiInsight(
           id: 'renewal_risk',
-          tag: 'RENEWAL SHIELD',
-          title: '₹$atRiskRevenue Revenue Expiring ($expiringCount)',
-          detail:
-              'Renewals within 5 days or overdue need early outreach before members drop off.',
+          tag: 'CHURN SHIELD AI',
+          title: expiringCount > 0
+              ? '₹$atRiskRevenue Revenue Expiring ($expiringCount)'
+              : '${churnRisks.length} Member(s) at Drop-Off Risk',
+          detail: highRiskCount > 0
+              ? '$highRiskCount high-risk member(s) flagged. Use 1-tap WhatsApp reminders to rescue renewals before drop-off.'
+              : 'Renewals within 5 days or overdue need early outreach before members drop off.',
           tone: AiInsightTone.warning,
-          actionLabel: 'Review Expiring',
+          actionLabel: 'Review At-Risk',
           auditFilter: 'Expiring',
         ),
       );
@@ -526,6 +537,7 @@ class OwnerAnalyticsEngine {
       );
     }
 
+    final rush = MemberIntelligenceService.forecastRushHours(state.currentGym);
     final occRatio = state.currentGym.maxCapacity > 0
         ? state.liveCrowd / state.currentGym.maxCapacity
         : 0.0;
@@ -534,10 +546,19 @@ class OwnerAnalyticsEngine {
       insights.add(
         AiInsight(
           id: 'crowd_peak',
-          tag: 'FLOOR LOAD',
+          tag: 'RUSH & FLOOR AI',
           title: 'Floor Running at $occPct% Capacity',
-          detail:
-              'Promote afternoon off-peak passes to avoid evening bottlenecks while keeping daily footfall growing.',
+          detail: rush.ownerRecommendation,
+          tone: AiInsightTone.info,
+        ),
+      );
+    } else if (state.members.isNotEmpty) {
+      insights.add(
+        AiInsight(
+          id: 'rush_forecast',
+          tag: rush.isUsingLiveHistory ? 'LIVE RUSH AI' : 'RUSH FORECAST AI',
+          title: 'Quiet Window: ${rush.quietestWindowLabel}',
+          detail: rush.ownerRecommendation,
           tone: AiInsightTone.info,
         ),
       );

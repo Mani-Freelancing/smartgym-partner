@@ -53,7 +53,7 @@ class MemberWhatsAppService {
         ? '\nCoach Assigned: ${member.assignedTrainer}'
         : '';
     final message =
-        'Welcome to *$gymName*, ${member.name}! 💪\n\n'
+        'Welcome to *$gymName*, ${member.respectfulName}! 💪\n\n'
         'Your Digital Club Pass is now active:\n'
         '• Plan: ${member.planTitle}\n'
         '• Valid Till: ${member.expiryDate}\n'
@@ -75,7 +75,7 @@ class MemberWhatsAppService {
     required GymMember member,
   }) {
     final message =
-        'Hi ${member.name}, gentle reminder from *$gymName* regarding your pending fee balance of *₹${member.dueAmount}* '
+        'Hi ${member.respectfulName}, gentle reminder from *$gymName* regarding your pending fee balance of *₹${member.dueAmount}* '
         '(₹${member.feePaid} paid for ${member.planTitle}). '
         'You can pay via UPI or at the front desk during your next workout. See you on the floor!';
     return launchMessage(
@@ -91,8 +91,8 @@ class MemberWhatsAppService {
     required GymMember member,
   }) {
     final message = member.isExpired
-        ? 'Hi ${member.name}, your ${member.planTitle} membership at $gymName has expired. Reply here or visit the front desk to renew and keep your Digital Club Pass active!'
-        : 'Hi ${member.name}, your ${member.planTitle} membership at $gymName expires in ${member.daysLeft} day(s) (${member.expiryDate}). Renew early at the front desk or via UPI!';
+        ? 'Hi ${member.respectfulName}, your ${member.planTitle} membership at $gymName has expired. Reply here or visit the front desk to renew and keep your Digital Club Pass active!'
+        : 'Hi ${member.respectfulName}, your ${member.planTitle} membership at $gymName expires in ${member.daysLeft} day(s) (${member.expiryDate}). Renew early at the front desk or via UPI!';
     return launchMessage(
       context: context,
       phone: member.phone,
@@ -148,13 +148,24 @@ class MemberWhatsAppService {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              '${member.name} • ${member.planTitle}',
+              '${member.respectfulName} • ${member.planTitle}',
               style: const TextStyle(
                 color: Colors.white,
                 fontWeight: FontWeight.w800,
                 fontSize: 14,
               ),
             ),
+            if (member.genderLabel.isNotEmpty) ...[
+              const SizedBox(height: 4),
+              Text(
+                'Gender: ${member.genderLabel}',
+                style: const TextStyle(
+                  color: Colors.white60,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 12,
+                ),
+              ),
+            ],
             const SizedBox(height: 6),
             Text(
               'Paid ₹${member.feePaid} (${member.paymentMode})'

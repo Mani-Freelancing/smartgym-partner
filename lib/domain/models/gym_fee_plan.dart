@@ -164,17 +164,39 @@ class GymFeePlan extends Equatable {
     return pt.first.price;
   }
 
-  static int? matchPriceForDuration(
+  static GymFeePlan? matchPlanForDuration(
     List<GymFeePlan> plans, {
     required int months,
     required bool isPt,
   }) {
     for (final p in plans) {
       if (p.includesPt == isPt && p.durationMonths == months && p.price > 0) {
-        return p.price;
+        return p;
       }
     }
     return null;
+  }
+
+  /// Returns the default 1-month regular plan (or first non-PT/available plan).
+  static GymFeePlan? resolveDefaultRegularPlan(List<GymFeePlan> plans) {
+    final oneMonthRegular = matchPlanForDuration(
+      plans,
+      months: 1,
+      isPt: false,
+    );
+    if (oneMonthRegular != null) return oneMonthRegular;
+    for (final p in plans) {
+      if (!p.includesPt && p.price > 0) return p;
+    }
+    return plans.isNotEmpty ? plans.first : null;
+  }
+
+  static int? matchPriceForDuration(
+    List<GymFeePlan> plans, {
+    required int months,
+    required bool isPt,
+  }) {
+    return matchPlanForDuration(plans, months: months, isPt: isPt)?.price;
   }
 
   @override
