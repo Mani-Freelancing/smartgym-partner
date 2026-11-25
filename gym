@@ -1,0 +1,124 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/scripts/_common.sh"
+
+show_help() {
+  cat <<'EOF'
+SmartGym Shortcut CLI (./gym)
+
+RUN APPS:
+  ./gym run --staging                  Run Staging Partner/Owner app (Android)
+  ./gym run --staging --customer       Run Staging Customer app (Android)
+  ./gym run --staging --ios            Run Staging Partner/Owner app (iPhone/iOS)
+  ./gym run --staging --customer --ios Run Staging Customer app (iPhone/iOS)
+  ./gym run --prod                     Run LIVE Prod Partner/Owner app (Android)
+  ./gym run --prod --customer --ios    Run LIVE Prod Customer app (iPhone/iOS)
+
+CREATE BUILDS TO TEST / RELEASE:
+  ./gym build apk --staging            Build Staging Partner test APK
+  ./gym build apk --staging --customer Build Staging Customer test APK
+  ./gym build apk --prod               Build Live Prod Partner APK (runs tests first)
+  ./gym build aab --prod               Build Live Prod Partner Play Store .aab
+  ./gym build ios --staging            Build Staging Partner iOS app
+  ./gym build ipa --prod               Build Live Prod Partner iOS archive
+
+FIREBASE RULES & GIT WORKFLOW:
+  ./gym rules --staging                Deploy firestore.rules to Staging DB
+  ./gym rules --prod                   Deploy firestore.rules to Live Prod DB
+  ./gym push [-m "message"]            Commit & push current branch (e.g. staging)
+  ./gym ship [apk|aab] [--customer]    Promote staging -> main, deploy Prod rules & build
+EOF
+}
+
+if [[ $# -eq 0 ]]; then
+  show_help
+  exit 0
+fi
+
+CMD="$1"
+shift
+
+ENV_NAME="staging"
+APP="partner"
+PLATFORM="auto"
+FORMAT="apk"
+COMMIT_MSG=""
+EXTRA_ARGS=()
+
+parse_flags() {
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --staging|staging)
+        ENV_NAME="staging"
+        ;;
+      --prod|prod)
+        ENV_NAME="prod"
+        ;;
+      --customer|customer)
+        APP="customer"
+        ;;
+      --partner|--owner|partner|owner)
+        APP="partner"
+        ;;
+      --ios|ios)
+        if [[ "$CMD" == "build" && "$FORMAT" == "apk" ]]; then
+          FORMAT="ios"
+        fi
+        PLATFORM="ios"
+        ;;
+      --android|android)
+        PLATFORM="android"
+        ;;
+      apk|aab|appbundle|bundle|ipa)
+        FORMAT="$1"
+        ;;
+      -m|--message)
+        if [[ $# -ge 2 ]]; then
+          shift
+          COMMIT_MSG="$1"
+        fi
+        ;;
+      -h|--help|help)
+        show_help
+        exit 0
+        ;;
+      *)
+        EXTRA_ARGS+=("$1")
+        ;;
+    esac
+    shift
+  done
+}
+
+case "$CMD" in
+  run)
+    parse_flags "$@"
+    run_app "$ENV_NAME" "$APP" "$PLATFORM" "${EXTRA_ARGS[@]+"${EXTRA_ARGS[@]}"}"
+    ;;
+  build)
+    parse_flags "$@"
+    build_app "$ENV_NAME" "$APP" "$FORMAT" "${EXTRA_ARGS[@]+"${EXTRA_ARGS[@]}"}"
+    ;;
+  rules)
+    parse_flags "$@"
+    deploy_rules "$ENV_NAME"
+    ;;
+  push)
+    parse_flags "$@"
+    push_branch "$COMMIT_MSG"
+    ;;
+  ship|deploy)
+    ENV_NAME="prod"
+    parse_flags "$@"
+    ship_to_prod "$APP" "$FORMAT" "${EXTRA_ARGS[@]+"${EXTRA_ARGS[@]}"}"
+    ;;
+  -h|--help|help)
+    show_help
+    ;;
+  *)
+    echo "Unknown command '$CMD'." >&2
+    show_help
+    exit 1
+    ;;
+esac
