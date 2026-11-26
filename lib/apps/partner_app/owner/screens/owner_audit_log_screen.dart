@@ -101,6 +101,7 @@ class _OwnerAuditLogScreenState extends State<OwnerAuditLogScreen> {
   }
 
   void _collectMemberDue(BuildContext context, GymMember m) {
+    final p = AppPalette.of(context);
     HapticFeedback.mediumImpact();
     final collected = m.dueAmount;
     context.read<SmartGymBloc>().add(
@@ -111,11 +112,11 @@ class _OwnerAuditLogScreenState extends State<OwnerAuditLogScreen> {
         );
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        backgroundColor: const Color(0xFF1A1E29),
+        backgroundColor: p.snackBg,
         content: Text(
           '✅ Collected ₹$collected balance from ${m.respectfulName}',
-          style: const TextStyle(
-            color: AppTheme.accent,
+          style: TextStyle(
+            color: p.isDark ? AppTheme.accent : Colors.white,
             fontWeight: FontWeight.w800,
           ),
         ),
@@ -144,20 +145,21 @@ class _OwnerAuditLogScreenState extends State<OwnerAuditLogScreen> {
   }
 
   Future<void> _confirmRemoveMember(BuildContext context, GymMember m) async {
+    final p = AppPalette.of(context);
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1A1E29),
+        backgroundColor: p.card,
         title: Text(
           'Remove ${m.respectfulName}?',
-          style: const TextStyle(
-            color: Colors.white,
+          style: TextStyle(
+            color: p.textPrimary,
             fontWeight: FontWeight.w800,
           ),
         ),
-        content: const Text(
+        content: Text(
           'This will remove this member from your gym directory and database.',
-          style: TextStyle(color: Colors.white70),
+          style: TextStyle(color: p.textSecondary),
         ),
         actions: [
           TextButton(
@@ -166,7 +168,8 @@ class _OwnerAuditLogScreenState extends State<OwnerAuditLogScreen> {
           ),
           FilledButton(
             style: FilledButton.styleFrom(
-              backgroundColor: AppTheme.danger,
+              backgroundColor: p.danger,
+              foregroundColor: Colors.white,
             ),
             onPressed: () => Navigator.pop(ctx, true),
             child: const Text('Remove'),
@@ -185,7 +188,7 @@ class _OwnerAuditLogScreenState extends State<OwnerAuditLogScreen> {
           );
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          backgroundColor: const Color(0xFF1A1E29),
+          backgroundColor: p.snackBg,
           content: Text(
             '${m.respectfulName} removed from gym.',
             style: const TextStyle(color: Colors.white),
@@ -200,12 +203,13 @@ class _OwnerAuditLogScreenState extends State<OwnerAuditLogScreen> {
     GymMember m,
     SmartGymState state,
   ) {
+    final p = AppPalette.of(context);
     HapticFeedback.selectionClick();
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       constraints: const BoxConstraints(minWidth: double.infinity),
-      backgroundColor: const Color(0xFF1A1E29),
+      backgroundColor: p.card,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(26)),
       ),
@@ -217,14 +221,15 @@ class _OwnerAuditLogScreenState extends State<OwnerAuditLogScreen> {
   }
 
   void _showPaymentProofDialog(BuildContext context, GymMember m) {
+    final p = AppPalette.of(context);
     showDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1A1E29),
+        backgroundColor: p.card,
         title: Text(
           '${m.respectfulName} • Payment Proof',
-          style: const TextStyle(
-            color: Colors.white,
+          style: TextStyle(
+            color: p.textPrimary,
             fontSize: 15,
             fontWeight: FontWeight.w900,
           ),
@@ -236,8 +241,8 @@ class _OwnerAuditLogScreenState extends State<OwnerAuditLogScreen> {
             if (m.paymentReference.isNotEmpty)
               Text(
                 'UTR / Ref: ${m.paymentReference}',
-                style: const TextStyle(
-                  color: AppTheme.ownerGold,
+                style: TextStyle(
+                  color: p.gold,
                   fontSize: 13,
                   fontWeight: FontWeight.w800,
                 ),
@@ -266,667 +271,703 @@ class _OwnerAuditLogScreenState extends State<OwnerAuditLogScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return BlocBuilder<SmartGymBloc, SmartGymState>(
-      builder: (context, state) {
-        final gym = state.currentGym;
-        final filteredMembers = _applyFilter(state.members);
+    return AppTheme.ensureOwnerLight(
+      context,
+      child: Builder(
+        builder: (context) {
+          final p = AppPalette.of(context);
+          return BlocBuilder<SmartGymBloc, SmartGymState>(
+            builder: (context, state) {
+              final gym = state.currentGym;
+              final filteredMembers = _applyFilter(state.members);
 
-        final content = RefreshIndicator(
-            color: AppTheme.ownerGold,
-            backgroundColor: const Color(0xFF1A1E29),
-            onRefresh: () async {
-              context.read<SmartGymBloc>().add(const RefreshGymDataEvent());
-              await Future<void>.delayed(const Duration(milliseconds: 450));
-            },
-            child: ListView(
-              physics: const AlwaysScrollableScrollPhysics(
-                parent: BouncingScrollPhysics(),
-              ),
-              padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
-              children: [
-                if (widget.embedded) ...[
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              final content = RefreshIndicator(
+                  color: p.gold,
+                  backgroundColor: p.card,
+                  onRefresh: () async {
+                    context.read<SmartGymBloc>().add(const RefreshGymDataEvent());
+                    await Future<void>.delayed(const Duration(milliseconds: 450));
+                  },
+                  child: ListView(
+                    physics: const AlwaysScrollableScrollPhysics(
+                      parent: BouncingScrollPhysics(),
+                    ),
+                    padding: const EdgeInsets.fromLTRB(12, 8, 12, 32),
                     children: [
-                      const Flexible(
-                        child: Text(
-                          'WHO JOINED & AUDIT LOG',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: 10.5,
-                            fontWeight: FontWeight.w900,
-                            letterSpacing: 1.5,
-                            color: Colors.white38,
+                      if (widget.embedded) ...[
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Flexible(
+                              child: Text(
+                                'WHO JOINED & AUDIT LOG',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: 10.5,
+                                  fontWeight: FontWeight.w900,
+                                  letterSpacing: 1.5,
+                                  color: p.textMuted,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              '${filteredMembers.length} of ${state.members.length} shown',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                                color: p.textSecondary,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
+                      ],
+                      TextField(
+                        key: const ValueKey('audit_log_search_input'),
+                        controller: _searchCtrl,
+                        onChanged: (v) =>
+                            setState(() => _searchQuery = v.trim()),
+                        style: TextStyle(
+                          color: p.textPrimary,
+                          fontSize: 13.5,
+                        ),
+                        decoration: InputDecoration(
+                          hintText: 'Search members by name or phone...',
+                          hintStyle:
+                              TextStyle(color: p.textMuted, fontSize: 13),
+                          prefixIcon: Icon(
+                            Icons.search_rounded,
+                            color: p.gold,
+                            size: 19,
+                          ),
+                          suffixIcon: _searchQuery.isNotEmpty
+                              ? IconButton(
+                                  icon: Icon(
+                                    Icons.close_rounded,
+                                    color: p.textSecondary,
+                                    size: 18,
+                                  ),
+                                  onPressed: () {
+                                    _searchCtrl.clear();
+                                    setState(() => _searchQuery = '');
+                                  },
+                                )
+                              : null,
+                          filled: true,
+                          fillColor: p.card,
+                          contentPadding:
+                              const EdgeInsets.symmetric(vertical: 10),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(14),
+                            borderSide: BorderSide(color: p.border),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(14),
+                            borderSide: BorderSide(color: p.border),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(14),
+                            borderSide: BorderSide(color: p.gold),
                           ),
                         ),
                       ),
-                      const SizedBox(width: 8),
-                      Text(
-                        '${filteredMembers.length} of ${state.members.length} shown',
-                        style: const TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                          color: Colors.white54,
+                      const SizedBox(height: 10),
+                      SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: Row(
+                          children: _filters.map((f) {
+                            final sel = _effectiveFilter == f;
+                            return Padding(
+                              padding: const EdgeInsets.only(right: 8),
+                              child: ChoiceChip(
+                                label: Text(
+                                  f,
+                                  style: TextStyle(
+                                    color: sel ? p.onAccent : p.textSecondary,
+                                    fontSize: 11.5,
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
+                                selected: sel,
+                                selectedColor: p.goldButton,
+                                backgroundColor: p.card,
+                                side: BorderSide(
+                                  color: sel ? p.goldButton : p.border,
+                                ),
+                                onSelected: (_) {
+                                  HapticFeedback.selectionClick();
+                                  _selectFilter(f);
+                                },
+                              ),
+                            );
+                          }).toList(),
                         ),
                       ),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                ],
-                TextField(
-                  key: const ValueKey('audit_log_search_input'),
-                  controller: _searchCtrl,
-                  onChanged: (v) => setState(() => _searchQuery = v.trim()),
-                  style: const TextStyle(color: Colors.white, fontSize: 13.5),
-                  decoration: InputDecoration(
-                    hintText: 'Search members by name or phone...',
-                    hintStyle:
-                        const TextStyle(color: Colors.white38, fontSize: 13),
-                    prefixIcon: const Icon(
-                      Icons.search_rounded,
-                      color: AppTheme.ownerGold,
-                      size: 19,
-                    ),
-                    suffixIcon: _searchQuery.isNotEmpty
-                        ? IconButton(
-                            icon: const Icon(
-                              Icons.close_rounded,
-                              color: Colors.white54,
-                              size: 18,
-                            ),
-                            onPressed: () {
-                              _searchCtrl.clear();
-                              setState(() => _searchQuery = '');
-                            },
-                          )
-                        : null,
-                    filled: true,
-                    fillColor: const Color(0xFF1A1E29),
-                    contentPadding: const EdgeInsets.symmetric(vertical: 10),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(14),
-                      borderSide: const BorderSide(color: Colors.white12),
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(14),
-                      borderSide: const BorderSide(color: Colors.white12),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(14),
-                      borderSide: const BorderSide(color: AppTheme.ownerGold),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 10),
-                SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    children: _filters.map((f) {
-                      final sel = _effectiveFilter == f;
-                      return Padding(
-                        padding: const EdgeInsets.only(right: 8),
-                        child: ChoiceChip(
-                          label: Text(
-                            f,
+                      const SizedBox(height: 14),
+                      if (state.members.isEmpty)
+                        CredMetalCard(
+                          glowColor: p.gold,
+                          padding: const EdgeInsets.all(20),
+                          child: Text(
+                            'No gym members added yet.\nOnce you or your trainers enroll paid members, the complete audit log will appear here.',
                             style: TextStyle(
-                              color: sel ? Colors.black : Colors.white70,
-                              fontSize: 11.5,
-                              fontWeight: FontWeight.w800,
+                              fontSize: 13,
+                              color: p.textSecondary,
+                              height: 1.45,
                             ),
                           ),
-                          selected: sel,
-                          selectedColor: AppTheme.ownerGold,
-                          backgroundColor: const Color(0xFF1A1E29),
-                          side: BorderSide(
-                            color: sel ? AppTheme.ownerGold : Colors.white12,
+                        )
+                      else if (filteredMembers.isEmpty)
+                        CredMetalCard(
+                          glowColor: p.gold,
+                          padding: const EdgeInsets.all(20),
+                          child: Text(
+                            'No members match your search or filter.',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: p.textSecondary,
+                            ),
                           ),
-                          onSelected: (_) {
-                            HapticFeedback.selectionClick();
-                            _selectFilter(f);
-                          },
                         ),
-                      );
-                    }).toList(),
-                  ),
-                ),
-                const SizedBox(height: 14),
-                if (state.members.isEmpty)
-                  CredMetalCard(
-                    glowColor: AppTheme.ownerGold,
-                    padding: const EdgeInsets.all(20),
-                    child: const Text(
-                      'No gym members added yet.\nOnce you or your trainers enroll paid members, the complete audit log will appear here.',
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: Colors.white70,
-                        height: 1.45,
-                      ),
-                    ),
-                  )
-                else if (filteredMembers.isEmpty)
-                  CredMetalCard(
-                    glowColor: AppTheme.ownerGold,
-                    padding: const EdgeInsets.all(20),
-                    child: const Text(
-                      'No members match your search or filter.',
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: Colors.white70,
-                      ),
-                    ),
-                  ),
-                ...List.generate(filteredMembers.length, (i) {
-                  final GymMember m = filteredMembers[i];
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 10),
-                    child: CredMetalCard(
-                      glowColor:
-                          m.isPtClient ? AppTheme.champagne : AppTheme.accent,
-                      padding: const EdgeInsets.all(16),
-                      borderRadius: 18,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Expanded(
-                                child: Row(
+                      ...List.generate(filteredMembers.length, (i) {
+                        final GymMember m = filteredMembers[i];
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 10),
+                          child: CredMetalCard(
+                            glowColor: m.isPtClient ? p.gold : p.accent,
+                            padding: const EdgeInsets.all(16),
+                            borderRadius: 18,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
                                   children: [
-                                    Flexible(
+                                    Expanded(
+                                      child: Row(
+                                        children: [
+                                          Flexible(
+                                            child: Text(
+                                              m.respectfulName,
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: TextStyle(
+                                                fontWeight: FontWeight.w900,
+                                                fontSize: 15,
+                                                color: p.textPrimary,
+                                              ),
+                                            ),
+                                          ),
+                                          if (m.genderLabel.isNotEmpty) ...[
+                                            const SizedBox(width: 6),
+                                            Container(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                horizontal: 6,
+                                                vertical: 2,
+                                              ),
+                                              decoration: BoxDecoration(
+                                                color: p.cardSubtle,
+                                                borderRadius:
+                                                    BorderRadius.circular(6),
+                                              ),
+                                              child: Text(
+                                                m.genderLabel,
+                                                style: TextStyle(
+                                                  fontSize: 9.5,
+                                                  fontWeight: FontWeight.w800,
+                                                  color: p.textSecondary,
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ],
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.end,
+                                      children: [
+                                        Text(
+                                          formatInr(m.feePaid),
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.w900,
+                                            fontSize: 15,
+                                            color: p.accent,
+                                          ),
+                                        ),
+                                        if (m.hasDue)
+                                          Text(
+                                            '₹${m.dueAmount} DUE',
+                                            style: TextStyle(
+                                              fontWeight: FontWeight.w900,
+                                              fontSize: 10,
+                                              color: p.danger,
+                                            ),
+                                          ),
+                                      ],
+                                    ),
+                                    PopupMenuButton<String>(
+                                      icon: Icon(
+                                        Icons.more_vert_rounded,
+                                        color: p.textMuted,
+                                        size: 20,
+                                      ),
+                                      color: p.card,
+                                      onSelected: (val) async {
+                                        if (val == 'renew') {
+                                          _showRenewMemberSheet(
+                                            context,
+                                            m,
+                                            state,
+                                          );
+                                          return;
+                                        }
+                                        if (val == 'welcome') {
+                                          HapticFeedback.selectionClick();
+                                          await MemberWhatsAppService
+                                              .sendWelcomePass(
+                                            context: context,
+                                            gymName: gym.name,
+                                            member: m,
+                                          );
+                                          return;
+                                        }
+                                        if (val == 'remind_due') {
+                                          HapticFeedback.selectionClick();
+                                          await MemberWhatsAppService
+                                              .sendDueReminder(
+                                            context: context,
+                                            gymName: gym.name,
+                                            member: m,
+                                          );
+                                          return;
+                                        }
+                                        if (val == 'mark_paid') {
+                                          _collectMemberDue(context, m);
+                                          return;
+                                        }
+                                        if (val == 'remove') {
+                                          await _confirmRemoveMember(
+                                            context,
+                                            m,
+                                          );
+                                        }
+                                      },
+                                      itemBuilder: (_) => [
+                                        PopupMenuItem<String>(
+                                          value: 'renew',
+                                          child: Row(
+                                            children: [
+                                              Icon(
+                                                Icons.autorenew_rounded,
+                                                color: p.gold,
+                                                size: 18,
+                                              ),
+                                              const SizedBox(width: 8),
+                                              Text(
+                                                'Renew Plan',
+                                                style: TextStyle(
+                                                  color: p.gold,
+                                                  fontWeight: FontWeight.w800,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                        PopupMenuItem<String>(
+                                          value: 'welcome',
+                                          child: Row(
+                                            children: [
+                                              const Icon(
+                                                Icons.chat_rounded,
+                                                color: MemberWhatsAppService
+                                                    .whatsappGreen,
+                                                size: 18,
+                                              ),
+                                              const SizedBox(width: 8),
+                                              Text(
+                                                'Send Welcome Pass',
+                                                style: TextStyle(
+                                                  color: p.textPrimary,
+                                                  fontWeight: FontWeight.w700,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                        if (m.hasDue) ...[
+                                          PopupMenuItem<String>(
+                                            value: 'remind_due',
+                                            child: Row(
+                                              children: [
+                                                Icon(
+                                                  Icons
+                                                      .notifications_active_rounded,
+                                                  color: p.amber,
+                                                  size: 18,
+                                                ),
+                                                const SizedBox(width: 8),
+                                                Text(
+                                                  'WhatsApp Due Reminder',
+                                                  style: TextStyle(
+                                                    color: p.amber,
+                                                    fontWeight: FontWeight.w700,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                          PopupMenuItem<String>(
+                                            value: 'mark_paid',
+                                            child: Row(
+                                              children: [
+                                                Icon(
+                                                  Icons.check_circle_rounded,
+                                                  color: p.accent,
+                                                  size: 18,
+                                                ),
+                                                const SizedBox(width: 8),
+                                                Text(
+                                                  'Mark ₹${m.dueAmount} Due Paid',
+                                                  style: TextStyle(
+                                                    color: p.accent,
+                                                    fontWeight: FontWeight.w700,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ],
+                                        PopupMenuItem<String>(
+                                          value: 'remove',
+                                          child: Row(
+                                            children: [
+                                              Icon(
+                                                Icons.person_remove_rounded,
+                                                color: p.danger,
+                                                size: 18,
+                                              ),
+                                              const SizedBox(width: 8),
+                                              Text(
+                                                'Remove Member',
+                                                style: TextStyle(
+                                                  color: p.danger,
+                                                  fontWeight: FontWeight.w700,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  '${m.planTitle} • Joined: ${m.joinedDate} • Expires: ${m.expiryDate} (${m.daysLeft}d)',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: p.textSecondary,
+                                  ),
+                                ),
+                                if (m.hasDue) ...[
+                                  const SizedBox(height: 10),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 10,
+                                      vertical: 8,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: p.danger.withValues(alpha: 0.08),
+                                      borderRadius: BorderRadius.circular(10),
+                                      border: Border.all(
+                                        color:
+                                            p.danger.withValues(alpha: 0.3),
+                                      ),
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        Icon(
+                                          Icons.pending_actions_rounded,
+                                          size: 15,
+                                          color: p.danger,
+                                        ),
+                                        const SizedBox(width: 7),
+                                        Expanded(
+                                          child: Text(
+                                            '₹${m.dueAmount} pending balance',
+                                            style: TextStyle(
+                                              fontSize: 11.5,
+                                              fontWeight: FontWeight.w800,
+                                              color: p.danger,
+                                            ),
+                                          ),
+                                        ),
+                                        InkWell(
+                                          onTap: () {
+                                            HapticFeedback.selectionClick();
+                                            MemberWhatsAppService
+                                                .sendDueReminder(
+                                              context: context,
+                                              gymName: gym.name,
+                                              member: m,
+                                            );
+                                          },
+                                          borderRadius:
+                                              BorderRadius.circular(8),
+                                          child: Container(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 8,
+                                              vertical: 5,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color: MemberWhatsAppService
+                                                  .whatsappGreen
+                                                  .withValues(alpha: 0.14),
+                                              borderRadius:
+                                                  BorderRadius.circular(8),
+                                            ),
+                                            child: const Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                Icon(
+                                                  Icons.chat_rounded,
+                                                  size: 13,
+                                                  color: MemberWhatsAppService
+                                                      .whatsappGreen,
+                                                ),
+                                                SizedBox(width: 4),
+                                                Text(
+                                                  'Remind',
+                                                  style: TextStyle(
+                                                    fontSize: 10.5,
+                                                    fontWeight: FontWeight.w800,
+                                                    color: MemberWhatsAppService
+                                                        .whatsappGreen,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 6),
+                                        InkWell(
+                                          onTap: () =>
+                                              _collectMemberDue(context, m),
+                                          borderRadius:
+                                              BorderRadius.circular(8),
+                                          child: Container(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 9,
+                                              vertical: 5,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color: p.accent
+                                                  .withValues(alpha: 0.14),
+                                              borderRadius:
+                                                  BorderRadius.circular(8),
+                                            ),
+                                            child: Text(
+                                              'Mark Paid',
+                                              style: TextStyle(
+                                                fontSize: 10.5,
+                                                fontWeight: FontWeight.w900,
+                                                color: p.accent,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                                const SizedBox(height: 6),
+                                Row(
+                                  children: [
+                                    Icon(
+                                      Icons.verified_user_outlined,
+                                      size: 13,
+                                      color: p.gold,
+                                    ),
+                                    const SizedBox(width: 5),
+                                    Expanded(
                                       child: Text(
-                                        m.respectfulName,
+                                        m.isPtClient
+                                            ? 'PT Trainer: ${m.assignedTrainer}  •  Added by ${m.addedByTrainer}'
+                                            : 'General Floor  •  Added by ${m.addedByTrainer}',
                                         maxLines: 1,
                                         overflow: TextOverflow.ellipsis,
-                                        style: const TextStyle(
-                                          fontWeight: FontWeight.w900,
-                                          fontSize: 15,
-                                          color: Colors.white,
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w700,
+                                          color: p.gold,
                                         ),
                                       ),
                                     ),
-                                    if (m.genderLabel.isNotEmpty) ...[
+                                    const SizedBox(width: 6),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 7,
+                                        vertical: 3,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: (m.paymentMode == 'Online'
+                                                ? p.gold
+                                                : p.accent)
+                                            .withValues(alpha: 0.12),
+                                        borderRadius: BorderRadius.circular(6),
+                                      ),
+                                      child: Text(
+                                        m.paymentMode.toUpperCase(),
+                                        style: TextStyle(
+                                          fontSize: 9,
+                                          fontWeight: FontWeight.w900,
+                                          color: m.paymentMode == 'Online'
+                                              ? p.gold
+                                              : p.accent,
+                                        ),
+                                      ),
+                                    ),
+                                    if (m.paymentMode == 'Online' &&
+                                        (m.paymentProofBase64.isNotEmpty ||
+                                            m.paymentReference.isNotEmpty)) ...[
                                       const SizedBox(width: 6),
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 6,
-                                          vertical: 2,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          color: Colors.white
-                                              .withValues(alpha: 0.08),
-                                          borderRadius:
-                                              BorderRadius.circular(6),
-                                        ),
+                                      GestureDetector(
+                                        onTap: () =>
+                                            _showPaymentProofDialog(context, m),
                                         child: Text(
-                                          m.genderLabel,
-                                          style: const TextStyle(
-                                            fontSize: 9.5,
-                                            fontWeight: FontWeight.w800,
-                                            color: Colors.white70,
+                                          'View Proof',
+                                          style: TextStyle(
+                                            fontSize: 10.5,
+                                            fontWeight: FontWeight.w900,
+                                            color: p.gold,
+                                            decoration:
+                                                TextDecoration.underline,
                                           ),
                                         ),
                                       ),
                                     ],
                                   ],
                                 ),
-                              ),
-                              const SizedBox(width: 8),
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.end,
-                                children: [
-                                  Text(
-                                    formatInr(m.feePaid),
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.w900,
-                                      fontSize: 15,
-                                      color: AppTheme.accent,
-                                    ),
-                                  ),
-                                  if (m.hasDue)
-                                    Text(
-                                      '₹${m.dueAmount} DUE',
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.w900,
-                                        fontSize: 10,
-                                        color: AppTheme.softRed,
-                                      ),
-                                    ),
-                                ],
-                              ),
-                              PopupMenuButton<String>(
-                                icon: const Icon(
-                                  Icons.more_vert_rounded,
-                                  color: Colors.white54,
-                                  size: 20,
-                                ),
-                                color: const Color(0xFF1A1E29),
-                                onSelected: (val) async {
-                                  if (val == 'renew') {
-                                    _showRenewMemberSheet(context, m, state);
-                                    return;
-                                  }
-                                  if (val == 'welcome') {
-                                    HapticFeedback.selectionClick();
-                                    await MemberWhatsAppService.sendWelcomePass(
-                                      context: context,
-                                      gymName: gym.name,
-                                      member: m,
-                                    );
-                                    return;
-                                  }
-                                  if (val == 'remind_due') {
-                                    HapticFeedback.selectionClick();
-                                    await MemberWhatsAppService.sendDueReminder(
-                                      context: context,
-                                      gymName: gym.name,
-                                      member: m,
-                                    );
-                                    return;
-                                  }
-                                  if (val == 'mark_paid') {
-                                    _collectMemberDue(context, m);
-                                    return;
-                                  }
-                                  if (val == 'remove') {
-                                    await _confirmRemoveMember(context, m);
-                                  }
-                                },
-                                itemBuilder: (_) => [
-                                  const PopupMenuItem<String>(
-                                    value: 'renew',
-                                    child: Row(
-                                      children: [
-                                        Icon(
-                                          Icons.autorenew_rounded,
-                                          color: AppTheme.ownerGold,
-                                          size: 18,
-                                        ),
-                                        SizedBox(width: 8),
-                                        Text(
-                                          'Renew Plan',
-                                          style: TextStyle(
-                                            color: AppTheme.ownerGold,
-                                            fontWeight: FontWeight.w800,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  const PopupMenuItem<String>(
-                                    value: 'welcome',
-                                    child: Row(
-                                      children: [
-                                        Icon(
-                                          Icons.chat_rounded,
-                                          color: MemberWhatsAppService
-                                              .whatsappGreen,
-                                          size: 18,
-                                        ),
-                                        SizedBox(width: 8),
-                                        Text(
-                                          'Send Welcome Pass',
-                                          style: TextStyle(
-                                            color: Colors.white,
-                                            fontWeight: FontWeight.w700,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  if (m.hasDue) ...[
-                                    const PopupMenuItem<String>(
-                                      value: 'remind_due',
-                                      child: Row(
-                                        children: [
-                                          Icon(
-                                            Icons.notifications_active_rounded,
-                                            color: AppTheme.amber,
-                                            size: 18,
-                                          ),
-                                          SizedBox(width: 8),
-                                          Text(
-                                            'WhatsApp Due Reminder',
-                                            style: TextStyle(
-                                              color: AppTheme.amber,
-                                              fontWeight: FontWeight.w700,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                    PopupMenuItem<String>(
-                                      value: 'mark_paid',
-                                      child: Row(
-                                        children: [
-                                          const Icon(
-                                            Icons.check_circle_rounded,
-                                            color: AppTheme.accent,
-                                            size: 18,
-                                          ),
-                                          const SizedBox(width: 8),
-                                          Text(
-                                            'Mark ₹${m.dueAmount} Due Paid',
-                                            style: const TextStyle(
-                                              color: AppTheme.accent,
-                                              fontWeight: FontWeight.w700,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ],
-                                  const PopupMenuItem<String>(
-                                    value: 'remove',
-                                    child: Row(
-                                      children: [
-                                        Icon(
-                                          Icons.person_remove_rounded,
-                                          color: AppTheme.danger,
-                                          size: 18,
-                                        ),
-                                        SizedBox(width: 8),
-                                        Text(
-                                          'Remove Member',
-                                          style: TextStyle(
-                                            color: AppTheme.danger,
-                                            fontWeight: FontWeight.w700,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            '${m.planTitle} • Joined: ${m.joinedDate} • Expires: ${m.expiryDate} (${m.daysLeft}d)',
-                            style: const TextStyle(
-                              fontSize: 12,
-                              color: Colors.white70,
-                            ),
-                          ),
-                          if (m.hasDue) ...[
-                            const SizedBox(height: 10),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 10,
-                                vertical: 8,
-                              ),
-                              decoration: BoxDecoration(
-                                color: AppTheme.softRed.withValues(alpha: 0.09),
-                                borderRadius: BorderRadius.circular(10),
-                                border: Border.all(
-                                  color: AppTheme.softRed.withValues(alpha: 0.35),
-                                ),
-                              ),
-                              child: Row(
-                                children: [
-                                  const Icon(
-                                    Icons.pending_actions_rounded,
-                                    size: 15,
-                                    color: AppTheme.softRed,
-                                  ),
-                                  const SizedBox(width: 7),
-                                  Expanded(
-                                    child: Text(
-                                      '₹${m.dueAmount} pending balance',
-                                      style: const TextStyle(
-                                        fontSize: 11.5,
-                                        fontWeight: FontWeight.w800,
-                                        color: AppTheme.softRed,
-                                      ),
-                                    ),
-                                  ),
-                                  InkWell(
-                                    onTap: () {
-                                      HapticFeedback.selectionClick();
-                                      MemberWhatsAppService.sendDueReminder(
-                                        context: context,
-                                        gymName: gym.name,
-                                        member: m,
-                                      );
-                                    },
-                                    borderRadius: BorderRadius.circular(8),
-                                    child: Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 8,
-                                        vertical: 5,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: MemberWhatsAppService
-                                            .whatsappGreen
-                                            .withValues(alpha: 0.16),
-                                        borderRadius: BorderRadius.circular(8),
-                                      ),
-                                      child: const Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Icon(
-                                            Icons.chat_rounded,
-                                            size: 13,
-                                            color: MemberWhatsAppService
-                                                .whatsappGreen,
-                                          ),
-                                          SizedBox(width: 4),
-                                          Text(
-                                            'Remind',
-                                            style: TextStyle(
-                                              fontSize: 10.5,
-                                              fontWeight: FontWeight.w800,
-                                              color: MemberWhatsAppService
-                                                  .whatsappGreen,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 6),
-                                  InkWell(
-                                    onTap: () => _collectMemberDue(context, m),
-                                    borderRadius: BorderRadius.circular(8),
-                                    child: Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 9,
-                                        vertical: 5,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: AppTheme.accent
-                                            .withValues(alpha: 0.18),
-                                        borderRadius: BorderRadius.circular(8),
-                                      ),
-                                      child: const Text(
-                                        'Mark Paid',
-                                        style: TextStyle(
-                                          fontSize: 10.5,
-                                          fontWeight: FontWeight.w900,
-                                          color: AppTheme.accent,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                          const SizedBox(height: 6),
-                          Row(
-                            children: [
-                              const Icon(
-                                Icons.verified_user_outlined,
-                                size: 13,
-                                color: AppTheme.champagne,
-                              ),
-                              const SizedBox(width: 5),
-                              Expanded(
-                                child: Text(
-                                  m.isPtClient
-                                      ? 'PT Trainer: ${m.assignedTrainer}  •  Added by ${m.addedByTrainer}'
-                                      : 'General Floor  •  Added by ${m.addedByTrainer}',
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w700,
-                                    color: AppTheme.champagne,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 6),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 7,
-                                  vertical: 3,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: (m.paymentMode == 'Online'
-                                          ? AppTheme.ownerGold
-                                          : AppTheme.accent)
-                                      .withValues(alpha: 0.14),
-                                  borderRadius: BorderRadius.circular(6),
-                                ),
-                                child: Text(
-                                  m.paymentMode.toUpperCase(),
-                                  style: TextStyle(
-                                    fontSize: 9,
-                                    fontWeight: FontWeight.w900,
-                                    color: m.paymentMode == 'Online'
-                                        ? AppTheme.ownerGold
-                                        : AppTheme.accent,
-                                  ),
-                                ),
-                              ),
-                              if (m.paymentMode == 'Online' &&
-                                  (m.paymentProofBase64.isNotEmpty ||
-                                      m.paymentReference.isNotEmpty)) ...[
-                                const SizedBox(width: 6),
-                                GestureDetector(
-                                  onTap: () =>
-                                      _showPaymentProofDialog(context, m),
-                                  child: const Text(
-                                    'View Proof',
-                                    style: TextStyle(
-                                      fontSize: 10.5,
-                                      fontWeight: FontWeight.w900,
-                                      color: AppTheme.ownerGold,
-                                      decoration: TextDecoration.underline,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ],
-                          ),
-                          if (m.daysLeft <= 5) ...[
-                            const SizedBox(height: 10),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Expanded(
-                                  child: Text(
-                                    m.isExpired
-                                        ? 'Membership expired'
-                                        : 'Expires in ${m.daysLeft}d',
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w800,
-                                      color: m.isExpired
-                                          ? AppTheme.softRed
-                                          : AppTheme.amber,
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                InkWell(
-                                  key: ValueKey('renew_member_${m.id}'),
-                                  onTap: () =>
-                                      _showRenewMemberSheet(context, m, state),
-                                  borderRadius: BorderRadius.circular(10),
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 11,
-                                      vertical: 6,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: AppTheme.ownerGold
-                                          .withValues(alpha: 0.18),
-                                      borderRadius: BorderRadius.circular(10),
-                                      border: Border.all(
-                                        color: AppTheme.ownerGold
-                                            .withValues(alpha: 0.45),
-                                      ),
-                                    ),
-                                    child: const Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Icon(
-                                          Icons.autorenew_rounded,
-                                          size: 13.5,
-                                          color: AppTheme.ownerGold,
-                                        ),
-                                        SizedBox(width: 5),
-                                        Text(
-                                          'Renew Plan',
+                                if (m.daysLeft <= 5) ...[
+                                  const SizedBox(height: 10),
+                                  Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Expanded(
+                                        child: Text(
+                                          m.isExpired
+                                              ? 'Membership expired'
+                                              : 'Expires in ${m.daysLeft}d',
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
                                           style: TextStyle(
                                             fontSize: 11,
-                                            fontWeight: FontWeight.w900,
-                                            color: AppTheme.ownerGold,
+                                            fontWeight: FontWeight.w800,
+                                            color: m.isExpired
+                                                ? p.danger
+                                                : p.amber,
                                           ),
                                         ),
-                                      ],
-                                    ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      InkWell(
+                                        key: ValueKey('renew_member_${m.id}'),
+                                        onTap: () => _showRenewMemberSheet(
+                                          context,
+                                          m,
+                                          state,
+                                        ),
+                                        borderRadius: BorderRadius.circular(10),
+                                        child: Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 11,
+                                            vertical: 6,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: p.gold.withValues(alpha: 0.14),
+                                            borderRadius:
+                                                BorderRadius.circular(10),
+                                            border: Border.all(
+                                              color:
+                                                  p.gold.withValues(alpha: 0.4),
+                                            ),
+                                          ),
+                                          child: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Icon(
+                                                Icons.autorenew_rounded,
+                                                size: 13.5,
+                                                color: p.gold,
+                                              ),
+                                              const SizedBox(width: 5),
+                                              Text(
+                                                'Renew Plan',
+                                                style: TextStyle(
+                                                  fontSize: 11,
+                                                  fontWeight: FontWeight.w900,
+                                                  color: p.gold,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ),
+                                    ],
                                   ),
-                                ),
+                                ],
                               ],
                             ),
-                          ],
-                        ],
+                          ),
+                        );
+                      }),
+                    ],
+                  ),
+                );
+
+              if (widget.embedded) return content;
+
+              return Scaffold(
+                backgroundColor: p.bg,
+                appBar: AppBar(
+                  backgroundColor: p.bg,
+                  foregroundColor: p.textPrimary,
+                  elevation: 0,
+                  title: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Who Joined & Audit Log',
+                        style: TextStyle(
+                          fontSize: 16.5,
+                          fontWeight: FontWeight.w900,
+                          color: p.textPrimary,
+                        ),
                       ),
-                    ),
-                  );
-                }),
-              ],
-            ),
+                      Text(
+                        '${gym.name} • ${filteredMembers.length} of ${state.members.length} shown',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: p.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                body: content,
+              );
+            },
           );
-
-        if (widget.embedded) return content;
-
-        return Scaffold(
-          backgroundColor: AppTheme.scaffoldBg,
-          appBar: AppBar(
-            backgroundColor: AppTheme.scaffoldBg,
-            foregroundColor: Colors.white,
-            elevation: 0,
-            title: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Who Joined & Audit Log',
-                  style: TextStyle(
-                    fontSize: 16.5,
-                    fontWeight: FontWeight.w900,
-                    color: Colors.white,
-                  ),
-                ),
-                Text(
-                  '${gym.name} • ${filteredMembers.length} of ${state.members.length} shown',
-                  style: const TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.white54,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          body: content,
-        );
-      },
+        },
+      ),
     );
   }
 }
@@ -1086,14 +1127,15 @@ class _RenewMemberSheetState extends State<_RenewMemberSheet> {
         );
 
     final messenger = ScaffoldMessenger.of(context);
+    final p = AppPalette.of(context);
     Navigator.pop(context);
     messenger.showSnackBar(
       SnackBar(
-        backgroundColor: const Color(0xFF1A1E29),
+        backgroundColor: p.snackBg,
         content: Text(
           '✅ Renewed ${widget.member.respectfulName} (${_selectedPlan.name}) until $expiryStr',
-          style: const TextStyle(
-            color: AppTheme.accent,
+          style: TextStyle(
+            color: p.isDark ? AppTheme.accent : Colors.white,
             fontWeight: FontWeight.w800,
           ),
         ),
@@ -1103,6 +1145,7 @@ class _RenewMemberSheetState extends State<_RenewMemberSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final p = AppPalette.of(context);
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     final newExpiry = _computeNewExpiry(today);
@@ -1129,7 +1172,7 @@ class _RenewMemberSheetState extends State<_RenewMemberSheet> {
                   height: 4,
                   margin: const EdgeInsets.only(bottom: 16),
                   decoration: BoxDecoration(
-                    color: Colors.white12,
+                    color: p.border,
                     borderRadius: BorderRadius.circular(99),
                   ),
                 ),
@@ -1140,12 +1183,12 @@ class _RenewMemberSheetState extends State<_RenewMemberSheet> {
                     width: 40,
                     height: 40,
                     decoration: BoxDecoration(
-                      color: AppTheme.ownerGold.withValues(alpha: 0.16),
+                      color: p.gold.withValues(alpha: 0.14),
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: const Icon(
+                    child: Icon(
                       Icons.autorenew_rounded,
-                      color: AppTheme.ownerGold,
+                      color: p.gold,
                       size: 21,
                     ),
                   ),
@@ -1156,16 +1199,16 @@ class _RenewMemberSheetState extends State<_RenewMemberSheet> {
                       children: [
                         Text(
                           'Renew ${widget.member.respectfulName}',
-                          style: const TextStyle(
-                            color: Colors.white,
+                          style: TextStyle(
+                            color: p.textPrimary,
                             fontSize: 17,
                             fontWeight: FontWeight.w900,
                           ),
                         ),
                         Text(
                           '${widget.member.planTitle} • ${widget.member.isExpired ? 'Expired' : '${widget.member.daysLeft}d left'}',
-                          style: const TextStyle(
-                            color: Colors.white54,
+                          style: TextStyle(
+                            color: p.textSecondary,
                             fontSize: 12,
                           ),
                         ),
@@ -1175,10 +1218,10 @@ class _RenewMemberSheetState extends State<_RenewMemberSheet> {
                 ],
               ),
               const SizedBox(height: 16),
-              const Text(
+              Text(
                 'SELECT RENEWAL PLAN',
                 style: TextStyle(
-                  color: Colors.white54,
+                  color: p.textMuted,
                   fontSize: 10.5,
                   fontWeight: FontWeight.w900,
                   letterSpacing: 1.3,
@@ -1195,16 +1238,16 @@ class _RenewMemberSheetState extends State<_RenewMemberSheet> {
                     label: Text(
                       '${plan.name} • ₹${plan.price}',
                       style: TextStyle(
-                        color: selected ? Colors.black : Colors.white70,
+                        color: selected ? p.onAccent : p.textSecondary,
                         fontSize: 11.5,
                         fontWeight: FontWeight.w800,
                       ),
                     ),
                     selected: selected,
-                    selectedColor: AppTheme.ownerGold,
-                    backgroundColor: const Color(0xFF12151C),
+                    selectedColor: p.goldButton,
+                    backgroundColor: p.cardSubtle,
                     side: BorderSide(
-                      color: selected ? AppTheme.ownerGold : Colors.white12,
+                      color: selected ? p.goldButton : p.border,
                     ),
                     onSelected: (_) => _selectPlan(plan),
                   );
@@ -1219,8 +1262,8 @@ class _RenewMemberSheetState extends State<_RenewMemberSheet> {
                       controller: _feeCtrl,
                       keyboardType: TextInputType.number,
                       inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                      style: const TextStyle(
-                        color: Colors.white,
+                      style: TextStyle(
+                        color: p.textPrimary,
                         fontWeight: FontWeight.w800,
                       ),
                       onChanged: (_) => setState(() => _errorText = null),
@@ -1228,7 +1271,7 @@ class _RenewMemberSheetState extends State<_RenewMemberSheet> {
                         prefixText: '₹ ',
                         labelText: 'Fee Collected',
                         filled: true,
-                        fillColor: const Color(0xFF12151C),
+                        fillColor: p.cardSubtle,
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(14),
                           borderSide: BorderSide.none,
@@ -1243,15 +1286,15 @@ class _RenewMemberSheetState extends State<_RenewMemberSheet> {
                       controller: _dueCtrl,
                       keyboardType: TextInputType.number,
                       inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                      style: const TextStyle(
-                        color: Colors.white,
+                      style: TextStyle(
+                        color: p.textPrimary,
                         fontWeight: FontWeight.w800,
                       ),
                       decoration: InputDecoration(
                         prefixText: '₹ ',
                         labelText: 'Extra Due (Opt.)',
                         filled: true,
-                        fillColor: const Color(0xFF12151C),
+                        fillColor: p.cardSubtle,
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(14),
                           borderSide: BorderSide.none,
@@ -1265,8 +1308,8 @@ class _RenewMemberSheetState extends State<_RenewMemberSheet> {
                 const SizedBox(height: 8),
                 Text(
                   'Existing unpaid due of ₹${widget.member.dueAmount} will be kept alongside any new due.',
-                  style: const TextStyle(
-                    color: AppTheme.amber,
+                  style: TextStyle(
+                    color: p.amber,
                     fontSize: 11,
                     fontWeight: FontWeight.w700,
                   ),
@@ -1279,9 +1322,9 @@ class _RenewMemberSheetState extends State<_RenewMemberSheet> {
                   vertical: 8,
                 ),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF12151C),
+                  color: p.cardSubtle,
                   borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: Colors.white12),
+                  border: Border.all(color: p.border),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -1289,13 +1332,13 @@ class _RenewMemberSheetState extends State<_RenewMemberSheet> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Expanded(
+                        Expanded(
                           child: Text(
                             'Include Personal Training (PT)',
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
-                              color: Colors.white,
+                              color: p.textPrimary,
                               fontSize: 12.5,
                               fontWeight: FontWeight.w800,
                             ),
@@ -1304,7 +1347,7 @@ class _RenewMemberSheetState extends State<_RenewMemberSheet> {
                         const SizedBox(width: 8),
                         Switch.adaptive(
                           value: _isPt,
-                          activeThumbColor: AppTheme.ownerGold,
+                          activeThumbColor: p.goldButton,
                           onChanged: (v) => setState(() => _isPt = v),
                         ),
                       ],
@@ -1322,12 +1365,15 @@ class _RenewMemberSheetState extends State<_RenewMemberSheet> {
                               style: TextStyle(
                                 fontSize: 11,
                                 fontWeight: FontWeight.w800,
-                                color: sel ? Colors.black : Colors.white70,
+                                color: sel ? p.onAccent : p.textSecondary,
                               ),
                             ),
                             selected: sel,
-                            selectedColor: AppTheme.trainerCyan,
-                            backgroundColor: const Color(0xFF1A1E29),
+                            selectedColor: p.cyan,
+                            backgroundColor: p.card,
+                            side: BorderSide(
+                              color: sel ? p.cyan : p.border,
+                            ),
                             onSelected: (_) =>
                                 setState(() => _selectedTrainer = t.name),
                           );
@@ -1345,14 +1391,17 @@ class _RenewMemberSheetState extends State<_RenewMemberSheet> {
                       key: const ValueKey('renew_mode_cash'),
                       label: const Center(child: Text('Cash')),
                       selected: _paymentMode == 'Cash',
-                      selectedColor: AppTheme.accent,
+                      selectedColor: p.accent,
                       labelStyle: TextStyle(
                         color: _paymentMode == 'Cash'
-                            ? Colors.black
-                            : Colors.white70,
+                            ? p.onAccent
+                            : p.textSecondary,
                         fontWeight: FontWeight.w900,
                       ),
-                      backgroundColor: const Color(0xFF12151C),
+                      backgroundColor: p.cardSubtle,
+                      side: BorderSide(
+                        color: _paymentMode == 'Cash' ? p.accent : p.border,
+                      ),
                       onSelected: (_) => setState(() {
                         _paymentMode = 'Cash';
                         _errorText = null;
@@ -1365,14 +1414,18 @@ class _RenewMemberSheetState extends State<_RenewMemberSheet> {
                       key: const ValueKey('renew_mode_online'),
                       label: const Center(child: Text('Online / UPI')),
                       selected: _paymentMode == 'Online',
-                      selectedColor: AppTheme.ownerGold,
+                      selectedColor: p.goldButton,
                       labelStyle: TextStyle(
                         color: _paymentMode == 'Online'
-                            ? Colors.black
-                            : Colors.white70,
+                            ? p.onAccent
+                            : p.textSecondary,
                         fontWeight: FontWeight.w900,
                       ),
-                      backgroundColor: const Color(0xFF12151C),
+                      backgroundColor: p.cardSubtle,
+                      side: BorderSide(
+                        color:
+                            _paymentMode == 'Online' ? p.goldButton : p.border,
+                      ),
                       onSelected: (_) => setState(() {
                         _paymentMode = 'Online';
                         _errorText = null;
@@ -1403,16 +1456,16 @@ class _RenewMemberSheetState extends State<_RenewMemberSheet> {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: AppTheme.ownerGold.withValues(alpha: 0.1),
+                  color: p.gold.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(
-                    color: AppTheme.ownerGold.withValues(alpha: 0.35),
+                    color: p.gold.withValues(alpha: 0.35),
                   ),
                 ),
                 child: Text(
                   'New Expiry: ${_formatDate(newExpiry)} ($newDaysLeft days validity)',
-                  style: const TextStyle(
-                    color: AppTheme.ownerGold,
+                  style: TextStyle(
+                    color: p.gold,
                     fontSize: 12,
                     fontWeight: FontWeight.w800,
                   ),
@@ -1422,8 +1475,8 @@ class _RenewMemberSheetState extends State<_RenewMemberSheet> {
                 const SizedBox(height: 10),
                 Text(
                   _errorText!,
-                  style: const TextStyle(
-                    color: AppTheme.softRed,
+                  style: TextStyle(
+                    color: p.danger,
                     fontSize: 12,
                     fontWeight: FontWeight.w700,
                   ),
@@ -1435,8 +1488,8 @@ class _RenewMemberSheetState extends State<_RenewMemberSheet> {
                 child: ElevatedButton.icon(
                   key: const ValueKey('renew_submit_btn'),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.ownerGold,
-                    foregroundColor: Colors.black,
+                    backgroundColor: p.goldButton,
+                    foregroundColor: p.onAccent,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(14),
                     ),

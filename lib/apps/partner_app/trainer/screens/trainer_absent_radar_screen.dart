@@ -118,7 +118,7 @@ class TrainerAbsentRadarScreen extends StatelessWidget {
             physics: const AlwaysScrollableScrollPhysics(
               parent: BouncingScrollPhysics(),
             ),
-            padding: const EdgeInsets.fromLTRB(20, 10, 20, 32),
+            padding: const EdgeInsets.fromLTRB(12, 10, 12, 32),
           children: [
             // 1. Trainer Morning Duty Check-In
             const Text(
@@ -136,7 +136,7 @@ class TrainerAbsentRadarScreen extends StatelessWidget {
               return Padding(
                 padding: const EdgeInsets.only(bottom: 10),
                 child: CredMetalCard(
-                  glowColor: t.isOnDuty ? AppTheme.accent : AppTheme.amber,
+                  glowColor: t.isOnDutyToday ? AppTheme.accent : AppTheme.amber,
                   padding: const EdgeInsets.all(16),
                   borderRadius: 18,
                   child: Row(
@@ -155,12 +155,10 @@ class TrainerAbsentRadarScreen extends StatelessWidget {
                             ),
                             const SizedBox(height: 3),
                             Text(
-                              t.isOnDuty
-                                  ? 'Checked in at ${t.morningCheckInTime}'
-                                  : 'Not Checked In Today',
+                              t.radarDutySubtitle,
                               style: TextStyle(
                                 fontSize: 12,
-                                color: t.isOnDuty
+                                color: t.isOnDutyToday
                                     ? AppTheme.accent
                                     : AppTheme.amber,
                               ),
@@ -168,7 +166,7 @@ class TrainerAbsentRadarScreen extends StatelessWidget {
                           ],
                         ),
                       ),
-                      if (!t.isOnDuty)
+                      if (!t.isOnDutyToday)
                         FilledButton.tonal(
                           style: FilledButton.styleFrom(
                             backgroundColor:

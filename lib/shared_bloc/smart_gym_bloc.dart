@@ -11,6 +11,7 @@ import '../domain/models/meal_review_item.dart';
 import '../domain/models/missing_member.dart';
 import '../domain/models/partner_role.dart';
 import '../domain/models/removed_record.dart';
+import '../domain/models/trainer_attendance_log.dart';
 import '../domain/models/trainer_join_request.dart';
 import '../domain/models/trainer_profile.dart';
 import '../domain/models/walk_in_enquiry.dart';
@@ -32,7 +33,10 @@ class SmartGymBloc extends Bloc<SmartGymEvent, SmartGymState> {
   StreamSubscription<PhoneLookupResult?>? _phoneSub;
   StreamSubscription<PhoneLookupResult?>? _onboardingPhoneSub;
   StreamSubscription<List<RemovedRecord>>? _removedSub;
+  StreamSubscription<List<TrainerAttendanceLog>>? _trainerAttendanceSub;
   StreamSubscription<GymMember?>? _currentMemberSub;
+  String _subscribedGymId = '';
+  final Set<String> _upgradedTrainerDutyIds = {};
 
   SmartGymBloc({
     required this.repository,
@@ -47,6 +51,8 @@ class SmartGymBloc extends Bloc<SmartGymEvent, SmartGymState> {
                   machineGuides: repository.getMachineGuides(),
                   mealQueue: repository.getInitialMealQueue(),
                   missingMembers: repository.getInitialMissingMembers(),
+                  trainerAttendanceLogs:
+                      repository.getInitialTrainerAttendanceLogs(),
                 )
               : const SmartGymState(
                   isAuthChecking: true,
@@ -68,8 +74,7 @@ class SmartGymBloc extends Bloc<SmartGymEvent, SmartGymState> {
     on<RemoveMemberFromGymEvent>(_onRemoveMemberFromGym);
     on<SyncGymTenantEvent>(_onSyncGymTenant);
     on<SyncMembersEvent>((e, emit) => emit(state.copyWith(members: e.members)));
-    on<SyncTrainersEvent>(
-        (e, emit) => emit(state.copyWith(trainers: e.trainers)));
+    on<SyncTrainersEvent>(_onSyncTrainers);
     on<SyncEnquiriesEvent>(
         (e, emit) => emit(state.copyWith(enquiries: e.enquiries)));
     on<SyncMachinesEvent>(
@@ -84,6 +89,8 @@ class SmartGymBloc extends Bloc<SmartGymEvent, SmartGymState> {
     on<CancelPendingRequestEvent>(_onCancelPendingRequest);
     on<SyncRemovedRecordsEvent>(
         (e, emit) => emit(state.copyWith(removedRecords: e.records)));
+    on<SyncTrainerAttendanceLogsEvent>(
+        (e, emit) => emit(state.copyWith(trainerAttendanceLogs: e.logs)));
     on<UpdateGymSettingsEvent>(_onUpdateGymSettings);
     on<SyncCurrentMemberEvent>(
         (e, emit) => emit(state.copyWith(currentMember: e.member)));
@@ -116,6 +123,9 @@ class SmartGymBloc extends Bloc<SmartGymEvent, SmartGymState> {
     on<RescueMissingMemberEvent>(_onRescueMissingMember);
 
     if (firestoreService != null) {
+      debugPrint(
+        '[BLOC][SmartGymBloc.init] firestoreService attached -> dispatching CheckAuthSessionEvent',
+      );
       add(const CheckAuthSessionEvent());
     }
   }
@@ -133,6 +143,7 @@ class SmartGymBloc extends Bloc<SmartGymEvent, SmartGymState> {
       _phoneSub,
       _onboardingPhoneSub,
       _removedSub,
+      _trainerAttendanceSub,
       _currentMemberSub,
     ];
     _gymSub = null;
@@ -146,69 +157,137 @@ class SmartGymBloc extends Bloc<SmartGymEvent, SmartGymState> {
     _phoneSub = null;
     _onboardingPhoneSub = null;
     _removedSub = null;
+    _trainerAttendanceSub = null;
     _currentMemberSub = null;
     await Future.wait(
       oldSubs.whereType<StreamSubscription<dynamic>>().map((s) => s.cancel()),
     );
   }
 
-  void _subscribeToGym(String gymId) {
+  void _onSyncTrainers(
+    SyncTrainersEvent event,
+    Emitter<SmartGymState> emit,
+  ) {
+    final fs = firestoreService;
+    final gymId =
+        state.currentGym.id.isNotEmpty ? state.currentGym.id : _subscribedGymId;
+    if (fs == null || gymId.isEmpty) {
+      emit(state.copyWith(trainers: event.trainers));
+      return;
+    }
+
+    final healed = <TrainerProfile>[];
+    for (final t in event.trainers) {
+      final canHealOwnOrAsOwner = state.partnerRole == PartnerRole.owner ||
+          (t.phone.isNotEmpty && t.phone == state.authenticatedPhone);
+      if (t.needsCheckInTimestampUpgrade &&
+          canHealOwnOrAsOwner &&
+          !_upgradedTrainerDutyIds.contains(t.id)) {
+        _upgradedTrainerDutyIds.add(t.id);
+        final stamp = TrainerProfile.formatCheckInRecord();
+        debugPrint(
+          '[BLOC][_onSyncTrainers] upgrading legacy "Checked In Now" for ${t.name} -> $stamp',
+        );
+        healed.add(t.copyWith(morningCheckInTime: stamp));
+        _syncAsync(() => fs.markTrainerDuty(gymId, t.id, stamp));
+      } else {
+        healed.add(t);
+      }
+    }
+    emit(state.copyWith(trainers: healed));
+  }
+
+  void _subscribeToGym(String gymId, {PartnerRole? role}) {
     final fs = firestoreService;
     if (fs == null || gymId.isEmpty) return;
+    final effectiveRole = role ?? state.partnerRole;
+    _subscribedGymId = gymId;
+    _upgradedTrainerDutyIds.clear();
+    debugPrint(
+      '[BLOC][_subscribeToGym] subscribing to gymId=$gymId role=$effectiveRole',
+    );
     _cancelSubscriptions();
     _gymSub = fs.watchGym(gymId).listen(
           (gym) {
-            if (gym != null) add(SyncGymTenantEvent(gym));
+            if (gym != null) {
+              debugPrint(
+                '[BLOC][_subscribeToGym.watchGym] gym=${gym.id} (${gym.name})',
+              );
+              add(SyncGymTenantEvent(gym));
+            }
           },
-          onError: (_) {},
+          onError: (Object e, StackTrace st) =>
+              debugPrint('[BLOC][_subscribeToGym.watchGym ERROR] $e\n$st'),
         );
     _membersSub = fs.watchMembers(gymId).listen(
           (list) => add(SyncMembersEvent(list)),
-          onError: (_) {},
+          onError: (Object e) =>
+              debugPrint('[BLOC][_subscribeToGym.watchMembers ERROR] $e'),
         );
     _trainersSub = fs.watchTrainers(gymId).listen(
           (list) => add(SyncTrainersEvent(list)),
-          onError: (_) {},
+          onError: (Object e) =>
+              debugPrint('[BLOC][_subscribeToGym.watchTrainers ERROR] $e'),
         );
     _enquiriesSub = fs.watchEnquiries(gymId).listen(
           (list) => add(SyncEnquiriesEvent(list)),
-          onError: (_) {},
+          onError: (Object e) =>
+              debugPrint('[BLOC][_subscribeToGym.watchEnquiries ERROR] $e'),
         );
     _machinesSub = fs.watchMachines(gymId).listen(
           (list) => add(SyncMachinesEvent(list)),
-          onError: (_) {},
+          onError: (Object e) =>
+              debugPrint('[BLOC][_subscribeToGym.watchMachines ERROR] $e'),
         );
     _mealsSub = fs.watchMeals(gymId).listen(
           (list) => add(SyncMealsEvent(list)),
-          onError: (_) {},
+          onError: (Object e) =>
+              debugPrint('[BLOC][_subscribeToGym.watchMeals ERROR] $e'),
         );
     _missingSub = fs.watchMissingMembers(gymId).listen(
           (list) => add(SyncMissingMembersEvent(list)),
-          onError: (_) {},
+          onError: (Object e) =>
+              debugPrint('[BLOC][_subscribeToGym.watchMissingMembers ERROR] $e'),
         );
     _requestsSub = fs.watchTrainerRequests(gymId).listen(
           (list) => add(SyncTrainerRequestsEvent(list)),
-          onError: (_) {},
+          onError: (Object e) =>
+              debugPrint('[BLOC][_subscribeToGym.watchTrainerRequests ERROR] $e'),
         );
     _removedSub = fs.watchRemovedLogs(gymId).listen(
           (list) => add(SyncRemovedRecordsEvent(list)),
-          onError: (_) {},
+          onError: (Object e) =>
+              debugPrint('[BLOC][_subscribeToGym.watchRemovedLogs ERROR] $e'),
         );
+    if (effectiveRole == PartnerRole.owner) {
+      _trainerAttendanceSub = fs.watchTrainerAttendanceLogs(gymId).listen(
+            (list) => add(SyncTrainerAttendanceLogsEvent(list)),
+            onError: (Object e) => debugPrint(
+              '[BLOC][_subscribeToGym.watchTrainerAttendanceLogs ERROR] $e',
+            ),
+          );
+    }
     final phone = fs.currentUser?.phoneNumber ?? '';
     if (phone.isNotEmpty) {
       _currentMemberSub = fs.watchMemberByPhone(gymId, phone).listen(
             (m) {
               if (m != null) add(SyncCurrentMemberEvent(m));
             },
-            onError: (_) {},
+            onError: (Object e) => debugPrint(
+              '[BLOC][_subscribeToGym.watchMemberByPhone ERROR] $e',
+            ),
           );
       _phoneSub = fs.watchPhoneLookup(phone).listen(
         (lookup) {
           if (lookup == null) {
+            debugPrint(
+              '[BLOC][_subscribeToGym.watchPhoneLookup] phone_index deleted for $phone -> logging out',
+            );
             add(const LogoutPartnerEvent());
           }
         },
-        onError: (_) {},
+        onError: (Object e) =>
+            debugPrint('[BLOC][_subscribeToGym.watchPhoneLookup ERROR] $e'),
       );
     }
   }
@@ -237,7 +316,7 @@ class SmartGymBloc extends Bloc<SmartGymEvent, SmartGymState> {
     }
     final gymId = state.currentGym.id;
     if (gymId.isNotEmpty) {
-      _subscribeToGym(gymId);
+      _subscribeToGym(gymId, role: state.partnerRole);
     }
   }
 
@@ -281,16 +360,21 @@ class SmartGymBloc extends Bloc<SmartGymEvent, SmartGymState> {
   void _watchOnboardingApproval(String phone) {
     final fs = firestoreService;
     if (fs == null || phone.isEmpty) return;
+    debugPrint('[BLOC][_watchOnboardingApproval] watching $phone');
     _onboardingPhoneSub?.cancel();
     _onboardingPhoneSub = fs.watchPhoneLookup(phone).listen(
       (lookup) {
         if (lookup != null && lookup.gymId.isNotEmpty) {
+          debugPrint(
+            '[BLOC][_watchOnboardingApproval] approved! phone=$phone gymId=${lookup.gymId}',
+          );
           _onboardingPhoneSub?.cancel();
           _onboardingPhoneSub = null;
           add(const CheckAuthSessionEvent());
         }
       },
-      onError: (_) {},
+      onError: (Object e) =>
+          debugPrint('[BLOC][_watchOnboardingApproval ERROR] $e'),
     );
   }
 
@@ -300,12 +384,19 @@ class SmartGymBloc extends Bloc<SmartGymEvent, SmartGymState> {
   ) async {
     final fs = firestoreService;
     if (fs == null) {
+      debugPrint('[BLOC][_onCheckAuthSession] offline/no FirestoreService');
       emit(state.copyWith(isAuthChecking: false));
       return;
     }
     final user = fs.currentUser;
     final phone = user?.phoneNumber ?? '';
+    debugPrint(
+      '[BLOC][_onCheckAuthSession] uid=${user?.uid} phone=$phone',
+    );
     if (user == null || phone.isEmpty) {
+      debugPrint(
+        '[BLOC][_onCheckAuthSession] no signed-in user -> showing Login screen',
+      );
       emit(state.copyWith(
         isAuthChecking: false,
         isPartnerLoggedIn: false,
@@ -317,6 +408,10 @@ class SmartGymBloc extends Bloc<SmartGymEvent, SmartGymState> {
       final lookup = await fs.lookupPhone(phone);
       if (lookup == null || lookup.gymId.isEmpty) {
         final pendingGymName = await fs.lookupPendingGymName(phone);
+        debugPrint(
+          '[BLOC][_onCheckAuthSession] no gym mapping for $phone -> '
+          'needsOnboarding=true pendingGymName=$pendingGymName',
+        );
         _watchOnboardingApproval(phone);
         emit(state.copyWith(
           isAuthChecking: false,
@@ -328,19 +423,23 @@ class SmartGymBloc extends Bloc<SmartGymEvent, SmartGymState> {
         ));
         return;
       }
+      debugPrint(
+        '[BLOC][_onCheckAuthSession] SUCCESS role=${lookup.role} gymId=${lookup.gymId}',
+      );
       await OnboardingDraftService.clearDraft(phone);
-      _subscribeToGym(lookup.gymId);
+      final role =
+          lookup.role == 'trainer' ? PartnerRole.trainer : PartnerRole.owner;
+      _subscribeToGym(lookup.gymId, role: role);
       emit(state.copyWith(
         isAuthChecking: false,
         isPartnerLoggedIn: true,
         needsOnboarding: false,
         authenticatedPhone: phone,
-        partnerRole: lookup.role == 'trainer'
-            ? PartnerRole.trainer
-            : PartnerRole.owner,
+        partnerRole: role,
         loggedInTrainerName: lookup.name.isEmpty ? 'Partner' : lookup.name,
       ));
-    } catch (_) {
+    } catch (e, st) {
+      debugPrint('[BLOC][_onCheckAuthSession ERROR] $e\n$st');
       emit(state.copyWith(
         isAuthChecking: false,
         isPartnerLoggedIn: false,
@@ -356,8 +455,12 @@ class SmartGymBloc extends Bloc<SmartGymEvent, SmartGymState> {
     if (fs == null) return;
     emit(state.copyWith(isOnboardingBusy: true, clearAuthError: true));
     try {
-      final phone =
-          state.authenticatedPhone.isNotEmpty ? state.authenticatedPhone : (fs.currentUser?.phoneNumber ?? '');
+      final phone = state.authenticatedPhone.isNotEmpty
+          ? state.authenticatedPhone
+          : (fs.currentUser?.phoneNumber ?? '');
+      debugPrint(
+        '[BLOC][_onCreateNewGymOnboarding] gymName=${event.gymName} ownerPhone=$phone',
+      );
       final gymId = await fs.createNewGym(
         gymName: event.gymName,
         area: event.area,
@@ -372,8 +475,11 @@ class SmartGymBloc extends Bloc<SmartGymEvent, SmartGymState> {
         checkInRadiusMeters: event.checkInRadiusMeters,
         requireGpsCheckIn: event.requireGpsCheckIn,
       );
+      debugPrint(
+        '[BLOC][_onCreateNewGymOnboarding] SUCCESS gymId=$gymId',
+      );
       await OnboardingDraftService.clearDraft(phone);
-      _subscribeToGym(gymId);
+      _subscribeToGym(gymId, role: PartnerRole.owner);
       emit(state.copyWith(
         isOnboardingBusy: false,
         needsOnboarding: false,
@@ -381,7 +487,8 @@ class SmartGymBloc extends Bloc<SmartGymEvent, SmartGymState> {
         partnerRole: PartnerRole.owner,
         loggedInTrainerName: event.ownerName.trim(),
       ));
-    } catch (e) {
+    } catch (e, st) {
+      debugPrint('[BLOC][_onCreateNewGymOnboarding ERROR] $e\n$st');
       emit(state.copyWith(
         isOnboardingBusy: false,
         authError: 'Could not register gym: $e',
@@ -416,11 +523,18 @@ class SmartGymBloc extends Bloc<SmartGymEvent, SmartGymState> {
       final phone = state.authenticatedPhone.isNotEmpty
           ? state.authenticatedPhone
           : (fs.currentUser?.phoneNumber ?? '');
+      debugPrint(
+        '[BLOC][_onJoinGymWithInviteQr] gymId=${event.gymId} '
+        'invite=${event.inviteCode} phone=$phone',
+      );
       final gymName = await fs.submitTrainerJoinRequest(
         gymId: event.gymId,
         inviteCode: event.inviteCode,
         trainerName: event.trainerName,
         trainerPhone: phone,
+      );
+      debugPrint(
+        '[BLOC][_onJoinGymWithInviteQr] SUCCESS pending gym=$gymName',
       );
       await OnboardingDraftService.clearDraft(phone);
       emit(state.copyWith(
@@ -429,7 +543,8 @@ class SmartGymBloc extends Bloc<SmartGymEvent, SmartGymState> {
         isPartnerLoggedIn: false,
         pendingApprovalGymName: gymName,
       ));
-    } catch (e) {
+    } catch (e, st) {
+      debugPrint('[BLOC][_onJoinGymWithInviteQr ERROR] $e\n$st');
       emit(state.copyWith(
         isOnboardingBusy: false,
         authError: 'Could not send join request: $e',
@@ -615,13 +730,38 @@ class SmartGymBloc extends Bloc<SmartGymEvent, SmartGymState> {
     Emitter<SmartGymState> emit,
   ) async {
     final fs = firestoreService;
+    debugPrint(
+      '[BLOC][_onLoginPartner] phone=${event.phone} role=${event.role} '
+      'hasFirestore=${fs != null}',
+    );
     if (fs == null) {
       // Offline / widget-test mode
+      final resolvedName = event.trainerName ?? state.currentGym.headTrainer;
+      var updatedLogs = state.trainerAttendanceLogs;
+      if (event.role == PartnerRole.trainer) {
+        final match = state.trainers.where((t) {
+          if (event.phone.isNotEmpty && t.phone == event.phone) return true;
+          return t.name.trim().toLowerCase() ==
+              resolvedName.trim().toLowerCase();
+        }).toList();
+        final matched = match.isNotEmpty ? match.first : null;
+        final loginLog = TrainerAttendanceLog.fromDateTime(
+          trainerId: matched?.id ??
+              (event.phone.isNotEmpty ? event.phone : 'trainer'),
+          trainerName: matched?.name ?? resolvedName,
+          trainerPhone: matched?.phone.isNotEmpty == true
+              ? matched!.phone
+              : event.phone,
+          eventType: 'login',
+        );
+        updatedLogs = [loginLog, ...updatedLogs];
+      }
       emit(
         state.copyWith(
           isPartnerLoggedIn: true,
           partnerRole: event.role,
-          loggedInTrainerName: event.trainerName ?? state.currentGym.headTrainer,
+          loggedInTrainerName: resolvedName,
+          trainerAttendanceLogs: updatedLogs,
         ),
       );
       return;
@@ -632,6 +772,10 @@ class SmartGymBloc extends Bloc<SmartGymEvent, SmartGymState> {
       final lookup = await fs.lookupPhone(event.phone);
       if (lookup == null || lookup.gymId.isEmpty) {
         final pendingGymName = await fs.lookupPendingGymName(event.phone);
+        debugPrint(
+          '[BLOC][_onLoginPartner] no phone_index for ${event.phone} -> '
+          'needsOnboarding=true pendingGymName=$pendingGymName',
+        );
         _watchOnboardingApproval(event.phone);
         emit(state.copyWith(
           isAuthChecking: false,
@@ -643,21 +787,35 @@ class SmartGymBloc extends Bloc<SmartGymEvent, SmartGymState> {
         ));
         return;
       }
+      debugPrint(
+        '[BLOC][_onLoginPartner] SUCCESS role=${lookup.role} gymId=${lookup.gymId} '
+        'name=${lookup.name}',
+      );
       await OnboardingDraftService.clearDraft(event.phone);
-      _subscribeToGym(lookup.gymId);
+      final role =
+          lookup.role == 'trainer' ? PartnerRole.trainer : PartnerRole.owner;
+      _subscribeToGym(lookup.gymId, role: role);
+      if (role == PartnerRole.trainer) {
+        _syncAsync(
+          () => fs.recordTrainerLogin(
+            gymId: lookup.gymId,
+            phone: event.phone,
+            fallbackName: lookup.name,
+          ),
+        );
+      }
       emit(
         state.copyWith(
           isAuthChecking: false,
           isPartnerLoggedIn: true,
           needsOnboarding: false,
           authenticatedPhone: event.phone,
-          partnerRole: lookup.role == 'trainer'
-              ? PartnerRole.trainer
-              : PartnerRole.owner,
+          partnerRole: role,
           loggedInTrainerName: lookup.name.isEmpty ? 'Partner' : lookup.name,
         ),
       );
-    } catch (e) {
+    } catch (e, st) {
+      debugPrint('[BLOC][_onLoginPartner ERROR] phone=${event.phone} $e\n$st');
       emit(state.copyWith(
         isAuthChecking: false,
         authError: 'Could not verify account: $e',
@@ -669,11 +827,16 @@ class SmartGymBloc extends Bloc<SmartGymEvent, SmartGymState> {
     LogoutPartnerEvent event,
     Emitter<SmartGymState> emit,
   ) async {
+    debugPrint(
+      '[BLOC][_onLogoutPartner] phone=${state.authenticatedPhone}',
+    );
     await _cancelSubscriptions();
     if (firestoreService != null) {
       try {
         await firestoreService!.signOut();
-      } catch (_) {}
+      } catch (e) {
+        debugPrint('[BLOC][_onLogoutPartner signOut ERROR] $e');
+      }
       emit(
         state.copyWith(
           isPartnerLoggedIn: false,
@@ -689,6 +852,7 @@ class SmartGymBloc extends Bloc<SmartGymEvent, SmartGymState> {
           missingMembers: const [],
           trainerRequests: const [],
           removedRecords: const [],
+          trainerAttendanceLogs: const [],
         ),
       );
     } else {
@@ -902,18 +1066,39 @@ class SmartGymBloc extends Bloc<SmartGymEvent, SmartGymState> {
   ) {
     final updated = List<TrainerProfile>.from(state.trainers);
     final trainer = updated[event.trainerIndex];
+    final now = DateTime.now();
+    final checkInRecord = TrainerProfile.formatCheckInRecord(now);
     updated[event.trainerIndex] = trainer.copyWith(
       isOnDuty: true,
-      morningCheckInTime: 'Checked In Now',
+      morningCheckInTime: checkInRecord,
     );
-    emit(state.copyWith(trainers: updated));
-    _syncAsync(
-      () => firestoreService!.markTrainerDuty(
-        state.currentGym.id,
-        trainer.id,
-        'Checked In Now',
+    final resolvedPhone = state.authenticatedPhone.isNotEmpty
+        ? state.authenticatedPhone
+        : trainer.phone;
+    final log = TrainerAttendanceLog.fromDateTime(
+      trainerId: trainer.id,
+      trainerName: trainer.name,
+      trainerPhone: resolvedPhone,
+      eventType: 'duty_checkin',
+      at: now,
+    );
+    emit(
+      state.copyWith(
+        trainers: updated,
+        trainerAttendanceLogs: [log, ...state.trainerAttendanceLogs],
       ),
     );
+    _syncAsync(() async {
+      await firestoreService!.markTrainerDuty(
+        state.currentGym.id,
+        trainer.id,
+        checkInRecord,
+      );
+      await firestoreService!.addTrainerAttendanceLog(
+        state.currentGym.id,
+        log,
+      );
+    });
   }
 
   void _onUpdateMemberWeight(

@@ -7,6 +7,7 @@ import '../domain/models/meal_review_item.dart';
 import '../domain/models/missing_member.dart';
 import '../domain/models/partner_role.dart';
 import '../domain/models/removed_record.dart';
+import '../domain/models/trainer_attendance_log.dart';
 import '../domain/models/trainer_join_request.dart';
 import '../domain/models/trainer_profile.dart';
 import '../domain/models/walk_in_enquiry.dart';
@@ -492,6 +493,14 @@ class SyncRemovedRecordsEvent extends SmartGymEvent {
 
   @override
   List<Object?> get props => [records];
+}
+
+class SyncTrainerAttendanceLogsEvent extends SmartGymEvent {
+  final List<TrainerAttendanceLog> logs;
+  const SyncTrainerAttendanceLogsEvent(this.logs);
+
+  @override
+  List<Object?> get props => [logs];
 }
 
 class UpdateGymSettingsEvent extends SmartGymEvent {

@@ -8,13 +8,13 @@ import '../../../domain/models/gym_fee_plan.dart';
 class GymFeePlansEditor extends StatefulWidget {
   final List<GymFeePlan> plans;
   final ValueChanged<List<GymFeePlan>> onChanged;
-  final Color accentColor;
+  final Color? accentColor;
 
   const GymFeePlansEditor({
     super.key,
     required this.plans,
     required this.onChanged,
-    this.accentColor = AppTheme.ownerGold,
+    this.accentColor,
   });
 
   static String? validatePlans(List<GymFeePlan> plans) {
@@ -155,6 +155,8 @@ class _GymFeePlansEditorState extends State<GymFeePlansEditor> {
   Future<void> _showAddCustomPlanSheet() async {
     if (widget.plans.length >= 25) return;
     HapticFeedback.selectionClick();
+    final p = AppPalette.of(context);
+    final accent = widget.accentColor ?? p.gold;
     final nameCtrl = TextEditingController();
     final priceCtrl = TextEditingController();
     final durCtrl = TextEditingController(text: '1');
@@ -165,256 +167,281 @@ class _GymFeePlansEditorState extends State<GymFeePlansEditor> {
     final created = await showModalBottomSheet<GymFeePlan>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: const Color(0xFF1A1E29),
+      backgroundColor: p.card,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setModalState) => SafeArea(
-          top: false,
-          child: Padding(
-            padding: EdgeInsets.fromLTRB(
-              20,
-              16,
-              20,
-              MediaQuery.of(ctx).viewInsets.bottom + 20,
-            ),
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Center(
-                    child: Container(
-                      width: 38,
-                      height: 4,
-                      margin: const EdgeInsets.only(bottom: 14),
-                      decoration: BoxDecoration(
-                        color: Colors.white12,
-                        borderRadius: BorderRadius.circular(99),
-                      ),
-                    ),
-                  ),
-                  const Text(
-                    'Add Custom Plan',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 17,
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  const Text(
-                    'Create packages like Couple Plan, Day Pass, Student Offer, or 45-Day Challenge.',
-                    style: TextStyle(color: Colors.white54, fontSize: 12),
-                  ),
-                  const SizedBox(height: 14),
-                  TextField(
-                    controller: nameCtrl,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w700,
-                    ),
-                    decoration: InputDecoration(
-                      labelText: 'Plan Name',
-                      hintText: 'e.g. Couple Plan / Day Pass',
-                      hintStyle: const TextStyle(color: Colors.white30),
-                      filled: true,
-                      fillColor: const Color(0xFF12151C),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide.none,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: TextField(
-                          controller: priceCtrl,
-                          keyboardType: TextInputType.number,
-                          inputFormatters: [
-                            FilteringTextInputFormatter.digitsOnly,
-                          ],
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w700,
-                          ),
-                          decoration: InputDecoration(
-                            labelText: 'Price (₹)',
-                            hintText: '2500',
-                            prefixText: '₹ ',
-                            prefixStyle: TextStyle(
-                              color: widget.accentColor,
-                              fontWeight: FontWeight.w800,
-                            ),
-                            hintStyle: const TextStyle(color: Colors.white30),
-                            filled: true,
-                            fillColor: const Color(0xFF12151C),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide.none,
-                            ),
-                          ),
+      builder: (ctx) => Theme(
+        data: Theme.of(context),
+        child: StatefulBuilder(
+          builder: (ctx, setModalState) => SafeArea(
+            top: false,
+            child: Padding(
+              padding: EdgeInsets.fromLTRB(
+                20,
+                16,
+                20,
+                MediaQuery.of(ctx).viewInsets.bottom + 20,
+              ),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Center(
+                      child: Container(
+                        width: 38,
+                        height: 4,
+                        margin: const EdgeInsets.only(bottom: 14),
+                        decoration: BoxDecoration(
+                          color: p.border,
+                          borderRadius: BorderRadius.circular(99),
                         ),
                       ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: TextField(
-                          controller: durCtrl,
-                          keyboardType: TextInputType.number,
-                          inputFormatters: [
-                            FilteringTextInputFormatter.digitsOnly,
-                          ],
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w700,
-                          ),
-                          decoration: InputDecoration(
-                            labelText: useMonths ? 'Months' : 'Days',
-                            hintText: useMonths ? '3' : '15',
-                            hintStyle: const TextStyle(color: Colors.white30),
-                            filled: true,
-                            fillColor: const Color(0xFF12151C),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide.none,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  Row(
-                    children: [
-                      ChoiceChip(
-                        label: const Text('Months'),
-                        selected: useMonths,
-                        selectedColor: widget.accentColor,
-                        backgroundColor: const Color(0xFF12151C),
-                        labelStyle: TextStyle(
-                          color: useMonths ? Colors.black : Colors.white70,
-                          fontWeight: FontWeight.w800,
-                          fontSize: 12,
-                        ),
-                        onSelected: (_) => setModalState(() {
-                          useMonths = true;
-                          if (durCtrl.text == '15' || durCtrl.text == '7') {
-                            durCtrl.text = '1';
-                          }
-                        }),
-                      ),
-                      const SizedBox(width: 8),
-                      ChoiceChip(
-                        label: const Text('Days'),
-                        selected: !useMonths,
-                        selectedColor: widget.accentColor,
-                        backgroundColor: const Color(0xFF12151C),
-                        labelStyle: TextStyle(
-                          color: !useMonths ? Colors.black : Colors.white70,
-                          fontWeight: FontWeight.w800,
-                          fontSize: 12,
-                        ),
-                        onSelected: (_) => setModalState(() {
-                          useMonths = false;
-                          if (durCtrl.text == '1') durCtrl.text = '15';
-                        }),
-                      ),
-                      const Spacer(),
-                      Row(
-                        children: [
-                          const Text(
-                            'PT',
-                            style: TextStyle(
-                              color: AppTheme.champagne,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w900,
-                            ),
-                          ),
-                          const SizedBox(width: 4),
-                          Switch.adaptive(
-                            value: includesPt,
-                            activeThumbColor: AppTheme.champagne,
-                            onChanged: (v) =>
-                                setModalState(() => includesPt = v),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                  if (sheetError != null) ...[
-                    const SizedBox(height: 8),
+                    ),
                     Text(
-                      sheetError!,
-                      style: const TextStyle(
-                        color: AppTheme.danger,
-                        fontSize: 12,
+                      'Add Custom Plan',
+                      style: TextStyle(
+                        color: p.textPrimary,
+                        fontSize: 17,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Create packages like Couple Plan, Day Pass, Student Offer, or 45-Day Challenge.',
+                      style: TextStyle(color: p.textMuted, fontSize: 12),
+                    ),
+                    const SizedBox(height: 14),
+                    TextField(
+                      controller: nameCtrl,
+                      style: TextStyle(
+                        color: p.textPrimary,
                         fontWeight: FontWeight.w700,
+                      ),
+                      decoration: InputDecoration(
+                        labelText: 'Plan Name',
+                        hintText: 'e.g. Couple Plan / Day Pass',
+                        labelStyle: TextStyle(color: p.textSecondary),
+                        hintStyle: TextStyle(color: p.textMuted),
+                        filled: true,
+                        fillColor: p.cardSubtle,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(color: p.border),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(color: p.border),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: priceCtrl,
+                            keyboardType: TextInputType.number,
+                            inputFormatters: [
+                              FilteringTextInputFormatter.digitsOnly,
+                            ],
+                            style: TextStyle(
+                              color: p.textPrimary,
+                              fontWeight: FontWeight.w700,
+                            ),
+                            decoration: InputDecoration(
+                              labelText: 'Price (₹)',
+                              hintText: '2500',
+                              prefixText: '₹ ',
+                              prefixStyle: TextStyle(
+                                color: accent,
+                                fontWeight: FontWeight.w800,
+                              ),
+                              labelStyle: TextStyle(color: p.textSecondary),
+                              hintStyle: TextStyle(color: p.textMuted),
+                              filled: true,
+                              fillColor: p.cardSubtle,
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(color: p.border),
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(color: p.border),
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: TextField(
+                            controller: durCtrl,
+                            keyboardType: TextInputType.number,
+                            inputFormatters: [
+                              FilteringTextInputFormatter.digitsOnly,
+                            ],
+                            style: TextStyle(
+                              color: p.textPrimary,
+                              fontWeight: FontWeight.w700,
+                            ),
+                            decoration: InputDecoration(
+                              labelText: useMonths ? 'Months' : 'Days',
+                              hintText: useMonths ? '3' : '15',
+                              labelStyle: TextStyle(color: p.textSecondary),
+                              hintStyle: TextStyle(color: p.textMuted),
+                              filled: true,
+                              fillColor: p.cardSubtle,
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(color: p.border),
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(color: p.border),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        ChoiceChip(
+                          label: const Text('Months'),
+                          selected: useMonths,
+                          selectedColor: accent,
+                          backgroundColor: p.cardSubtle,
+                          side: BorderSide(
+                            color: useMonths ? accent : p.border,
+                          ),
+                          labelStyle: TextStyle(
+                            color: useMonths ? p.onAccent : p.textSecondary,
+                            fontWeight: FontWeight.w800,
+                            fontSize: 12,
+                          ),
+                          onSelected: (_) => setModalState(() {
+                            useMonths = true;
+                            if (durCtrl.text == '15' || durCtrl.text == '7') {
+                              durCtrl.text = '1';
+                            }
+                          }),
+                        ),
+                        const SizedBox(width: 8),
+                        ChoiceChip(
+                          label: const Text('Days'),
+                          selected: !useMonths,
+                          selectedColor: accent,
+                          backgroundColor: p.cardSubtle,
+                          side: BorderSide(
+                            color: !useMonths ? accent : p.border,
+                          ),
+                          labelStyle: TextStyle(
+                            color: !useMonths ? p.onAccent : p.textSecondary,
+                            fontWeight: FontWeight.w800,
+                            fontSize: 12,
+                          ),
+                          onSelected: (_) => setModalState(() {
+                            useMonths = false;
+                            if (durCtrl.text == '1') durCtrl.text = '15';
+                          }),
+                        ),
+                        const Spacer(),
+                        Row(
+                          children: [
+                            Text(
+                              'PT',
+                              style: TextStyle(
+                                color: p.gold,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            Switch.adaptive(
+                              value: includesPt,
+                              activeThumbColor: p.gold,
+                              onChanged: (v) =>
+                                  setModalState(() => includesPt = v),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                    if (sheetError != null) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        sheetError!,
+                        style: TextStyle(
+                          color: p.danger,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 14),
+                    SizedBox(
+                      height: 48,
+                      child: ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: accent,
+                          foregroundColor: p.onAccent,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        onPressed: () {
+                          final name = nameCtrl.text.trim();
+                          final price = int.tryParse(priceCtrl.text.trim());
+                          final dur = int.tryParse(durCtrl.text.trim());
+                          if (name.isEmpty || name.length > 60) {
+                            setModalState(
+                              () =>
+                                  sheetError = 'Enter a plan name (1–60 chars).',
+                            );
+                            return;
+                          }
+                          if (price == null || price <= 0 || price > 1000000) {
+                            setModalState(
+                              () => sheetError =
+                                  'Enter a valid price (₹1 – ₹10,00,000).',
+                            );
+                            return;
+                          }
+                          if (dur == null ||
+                              dur < 1 ||
+                              (useMonths && dur > 36) ||
+                              (!useMonths && dur > 1095)) {
+                            setModalState(
+                              () => sheetError = useMonths
+                                  ? 'Enter 1–36 months.'
+                                  : 'Enter 1–1095 days.',
+                            );
+                            return;
+                          }
+                          Navigator.pop(
+                            ctx,
+                            GymFeePlan(
+                              id: 'custom_${DateTime.now().millisecondsSinceEpoch}',
+                              name: name,
+                              price: price,
+                              durationDays: useMonths ? dur * 30 : dur,
+                              durationMonths: useMonths ? dur : null,
+                              includesPt: includesPt,
+                              isCustom: true,
+                            ),
+                          );
+                        },
+                        icon: const Icon(Icons.add_circle_rounded, size: 18),
+                        label: const Text(
+                          'ADD PLAN',
+                          style: TextStyle(fontWeight: FontWeight.w900),
+                        ),
                       ),
                     ),
                   ],
-                  const SizedBox(height: 14),
-                  SizedBox(
-                    height: 48,
-                    child: ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: widget.accentColor,
-                        foregroundColor: Colors.black,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      onPressed: () {
-                        final name = nameCtrl.text.trim();
-                        final price = int.tryParse(priceCtrl.text.trim());
-                        final dur = int.tryParse(durCtrl.text.trim());
-                        if (name.isEmpty || name.length > 60) {
-                          setModalState(
-                            () => sheetError = 'Enter a plan name (1–60 chars).',
-                          );
-                          return;
-                        }
-                        if (price == null || price <= 0 || price > 1000000) {
-                          setModalState(
-                            () => sheetError =
-                                'Enter a valid price (₹1 – ₹10,00,000).',
-                          );
-                          return;
-                        }
-                        if (dur == null ||
-                            dur < 1 ||
-                            (useMonths && dur > 36) ||
-                            (!useMonths && dur > 1095)) {
-                          setModalState(
-                            () => sheetError = useMonths
-                                ? 'Enter 1–36 months.'
-                                : 'Enter 1–1095 days.',
-                          );
-                          return;
-                        }
-                        Navigator.pop(
-                          ctx,
-                          GymFeePlan(
-                            id: 'custom_${DateTime.now().millisecondsSinceEpoch}',
-                            name: name,
-                            price: price,
-                            durationDays: useMonths ? dur * 30 : dur,
-                            durationMonths: useMonths ? dur : null,
-                            includesPt: includesPt,
-                            isCustom: true,
-                          ),
-                        );
-                      },
-                      icon: const Icon(Icons.add_circle_rounded, size: 18),
-                      label: const Text(
-                        'ADD PLAN',
-                        style: TextStyle(fontWeight: FontWeight.w900),
-                      ),
-                    ),
-                  ),
-                ],
+                ),
               ),
             ),
           ),
@@ -432,10 +459,12 @@ class _GymFeePlansEditorState extends State<GymFeePlansEditor> {
 
   @override
   Widget build(BuildContext context) {
+    final p = AppPalette.of(context);
+    final baseAccent = widget.accentColor ?? p.gold;
     final availablePresets = _quickPresets
         .where(
           (preset) => !widget.plans.any(
-            (p) => p.name.toLowerCase() == preset.name.toLowerCase(),
+            (plan) => plan.name.toLowerCase() == preset.name.toLowerCase(),
           ),
         )
         .toList();
@@ -447,17 +476,17 @@ class _GymFeePlansEditorState extends State<GymFeePlansEditor> {
           final ctrl = _priceCtrls[plan.id]!;
           final focus = _focusNodes[plan.id]!;
           final accent = plan.includesPt
-              ? AppTheme.champagne
-              : (plan.isCustom ? AppTheme.trainerCyan : widget.accentColor);
+              ? p.gold
+              : (plan.isCustom ? p.cyan : baseAccent);
 
           return Container(
             margin: const EdgeInsets.only(bottom: 8),
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
             decoration: BoxDecoration(
-              color: const Color(0xFF12151C),
+              color: p.cardSubtle,
               borderRadius: BorderRadius.circular(13),
               border: Border.all(
-                color: accent.withValues(alpha: plan.isCustom ? 0.35 : 0.16),
+                color: accent.withValues(alpha: plan.isCustom ? 0.35 : 0.22),
               ),
             ),
             child: Row(
@@ -470,8 +499,8 @@ class _GymFeePlansEditorState extends State<GymFeePlansEditor> {
                         plan.name,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: Colors.white,
+                        style: TextStyle(
+                          color: p.textPrimary,
                           fontSize: 13,
                           fontWeight: FontWeight.w800,
                         ),
@@ -483,8 +512,8 @@ class _GymFeePlansEditorState extends State<GymFeePlansEditor> {
                         children: [
                           Text(
                             plan.durationLabel,
-                            style: const TextStyle(
-                              color: Colors.white54,
+                            style: TextStyle(
+                              color: p.textMuted,
                               fontSize: 11,
                               fontWeight: FontWeight.w600,
                             ),
@@ -496,14 +525,13 @@ class _GymFeePlansEditorState extends State<GymFeePlansEditor> {
                                 vertical: 1,
                               ),
                               decoration: BoxDecoration(
-                                color:
-                                    AppTheme.champagne.withValues(alpha: 0.16),
+                                color: p.gold.withValues(alpha: 0.14),
                                 borderRadius: BorderRadius.circular(5),
                               ),
-                              child: const Text(
+                              child: Text(
                                 'PT',
                                 style: TextStyle(
-                                  color: AppTheme.champagne,
+                                  color: p.gold,
                                   fontSize: 9,
                                   fontWeight: FontWeight.w900,
                                 ),
@@ -516,14 +544,13 @@ class _GymFeePlansEditorState extends State<GymFeePlansEditor> {
                                 vertical: 1,
                               ),
                               decoration: BoxDecoration(
-                                color: AppTheme.trainerCyan
-                                    .withValues(alpha: 0.16),
+                                color: p.cyan.withValues(alpha: 0.14),
                                 borderRadius: BorderRadius.circular(5),
                               ),
-                              child: const Text(
+                              child: Text(
                                 'CUSTOM',
                                 style: TextStyle(
-                                  color: AppTheme.trainerCyan,
+                                  color: p.cyan,
                                   fontSize: 9,
                                   fontWeight: FontWeight.w900,
                                 ),
@@ -563,14 +590,14 @@ class _GymFeePlansEditorState extends State<GymFeePlansEditor> {
                         vertical: 9,
                       ),
                       filled: true,
-                      fillColor: const Color(0xFF1A1E29),
+                      fillColor: p.card,
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(10),
-                        borderSide: const BorderSide(color: Colors.white12),
+                        borderSide: BorderSide(color: p.border),
                       ),
                       enabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(10),
-                        borderSide: const BorderSide(color: Colors.white12),
+                        borderSide: BorderSide(color: p.border),
                       ),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(10),
@@ -590,9 +617,9 @@ class _GymFeePlansEditorState extends State<GymFeePlansEditor> {
                     ),
                     padding: EdgeInsets.zero,
                     onPressed: () => _removePlan(plan.id),
-                    icon: const Icon(
+                    icon: Icon(
                       Icons.close_rounded,
-                      color: Colors.white38,
+                      color: p.textMuted,
                       size: 16,
                     ),
                   ),
@@ -603,10 +630,10 @@ class _GymFeePlansEditorState extends State<GymFeePlansEditor> {
         }),
         if (availablePresets.isNotEmpty) ...[
           const SizedBox(height: 6),
-          const Text(
+          Text(
             'QUICK ADD SPECIAL PACKAGES',
             style: TextStyle(
-              color: Colors.white38,
+              color: p.textMuted,
               fontSize: 9.5,
               fontWeight: FontWeight.w900,
               letterSpacing: 1.2,
@@ -618,14 +645,14 @@ class _GymFeePlansEditorState extends State<GymFeePlansEditor> {
             runSpacing: 6,
             children: availablePresets.map((preset) {
               return ActionChip(
-                backgroundColor: const Color(0xFF12151C),
+                backgroundColor: p.cardSubtle,
                 side: BorderSide(
-                  color: AppTheme.trainerCyan.withValues(alpha: 0.32),
+                  color: p.cyan.withValues(alpha: 0.35),
                 ),
                 label: Text(
                   '+ ${preset.name} (₹${preset.price})',
-                  style: const TextStyle(
-                    color: Colors.white70,
+                  style: TextStyle(
+                    color: p.textSecondary,
                     fontSize: 11,
                     fontWeight: FontWeight.w700,
                   ),
@@ -640,9 +667,9 @@ class _GymFeePlansEditorState extends State<GymFeePlansEditor> {
           height: 42,
           child: OutlinedButton.icon(
             style: OutlinedButton.styleFrom(
-              foregroundColor: AppTheme.trainerCyan,
+              foregroundColor: p.cyan,
               side: BorderSide(
-                color: AppTheme.trainerCyan.withValues(alpha: 0.45),
+                color: p.cyan.withValues(alpha: 0.45),
               ),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),

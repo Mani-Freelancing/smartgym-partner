@@ -600,7 +600,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 200));
     await tester.tap(find.byKey(const ValueKey('home_metric_walkins')));
     await tester.pump(const Duration(milliseconds: 300));
-    expect(find.text('TRAINER DUTY, PT CLIENTS & COMMISSION SPLIT'), findsOneWidget);
+    expect(find.text('TRAINER TEAM & PAYOUTS'), findsOneWidget);
   });
 
   test('OwnerAnalyticsEngine computes 1W, 1M, 2M, Custom windows and AI insights accurately', () {

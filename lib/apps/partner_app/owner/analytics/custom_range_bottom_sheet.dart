@@ -206,6 +206,7 @@ class _CustomRangeCalendarSheetState extends State<_CustomRangeCalendarSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final p = AppPalette.of(context);
     final maxH = MediaQuery.of(context).size.height * 0.88;
     final effStart = _startDate;
     final effEnd = _endDate ?? _startDate;
@@ -217,22 +218,19 @@ class _CustomRangeCalendarSheetState extends State<_CustomRangeCalendarSheet> {
         key: const ValueKey('custom_range_sheet'),
         constraints: BoxConstraints(maxHeight: maxH),
         decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Color(0xFF1B202E), Color(0xFF12151C)],
-          ),
+          color: p.card,
           borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
           border: Border(
             top: BorderSide(
-              color: AppTheme.ownerGold.withValues(alpha: 0.45),
+              color: p.gold.withValues(alpha: 0.45),
               width: 1.2,
             ),
           ),
           boxShadow: [
             BoxShadow(
-              color: AppTheme.ownerGold.withValues(alpha: 0.14),
-              blurRadius: 32,
+              color: const Color(0xFF0F172A)
+                  .withValues(alpha: p.isDark ? 0.35 : 0.12),
+              blurRadius: 28,
               offset: const Offset(0, -6),
             ),
           ],
@@ -250,7 +248,7 @@ class _CustomRangeCalendarSheetState extends State<_CustomRangeCalendarSheet> {
                     height: 4,
                     margin: const EdgeInsets.only(bottom: 12),
                     decoration: BoxDecoration(
-                      color: Colors.white24,
+                      color: p.border,
                       borderRadius: BorderRadius.circular(99),
                     ),
                   ),
@@ -260,25 +258,20 @@ class _CustomRangeCalendarSheetState extends State<_CustomRangeCalendarSheet> {
                         width: 38,
                         height: 38,
                         decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [
-                              AppTheme.ownerGold.withValues(alpha: 0.24),
-                              AppTheme.ownerGold.withValues(alpha: 0.10),
-                            ],
-                          ),
+                          color: p.gold.withValues(alpha: 0.14),
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(
-                            color: AppTheme.ownerGold.withValues(alpha: 0.35),
+                            color: p.gold.withValues(alpha: 0.35),
                           ),
                         ),
-                        child: const Icon(
+                        child: Icon(
                           Icons.calendar_month_rounded,
-                          color: AppTheme.ownerGold,
+                          color: p.gold,
                           size: 19,
                         ),
                       ),
                       const SizedBox(width: 12),
-                      const Expanded(
+                      Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -290,10 +283,10 @@ class _CustomRangeCalendarSheetState extends State<_CustomRangeCalendarSheet> {
                                 fontSize: 10,
                                 fontWeight: FontWeight.w900,
                                 letterSpacing: 1.4,
-                                color: AppTheme.ownerGold,
+                                color: p.gold,
                               ),
                             ),
-                            SizedBox(height: 2),
+                            const SizedBox(height: 2),
                             Text(
                               'Select Start & End Date',
                               maxLines: 1,
@@ -301,7 +294,7 @@ class _CustomRangeCalendarSheetState extends State<_CustomRangeCalendarSheet> {
                               style: TextStyle(
                                 fontSize: 16.5,
                                 fontWeight: FontWeight.w900,
-                                color: Colors.white,
+                                color: p.textPrimary,
                               ),
                             ),
                           ],
@@ -309,9 +302,9 @@ class _CustomRangeCalendarSheetState extends State<_CustomRangeCalendarSheet> {
                       ),
                       IconButton(
                         onPressed: () => Navigator.of(context).pop(),
-                        icon: const Icon(
+                        icon: Icon(
                           Icons.close_rounded,
-                          color: Colors.white54,
+                          color: p.textMuted,
                           size: 20,
                         ),
                       ),
@@ -338,7 +331,7 @@ class _CustomRangeCalendarSheetState extends State<_CustomRangeCalendarSheet> {
                                 ? _formatBadgeDate(effStart)
                                 : 'Pick date',
                             highlighted: !waitingForEnd,
-                            accent: AppTheme.ownerGold,
+                            accent: p.gold,
                           ),
                         ),
                         Padding(
@@ -349,7 +342,7 @@ class _CustomRangeCalendarSheetState extends State<_CustomRangeCalendarSheet> {
                               vertical: 4,
                             ),
                             decoration: BoxDecoration(
-                              color: AppTheme.ownerGold.withValues(alpha: 0.16),
+                              color: p.gold.withValues(alpha: 0.14),
                               borderRadius: BorderRadius.circular(99),
                             ),
                             child: AnimatedSwitcher(
@@ -359,10 +352,10 @@ class _CustomRangeCalendarSheetState extends State<_CustomRangeCalendarSheet> {
                               child: Text(
                                 '${_selectedDayCount}d',
                                 key: ValueKey(_selectedDayCount),
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 10.5,
                                   fontWeight: FontWeight.w900,
-                                  color: AppTheme.ownerGold,
+                                  color: p.gold,
                                 ),
                               ),
                             ),
@@ -377,7 +370,7 @@ class _CustomRangeCalendarSheetState extends State<_CustomRangeCalendarSheet> {
                                     ? _formatBadgeDate(effEnd)
                                     : 'Pick date'),
                             highlighted: waitingForEnd,
-                            accent: AppTheme.ownerGold,
+                            accent: p.gold,
                           ),
                         ),
                       ],
@@ -437,9 +430,9 @@ class _CustomRangeCalendarSheetState extends State<_CustomRangeCalendarSheet> {
                       child: Container(
                         padding: const EdgeInsets.fromLTRB(12, 12, 12, 10),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF0E1118),
+                          color: p.cardSubtle,
                           borderRadius: BorderRadius.circular(20),
-                          border: Border.all(color: Colors.white10),
+                          border: Border.all(color: p.border),
                         ),
                         child: Column(
                           children: [
@@ -479,10 +472,10 @@ class _CustomRangeCalendarSheetState extends State<_CustomRangeCalendarSheet> {
                                         '${_visibleMonth.year}-${_visibleMonth.month}',
                                       ),
                                       textAlign: TextAlign.center,
-                                      style: const TextStyle(
+                                      style: TextStyle(
                                         fontSize: 15,
                                         fontWeight: FontWeight.w900,
-                                        color: Colors.white,
+                                        color: p.textPrimary,
                                         letterSpacing: 0.2,
                                       ),
                                     ),
@@ -506,10 +499,10 @@ class _CustomRangeCalendarSheetState extends State<_CustomRangeCalendarSheet> {
                                       child: Text(
                                         w,
                                         textAlign: TextAlign.center,
-                                        style: const TextStyle(
+                                        style: TextStyle(
                                           fontSize: 10.5,
                                           fontWeight: FontWeight.w900,
-                                          color: Colors.white38,
+                                          color: p.textMuted,
                                         ),
                                       ),
                                     ),
@@ -548,6 +541,7 @@ class _CustomRangeCalendarSheetState extends State<_CustomRangeCalendarSheet> {
                                   ),
                                   effStart: effStart,
                                   effEnd: effEnd,
+                                  p: p,
                                 ),
                               ),
                             ),
@@ -563,16 +557,16 @@ class _CustomRangeCalendarSheetState extends State<_CustomRangeCalendarSheet> {
             // Pinned Bottom Action Bar with Apply Button
             Container(
               padding: const EdgeInsets.fromLTRB(18, 12, 18, 16),
-              decoration: const BoxDecoration(
-                color: Color(0xFF12151C),
-                border: Border(top: BorderSide(color: Colors.white10)),
+              decoration: BoxDecoration(
+                color: p.card,
+                border: Border(top: BorderSide(color: p.border)),
               ),
               child: Row(
                 children: [
                   TextButton(
                     onPressed: () => Navigator.of(context).pop(),
                     style: TextButton.styleFrom(
-                      foregroundColor: Colors.white60,
+                      foregroundColor: p.textSecondary,
                       padding: const EdgeInsets.symmetric(
                         horizontal: 14,
                         vertical: 14,
@@ -594,10 +588,10 @@ class _CustomRangeCalendarSheetState extends State<_CustomRangeCalendarSheet> {
                         key: const ValueKey('custom_range_apply_btn'),
                         onPressed: _submitRange,
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: AppTheme.ownerGold,
-                          foregroundColor: Colors.black,
-                          elevation: 6,
-                          shadowColor: AppTheme.ownerGold.withValues(alpha: 0.4),
+                          backgroundColor: p.goldButton,
+                          foregroundColor: p.onAccent,
+                          elevation: 4,
+                          shadowColor: p.goldButton.withValues(alpha: 0.35),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(15),
                           ),
@@ -629,6 +623,7 @@ class _CustomRangeCalendarSheetState extends State<_CustomRangeCalendarSheet> {
     required Key key,
     required DateTime? effStart,
     required DateTime? effEnd,
+    required AppPalette p,
   }) {
     final daysInMonth =
         DateTime(_visibleMonth.year, _visibleMonth.month + 1, 0).day;
@@ -686,12 +681,7 @@ class _CustomRangeCalendarSheetState extends State<_CustomRangeCalendarSheet> {
                     height: 38,
                     decoration: showTrack
                         ? BoxDecoration(
-                            gradient: LinearGradient(
-                              colors: [
-                                AppTheme.ownerGold.withValues(alpha: 0.22),
-                                AppTheme.ownerGold.withValues(alpha: 0.14),
-                              ],
-                            ),
+                            color: p.gold.withValues(alpha: p.isDark ? 0.18 : 0.14),
                             borderRadius: trackRadius,
                           )
                         : null,
@@ -705,31 +695,12 @@ class _CustomRangeCalendarSheetState extends State<_CustomRangeCalendarSheet> {
                           height: 34,
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
-                            gradient: (isStart || isEnd)
-                                ? const LinearGradient(
-                                    begin: Alignment.topLeft,
-                                    end: Alignment.bottomRight,
-                                    colors: [
-                                      AppTheme.ownerGold,
-                                      Color(0xFFF3D87F),
-                                    ],
-                                  )
-                                : null,
+                            color: (isStart || isEnd) ? p.goldButton : null,
                             border: isToday && !(isStart || isEnd)
                                 ? Border.all(
-                                    color: AppTheme.ownerGold
-                                        .withValues(alpha: 0.7),
+                                    color: p.gold.withValues(alpha: 0.7),
                                     width: 1.2,
                                   )
-                                : null,
-                            boxShadow: (isStart || isEnd)
-                                ? [
-                                    BoxShadow(
-                                      color: AppTheme.ownerGold
-                                          .withValues(alpha: 0.42),
-                                      blurRadius: 10,
-                                    ),
-                                  ]
                                 : null,
                           ),
                           child: Column(
@@ -743,12 +714,12 @@ class _CustomRangeCalendarSheetState extends State<_CustomRangeCalendarSheet> {
                                       ? FontWeight.w900
                                       : FontWeight.w700,
                                   color: disabled
-                                      ? Colors.white24
+                                      ? p.textMuted.withValues(alpha: 0.4)
                                       : ((isStart || isEnd)
-                                          ? Colors.black
+                                          ? p.onAccent
                                           : (inRange
-                                              ? Colors.white
-                                              : Colors.white70)),
+                                              ? p.textPrimary
+                                              : p.textSecondary)),
                                 ),
                               ),
                               if (isToday && !(isStart || isEnd))
@@ -756,8 +727,8 @@ class _CustomRangeCalendarSheetState extends State<_CustomRangeCalendarSheet> {
                                   width: 4,
                                   height: 4,
                                   margin: const EdgeInsets.only(top: 1),
-                                  decoration: const BoxDecoration(
-                                    color: AppTheme.ownerGold,
+                                  decoration: BoxDecoration(
+                                    color: p.gold,
                                     shape: BoxShape.circle,
                                   ),
                                 ),
@@ -792,16 +763,15 @@ class _DateEndpointBox extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final p = AppPalette.of(context);
     return AnimatedContainer(
       duration: const Duration(milliseconds: 220),
       padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 9),
       decoration: BoxDecoration(
-        color: highlighted
-            ? accent.withValues(alpha: 0.12)
-            : const Color(0xFF0E1118),
+        color: highlighted ? accent.withValues(alpha: 0.1) : p.cardSubtle,
         borderRadius: BorderRadius.circular(13),
         border: Border.all(
-          color: highlighted ? accent.withValues(alpha: 0.55) : Colors.white12,
+          color: highlighted ? accent.withValues(alpha: 0.55) : p.border,
         ),
       ),
       child: Column(
@@ -813,7 +783,7 @@ class _DateEndpointBox extends StatelessWidget {
               fontSize: 9,
               fontWeight: FontWeight.w900,
               letterSpacing: 1.2,
-              color: highlighted ? accent : Colors.white38,
+              color: highlighted ? accent : p.textMuted,
             ),
           ),
           const SizedBox(height: 2),
@@ -824,7 +794,7 @@ class _DateEndpointBox extends StatelessWidget {
             style: TextStyle(
               fontSize: 12.5,
               fontWeight: FontWeight.w900,
-              color: highlighted ? Colors.white : Colors.white70,
+              color: highlighted ? p.textPrimary : p.textSecondary,
             ),
           ),
         ],
@@ -845,8 +815,9 @@ class _PresetChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final p = AppPalette.of(context);
     return Material(
-      color: const Color(0xFF1A1F2D),
+      color: p.cardSubtle,
       borderRadius: BorderRadius.circular(10),
       child: InkWell(
         onTap: onTap,
@@ -855,17 +826,17 @@ class _PresetChip extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 7),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: Colors.white12),
+            border: Border.all(color: p.border),
           ),
           child: FittedBox(
             fit: BoxFit.scaleDown,
             child: Text(
               label,
               maxLines: 1,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 10.5,
                 fontWeight: FontWeight.w800,
-                color: Colors.white70,
+                color: p.textSecondary,
               ),
             ),
           ),
@@ -889,6 +860,7 @@ class _MonthNavButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final p = AppPalette.of(context);
     return InkWell(
       onTap: enabled ? onTap : null,
       borderRadius: BorderRadius.circular(10),
@@ -896,14 +868,14 @@ class _MonthNavButton extends StatelessWidget {
         width: 34,
         height: 34,
         decoration: BoxDecoration(
-          color: const Color(0xFF171B26),
+          color: p.card,
           borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: Colors.white10),
+          border: Border.all(color: p.border),
         ),
         child: Icon(
           icon,
           size: 20,
-          color: enabled ? AppTheme.ownerGold : Colors.white24,
+          color: enabled ? p.gold : p.textMuted.withValues(alpha: 0.35),
         ),
       ),
     );

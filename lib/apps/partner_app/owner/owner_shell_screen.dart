@@ -28,92 +28,96 @@ class _OwnerShellScreenState extends State<OwnerShellScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return BlocBuilder<SmartGymBloc, SmartGymState>(
-      builder: (context, state) {
-        final pendingCount = state.trainerRequests.length;
-        return Scaffold(
-          backgroundColor: AppTheme.scaffoldBg,
-          body: IndexedStack(
-            index: _tabIndex,
-            children: [
-              OwnerRevenueScreen(
-                onOpenWalkInLeads: () => setState(() => _tabIndex = 2),
-                onOpenAuditLog: _openAuditTab,
-              ),
-              OwnerAuditLogScreen(
-                embedded: true,
-                activeFilter: _auditFilter,
-                onFilterChanged: (f) => setState(() => _auditFilter = f),
-              ),
-              const OwnerOrdersLeadsScreen(),
-            ],
-          ),
-          bottomNavigationBar: SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
-              child: Container(
-                height: 66,
-                padding: const EdgeInsets.all(6),
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [Color(0xFF1D2230), Color(0xFF141822)],
-                  ),
-                  borderRadius: BorderRadius.circular(24),
-                  border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.09),
-                    width: 1,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.55),
-                      blurRadius: 24,
-                      offset: const Offset(0, 10),
-                    ),
-                    BoxShadow(
-                      color: AppTheme.ownerGold.withValues(alpha: 0.06),
-                      blurRadius: 18,
-                      offset: const Offset(0, -2),
-                    ),
-                  ],
-                ),
-                child: Row(
+    return AppTheme.ensureOwnerLight(
+      context,
+      child: Builder(
+        builder: (context) {
+          final p = AppPalette.of(context);
+          return BlocBuilder<SmartGymBloc, SmartGymState>(
+            builder: (context, state) {
+              final pendingCount = state.trainerRequests.length;
+              return Scaffold(
+                backgroundColor: p.bg,
+                body: IndexedStack(
+                  index: _tabIndex,
                   children: [
-                    _buildNavItem(
-                      navKey: const ValueKey('owner_nav_home'),
-                      index: 0,
-                      icon: Icons.dashboard_rounded,
-                      label: 'Home',
-                      badgeCount: 0,
+                    OwnerRevenueScreen(
+                      onOpenWalkInLeads: () => setState(() => _tabIndex = 2),
+                      onOpenAuditLog: _openAuditTab,
                     ),
-                    const SizedBox(width: 6),
-                    _buildNavItem(
-                      navKey: const ValueKey('owner_nav_audit'),
-                      index: 1,
-                      icon: Icons.fact_check_rounded,
-                      label: 'Audit Log',
-                      badgeCount: 0,
+                    OwnerAuditLogScreen(
+                      embedded: true,
+                      activeFilter: _auditFilter,
+                      onFilterChanged: (f) => setState(() => _auditFilter = f),
                     ),
-                    const SizedBox(width: 6),
-                    _buildNavItem(
-                      navKey: const ValueKey('owner_nav_trainers'),
-                      index: 2,
-                      icon: Icons.groups_2_rounded,
-                      label: 'Trainers',
-                      badgeCount: pendingCount,
-                    ),
+                    const OwnerOrdersLeadsScreen(),
                   ],
                 ),
-              ),
-            ),
-          ),
-        );
-      },
+                bottomNavigationBar: SafeArea(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(12, 4, 12, 10),
+                    child: Container(
+                      height: 66,
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: p.navBar,
+                        borderRadius: BorderRadius.circular(24),
+                        border: Border.all(
+                          color: p.border,
+                          width: 1,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFF0F172A)
+                                .withValues(alpha: p.isDark ? 0.55 : 0.08),
+                            blurRadius: 20,
+                            offset: const Offset(0, 6),
+                          ),
+                        ],
+                      ),
+                      child: Row(
+                        children: [
+                          _buildNavItem(
+                            p: p,
+                            navKey: const ValueKey('owner_nav_home'),
+                            index: 0,
+                            icon: Icons.dashboard_rounded,
+                            label: 'Home',
+                            badgeCount: 0,
+                          ),
+                          const SizedBox(width: 6),
+                          _buildNavItem(
+                            p: p,
+                            navKey: const ValueKey('owner_nav_audit'),
+                            index: 1,
+                            icon: Icons.fact_check_rounded,
+                            label: 'Audit Log',
+                            badgeCount: 0,
+                          ),
+                          const SizedBox(width: 6),
+                          _buildNavItem(
+                            p: p,
+                            navKey: const ValueKey('owner_nav_trainers'),
+                            index: 2,
+                            icon: Icons.groups_2_rounded,
+                            label: 'Trainers',
+                            badgeCount: pendingCount,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            },
+          );
+        },
+      ),
     );
   }
 
   Widget _buildNavItem({
+    required AppPalette p,
     required Key navKey,
     required int index,
     required IconData icon,
@@ -135,20 +139,13 @@ class _OwnerShellScreenState extends State<OwnerShellScreen> {
           curve: Curves.easeOutCubic,
           padding: const EdgeInsets.symmetric(horizontal: 6),
           decoration: BoxDecoration(
-            gradient: selected
-                ? LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      AppTheme.ownerGold.withValues(alpha: 0.22),
-                      AppTheme.ownerGold.withValues(alpha: 0.08),
-                    ],
-                  )
-                : null,
+            color: selected
+                ? p.gold.withValues(alpha: p.isDark ? 0.16 : 0.10)
+                : Colors.transparent,
             borderRadius: BorderRadius.circular(18),
             border: selected
                 ? Border.all(
-                    color: AppTheme.ownerGold.withValues(alpha: 0.55),
+                    color: p.gold.withValues(alpha: p.isDark ? 0.55 : 0.38),
                     width: 1.1,
                   )
                 : Border.all(color: Colors.transparent),
@@ -162,16 +159,8 @@ class _OwnerShellScreenState extends State<OwnerShellScreen> {
                 height: 2.5,
                 margin: const EdgeInsets.only(bottom: 5),
                 decoration: BoxDecoration(
-                  color: AppTheme.ownerGold,
+                  color: p.gold,
                   borderRadius: BorderRadius.circular(99),
-                  boxShadow: selected
-                      ? [
-                          BoxShadow(
-                            color: AppTheme.ownerGold.withValues(alpha: 0.7),
-                            blurRadius: 8,
-                          ),
-                        ]
-                      : null,
                 ),
               ),
               Row(
@@ -180,7 +169,7 @@ class _OwnerShellScreenState extends State<OwnerShellScreen> {
                   Icon(
                     icon,
                     size: 17,
-                    color: selected ? AppTheme.ownerGold : Colors.white38,
+                    color: selected ? p.gold : p.textMuted,
                   ),
                   const SizedBox(width: 5),
                   Flexible(
@@ -193,7 +182,7 @@ class _OwnerShellScreenState extends State<OwnerShellScreen> {
                         letterSpacing: 0.1,
                         fontWeight:
                             selected ? FontWeight.w900 : FontWeight.w600,
-                        color: selected ? Colors.white : Colors.white54,
+                        color: selected ? p.textPrimary : p.textSecondary,
                       ),
                     ),
                   ),
@@ -205,13 +194,13 @@ class _OwnerShellScreenState extends State<OwnerShellScreen> {
                         vertical: 1.5,
                       ),
                       decoration: BoxDecoration(
-                        color: AppTheme.ownerGold,
+                        color: p.gold,
                         borderRadius: BorderRadius.circular(99),
                       ),
                       child: Text(
                         '$badgeCount',
-                        style: const TextStyle(
-                          color: Colors.black,
+                        style: TextStyle(
+                          color: p.onAccent,
                           fontSize: 9.5,
                           fontWeight: FontWeight.w900,
                         ),

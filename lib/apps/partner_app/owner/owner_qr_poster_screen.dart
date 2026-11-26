@@ -269,9 +269,10 @@ class _OwnerQrPosterScreenState extends State<OwnerQrPosterScreen> {
   }
 
   void _showDownloadOptions(String payload, SmartGymState state) {
+    final p = AppPalette.of(context);
     showModalBottomSheet(
       context: context,
-      backgroundColor: const Color(0xFF1A1E29),
+      backgroundColor: p.card,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
       ),
@@ -282,30 +283,30 @@ class _OwnerQrPosterScreenState extends State<OwnerQrPosterScreen> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
+              Text(
                 'Download QR Poster',
                 style: TextStyle(
-                  color: Colors.white,
+                  color: p.textPrimary,
                   fontSize: 16,
                   fontWeight: FontWeight.w900,
                 ),
               ),
               const SizedBox(height: 12),
               ListTile(
-                leading: const Icon(
+                leading: Icon(
                   Icons.picture_as_pdf_rounded,
-                  color: AppTheme.ownerGold,
+                  color: p.gold,
                 ),
-                title: const Text(
+                title: Text(
                   'Download as PDF',
                   style: TextStyle(
-                    color: Colors.white,
+                    color: p.textPrimary,
                     fontWeight: FontWeight.w800,
                   ),
                 ),
-                subtitle: const Text(
+                subtitle: Text(
                   'Printable A4 gym poster',
-                  style: TextStyle(color: Colors.white54, fontSize: 12),
+                  style: TextStyle(color: p.textSecondary, fontSize: 12),
                 ),
                 onTap: () {
                   Navigator.pop(ctx);
@@ -313,20 +314,20 @@ class _OwnerQrPosterScreenState extends State<OwnerQrPosterScreen> {
                 },
               ),
               ListTile(
-                leading: const Icon(
+                leading: Icon(
                   Icons.image_rounded,
-                  color: AppTheme.trainerCyan,
+                  color: p.cyan,
                 ),
-                title: const Text(
+                title: Text(
                   'Download as Image (PNG)',
                   style: TextStyle(
-                    color: Colors.white,
+                    color: p.textPrimary,
                     fontWeight: FontWeight.w800,
                   ),
                 ),
-                subtitle: const Text(
+                subtitle: Text(
                   'High-res image with gym & section name',
-                  style: TextStyle(color: Colors.white54, fontSize: 12),
+                  style: TextStyle(color: p.textSecondary, fontSize: 12),
                 ),
                 onTap: () {
                   Navigator.pop(ctx);
@@ -342,177 +343,184 @@ class _OwnerQrPosterScreenState extends State<OwnerQrPosterScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return BlocBuilder<SmartGymBloc, SmartGymState>(
-      builder: (context, state) {
-        final gym = state.currentGym;
-        final accent = _isInvite ? AppTheme.trainerCyan : AppTheme.ownerGold;
-        final payload = _isInvite
-            ? (_inviteCode != null
-                ? 'smartgym://invite?gymId=${gym.id}&code=$_inviteCode'
-                : '')
-            : 'smartgym://duty?gymId=${gym.id}';
+    return AppTheme.ensureOwnerLight(
+      context,
+      child: BlocBuilder<SmartGymBloc, SmartGymState>(
+        builder: (context, state) {
+          final p = AppPalette.of(context);
+          final gym = state.currentGym;
+          final accent = _isInvite ? p.cyan : p.gold;
+          final payload = _isInvite
+              ? (_inviteCode != null
+                  ? 'smartgym://invite?gymId=${gym.id}&code=$_inviteCode'
+                  : '')
+              : 'smartgym://duty?gymId=${gym.id}';
 
-        return Scaffold(
-          backgroundColor: AppTheme.scaffoldBg,
-          appBar: AppBar(
-            backgroundColor: AppTheme.scaffoldBg,
-            foregroundColor: Colors.white,
-            title: Text(
-              _isInvite ? 'Staff Invite QR' : 'Reception Duty QR',
-              style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w900),
-            ),
-            actions: [
-              IconButton(
-                tooltip: 'Download',
-                icon: const Icon(Icons.download_rounded),
-                onPressed: (_exporting || payload.isEmpty)
-                    ? null
-                    : () => _showDownloadOptions(payload, state),
+          return Scaffold(
+            backgroundColor: p.bg,
+            appBar: AppBar(
+              backgroundColor: p.bg,
+              foregroundColor: p.textPrimary,
+              title: Text(
+                _isInvite ? 'Staff Invite QR' : 'Reception Duty QR',
+                style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w900),
               ),
-            ],
-          ),
-          body: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                RepaintBoundary(
-                  key: _posterKey,
-                  child: Container(
-                    padding: const EdgeInsets.all(24),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF1A1E29),
-                      borderRadius: BorderRadius.circular(24),
-                      border: Border.all(color: accent.withValues(alpha: 0.45)),
-                    ),
-                    child: Column(
-                      children: [
-                        Text(
-                          gym.name.toUpperCase(),
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 19,
-                            fontWeight: FontWeight.w900,
-                            letterSpacing: 0.8,
-                          ),
-                        ),
-                        if (gym.area.isNotEmpty) ...[
-                          const SizedBox(height: 4),
-                          Text(
-                            gym.area,
-                            style: const TextStyle(
-                              color: Colors.white60,
-                              fontSize: 12.5,
-                            ),
-                          ),
-                        ],
-                        const SizedBox(height: 14),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 5,
-                          ),
-                          decoration: BoxDecoration(
-                            color: accent.withValues(alpha: 0.14),
-                            borderRadius: BorderRadius.circular(99),
-                          ),
-                          child: Text(
-                            _isInvite
-                                ? 'STAFF INVITE QR'
-                                : 'RECEPTION DUTY CHECK-IN QR',
-                            style: TextStyle(
-                              color: accent,
-                              fontSize: 10.5,
-                              fontWeight: FontWeight.w900,
-                              letterSpacing: 1.2,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 18),
-                        if (_loadingCode)
-                          Padding(
-                            padding: const EdgeInsets.all(60),
-                            child: CircularProgressIndicator(color: accent),
-                          )
-                        else if (payload.isNotEmpty)
-                          Container(
-                            padding: const EdgeInsets.all(14),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(18),
-                            ),
-                            child: QrImageView(
-                              data: payload,
-                              size: 210,
-                              backgroundColor: Colors.white,
-                            ),
-                          )
-                        else
-                          const Padding(
-                            padding: EdgeInsets.all(40),
-                            child: Text(
-                              'Could not load QR.',
-                              style: TextStyle(color: Colors.white54),
-                            ),
-                          ),
-                        if (_isInvite && _inviteCode != null) ...[
-                          const SizedBox(height: 14),
-                          Text(
-                            'CODE: $_inviteCode',
-                            style: TextStyle(
-                              color: accent,
-                              fontSize: 13,
-                              fontWeight: FontWeight.w900,
-                              letterSpacing: 1.4,
-                            ),
-                          ),
-                        ],
-                        const SizedBox(height: 10),
-                        Text(
-                          _isInvite
-                              ? 'Trainers scan this QR to request access. You approve them in Trainers & PT Split.'
-                              : 'Print & stick at reception. Trainers scan this daily to mark duty attendance.',
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(
-                            color: Colors.white60,
-                            fontSize: 12,
-                            height: 1.45,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 22),
-                SizedBox(
-                  height: 50,
-                  child: ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: accent,
-                      foregroundColor: Colors.black,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                    ),
-                    onPressed: (_exporting || payload.isEmpty)
-                        ? null
-                        : () => _shareOrSavePng(isDownload: false),
-                    icon: const Icon(Icons.share_rounded, size: 19),
-                    label: const Text(
-                      'SHARE QR',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: 1.0,
-                      ),
-                    ),
-                  ),
+              actions: [
+                IconButton(
+                  tooltip: 'Download',
+                  icon: const Icon(Icons.download_rounded),
+                  onPressed: (_exporting || payload.isEmpty)
+                      ? null
+                      : () => _showDownloadOptions(payload, state),
                 ),
               ],
             ),
-          ),
-        );
-      },
+            body: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  RepaintBoundary(
+                    key: _posterKey,
+                    child: Container(
+                      padding: const EdgeInsets.all(24),
+                      decoration: BoxDecoration(
+                        color: p.card,
+                        borderRadius: BorderRadius.circular(24),
+                        border:
+                            Border.all(color: accent.withValues(alpha: 0.4)),
+                        boxShadow: p.cardShadow,
+                      ),
+                      child: Column(
+                        children: [
+                          Text(
+                            gym.name.toUpperCase(),
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: p.textPrimary,
+                              fontSize: 19,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: 0.8,
+                            ),
+                          ),
+                          if (gym.area.isNotEmpty) ...[
+                            const SizedBox(height: 4),
+                            Text(
+                              gym.area,
+                              style: TextStyle(
+                                color: p.textSecondary,
+                                fontSize: 12.5,
+                              ),
+                            ),
+                          ],
+                          const SizedBox(height: 14),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 5,
+                            ),
+                            decoration: BoxDecoration(
+                              color: accent.withValues(alpha: 0.14),
+                              borderRadius: BorderRadius.circular(99),
+                            ),
+                            child: Text(
+                              _isInvite
+                                  ? 'STAFF INVITE QR'
+                                  : 'RECEPTION DUTY CHECK-IN QR',
+                              style: TextStyle(
+                                color: accent,
+                                fontSize: 10.5,
+                                fontWeight: FontWeight.w900,
+                                letterSpacing: 1.2,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 18),
+                          if (_loadingCode)
+                            Padding(
+                              padding: const EdgeInsets.all(60),
+                              child: CircularProgressIndicator(color: accent),
+                            )
+                          else if (payload.isNotEmpty)
+                            Container(
+                              padding: const EdgeInsets.all(14),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(18),
+                                border: Border.all(color: p.border),
+                              ),
+                              child: QrImageView(
+                                data: payload,
+                                size: 210,
+                                backgroundColor: Colors.white,
+                              ),
+                            )
+                          else
+                            Padding(
+                              padding: const EdgeInsets.all(40),
+                              child: Text(
+                                'Could not load QR.',
+                                style: TextStyle(color: p.textMuted),
+                              ),
+                            ),
+                          if (_isInvite && _inviteCode != null) ...[
+                            const SizedBox(height: 14),
+                            Text(
+                              'CODE: $_inviteCode',
+                              style: TextStyle(
+                                color: accent,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w900,
+                                letterSpacing: 1.4,
+                              ),
+                            ),
+                          ],
+                          const SizedBox(height: 10),
+                          Text(
+                            _isInvite
+                                ? 'Trainers scan this QR to request access. You approve them in Trainers & PT Split.'
+                                : 'Print & stick at reception. Trainers scan this daily to mark duty attendance.',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: p.textSecondary,
+                              fontSize: 12,
+                              height: 1.45,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 22),
+                  SizedBox(
+                    height: 50,
+                    child: ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: accent,
+                        foregroundColor: p.onAccent,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                      ),
+                      onPressed: (_exporting || payload.isEmpty)
+                          ? null
+                          : () => _shareOrSavePng(isDownload: false),
+                      icon: const Icon(Icons.share_rounded, size: 19),
+                      label: const Text(
+                        'SHARE QR',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 1.0,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
     );
   }
 }

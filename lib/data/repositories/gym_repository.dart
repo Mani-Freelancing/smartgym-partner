@@ -4,6 +4,7 @@ import '../../domain/models/gym_tenant.dart';
 import '../../domain/models/machine_guide.dart';
 import '../../domain/models/meal_review_item.dart';
 import '../../domain/models/missing_member.dart';
+import '../../domain/models/trainer_attendance_log.dart';
 import '../../domain/models/trainer_profile.dart';
 import '../../domain/models/walk_in_enquiry.dart';
 
@@ -71,6 +72,43 @@ class GymRepository {
         morningCheckInTime: null,
         isOnDuty: false,
         commissionPercent: 50,
+      ),
+    ];
+  }
+
+  List<TrainerAttendanceLog> getInitialTrainerAttendanceLogs() {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final yesterday = today.subtract(const Duration(days: 1));
+    final twoDaysAgo = today.subtract(const Duration(days: 2));
+    return [
+      TrainerAttendanceLog.fromDateTime(
+        idOverride: 'att_seed_1',
+        trainerId: 'tr_2',
+        trainerName: 'Coach Arjun Varma',
+        eventType: 'duty_checkin',
+        at: today.add(const Duration(hours: 6, minutes: 5)),
+      ),
+      TrainerAttendanceLog.fromDateTime(
+        idOverride: 'att_seed_2',
+        trainerId: 'tr_1',
+        trainerName: 'Coach Karthik Reddy',
+        eventType: 'duty_checkin',
+        at: today.add(const Duration(hours: 5, minutes: 48)),
+      ),
+      TrainerAttendanceLog.fromDateTime(
+        idOverride: 'att_seed_3',
+        trainerId: 'tr_1',
+        trainerName: 'Coach Karthik Reddy',
+        eventType: 'login',
+        at: yesterday.add(const Duration(hours: 5, minutes: 55)),
+      ),
+      TrainerAttendanceLog.fromDateTime(
+        idOverride: 'att_seed_4',
+        trainerId: 'tr_3',
+        trainerName: 'Coach Sameer Khan',
+        eventType: 'duty_checkin',
+        at: twoDaysAgo.add(const Duration(hours: 16, minutes: 55)),
       ),
     ];
   }

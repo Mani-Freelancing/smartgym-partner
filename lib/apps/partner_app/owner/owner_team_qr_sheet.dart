@@ -92,258 +92,266 @@ class _OwnerTeamQrSheetState extends State<OwnerTeamQrSheet> {
 
   @override
   Widget build(BuildContext context) {
-    return BlocBuilder<SmartGymBloc, SmartGymState>(
-      builder: (context, state) {
-        final gym = state.currentGym;
-        final dutyPayload = 'smartgym://duty?gymId=${gym.id}';
-        final invitePayload = _inviteCode != null
-            ? 'smartgym://invite?gymId=${gym.id}&code=$_inviteCode'
-            : '';
+    return AppTheme.ensureOwnerLight(
+      context,
+      child: BlocBuilder<SmartGymBloc, SmartGymState>(
+        builder: (context, state) {
+          final p = AppPalette.of(context);
+          final gym = state.currentGym;
+          final dutyPayload = 'smartgym://duty?gymId=${gym.id}';
+          final invitePayload = _inviteCode != null
+              ? 'smartgym://invite?gymId=${gym.id}&code=$_inviteCode'
+              : '';
 
-        return Padding(
-          padding: EdgeInsets.fromLTRB(
-            20,
-            16,
-            20,
-            MediaQuery.of(context).viewInsets.bottom + 24,
-          ),
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Center(
-                  child: Container(
-                    width: 40,
-                    height: 4,
-                    margin: const EdgeInsets.only(bottom: 16),
-                    decoration: BoxDecoration(
-                      color: Colors.white12,
-                      borderRadius: BorderRadius.circular(99),
+          return Padding(
+            padding: EdgeInsets.fromLTRB(
+              20,
+              16,
+              20,
+              MediaQuery.of(context).viewInsets.bottom + 24,
+            ),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 4,
+                      margin: const EdgeInsets.only(bottom: 16),
+                      decoration: BoxDecoration(
+                        color: p.border,
+                        borderRadius: BorderRadius.circular(99),
+                      ),
                     ),
                   ),
-                ),
-                Text(
-                  '${gym.name} • Team & QRs',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w900,
+                  Text(
+                    '${gym.name} • Team & QRs',
+                    style: TextStyle(
+                      color: p.textPrimary,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w900,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 4),
-                const Text(
-                  'Invite trainers via QR or Phone, or print your Reception Duty QR.',
-                  style: TextStyle(color: Colors.white54, fontSize: 12.5),
-                ),
-                const SizedBox(height: 16),
-                Row(
-                  children: [
-                    _TabPill(
-                      label: 'Invite QR',
-                      selected: _tab == 0,
-                      onTap: () => setState(() => _tab = 0),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Invite trainers via QR or Phone, or print your Reception Duty QR.',
+                    style: TextStyle(color: p.textSecondary, fontSize: 12.5),
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      _TabPill(
+                        label: 'Invite QR',
+                        selected: _tab == 0,
+                        onTap: () => setState(() => _tab = 0),
+                      ),
+                      const SizedBox(width: 8),
+                      _TabPill(
+                        label: 'Duty QR',
+                        selected: _tab == 1,
+                        onTap: () => setState(() => _tab = 1),
+                      ),
+                      const SizedBox(width: 8),
+                      _TabPill(
+                        label: '+ Add Phone',
+                        selected: _tab == 2,
+                        onTap: () => setState(() => _tab = 2),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 18),
+                  if (_tab == 0) ...[
+                    Container(
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        color: p.cardSubtle,
+                        borderRadius: BorderRadius.circular(20),
+                        border:
+                            Border.all(color: p.cyan.withValues(alpha: 0.35)),
+                      ),
+                      child: Column(
+                        children: [
+                          if (_loadingInvite)
+                            Padding(
+                              padding: const EdgeInsets.all(40),
+                              child: CircularProgressIndicator(color: p.cyan),
+                            )
+                          else if (invitePayload.isNotEmpty)
+                            Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(color: p.border),
+                              ),
+                              child: QrImageView(
+                                data: invitePayload,
+                                size: 180,
+                                backgroundColor: Colors.white,
+                              ),
+                            )
+                          else
+                            Text(
+                              'Could not load invite QR.',
+                              style: TextStyle(color: p.textSecondary),
+                            ),
+                          const SizedBox(height: 14),
+                          Text(
+                            'STAFF INVITE CODE: ${_inviteCode ?? '...'}',
+                            style: TextStyle(
+                              color: p.cyan,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: 1.2,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'New trainer opens SmartGym Partner → OTP → Floor Trainer → Scan Invite QR.',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: p.textSecondary,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                    const SizedBox(width: 8),
-                    _TabPill(
-                      label: 'Duty QR',
-                      selected: _tab == 1,
-                      onTap: () => setState(() => _tab = 1),
-                    ),
-                    const SizedBox(width: 8),
-                    _TabPill(
-                      label: '+ Add Phone',
-                      selected: _tab == 2,
-                      onTap: () => setState(() => _tab = 2),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 18),
-                if (_tab == 0) ...[
-                  Container(
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF12151C),
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(
-                          color: AppTheme.trainerCyan.withValues(alpha: 0.35)),
-                    ),
-                    child: Column(
-                      children: [
-                        if (_loadingInvite)
-                          const Padding(
-                            padding: EdgeInsets.all(40),
-                            child: CircularProgressIndicator(
-                                color: AppTheme.trainerCyan),
-                          )
-                        else if (invitePayload.isNotEmpty)
+                  ] else if (_tab == 1) ...[
+                    Container(
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        color: p.cardSubtle,
+                        borderRadius: BorderRadius.circular(20),
+                        border:
+                            Border.all(color: p.gold.withValues(alpha: 0.35)),
+                      ),
+                      child: Column(
+                        children: [
                           Container(
                             padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
                               color: Colors.white,
                               borderRadius: BorderRadius.circular(16),
+                              border: Border.all(color: p.border),
                             ),
                             child: QrImageView(
-                              data: invitePayload,
+                              data: dutyPayload,
                               size: 180,
                               backgroundColor: Colors.white,
                             ),
-                          )
-                        else
-                          const Text(
-                            'Could not load invite QR.',
-                            style: TextStyle(color: Colors.white60),
                           ),
-                        const SizedBox(height: 14),
-                        Text(
-                          'STAFF INVITE CODE: ${_inviteCode ?? '...'}',
-                          style: const TextStyle(
-                            color: AppTheme.trainerCyan,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w900,
-                            letterSpacing: 1.2,
+                          const SizedBox(height: 14),
+                          Text(
+                            'RECEPTION / DUTY CHECK-IN QR',
+                            style: TextStyle(
+                              color: p.gold,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: 1.2,
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 4),
-                        const Text(
-                          'New trainer opens SmartGym Partner → OTP → Floor Trainer → Scan Invite QR.',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(color: Colors.white54, fontSize: 12),
-                        ),
-                      ],
-                    ),
-                  ),
-                ] else if (_tab == 1) ...[
-                  Container(
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF12151C),
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(
-                          color: AppTheme.ownerGold.withValues(alpha: 0.35)),
-                    ),
-                    child: Column(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(16),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Print & stick at reception. Trainers scan this daily to clock in on duty.',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: p.textSecondary,
+                              fontSize: 12,
+                            ),
                           ),
-                          child: QrImageView(
-                            data: dutyPayload,
-                            size: 180,
-                            backgroundColor: Colors.white,
-                          ),
-                        ),
-                        const SizedBox(height: 14),
-                        const Text(
-                          'RECEPTION / DUTY CHECK-IN QR',
-                          style: TextStyle(
-                            color: AppTheme.ownerGold,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w900,
-                            letterSpacing: 1.2,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        const Text(
-                          'Print & stick at reception. Trainers scan this daily to clock in on duty.',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(color: Colors.white54, fontSize: 12),
-                        ),
-                      ],
-                    ),
-                  ),
-                ] else ...[
-                  TextField(
-                    controller: _nameCtrl,
-                    style: const TextStyle(color: Colors.white),
-                    decoration: InputDecoration(
-                      labelText: 'Trainer Name',
-                      labelStyle: const TextStyle(color: Colors.white60),
-                      filled: true,
-                      fillColor: const Color(0xFF12151C),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide.none,
+                        ],
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 10),
-                  TextField(
-                    controller: _phoneCtrl,
-                    keyboardType: TextInputType.phone,
-                    maxLength: 10,
-                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                    style: const TextStyle(color: Colors.white),
-                    decoration: InputDecoration(
-                      counterText: '',
-                      prefixText: '+91 ',
-                      prefixStyle: const TextStyle(
-                        color: AppTheme.ownerGold,
-                        fontWeight: FontWeight.w800,
-                      ),
-                      labelText: 'Trainer Mobile Number',
-                      labelStyle: const TextStyle(color: Colors.white60),
-                      filled: true,
-                      fillColor: const Color(0xFF12151C),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide.none,
+                  ] else ...[
+                    TextField(
+                      controller: _nameCtrl,
+                      style: TextStyle(color: p.textPrimary),
+                      decoration: InputDecoration(
+                        labelText: 'Trainer Name',
+                        filled: true,
+                        fillColor: p.cardSubtle,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide.none,
+                        ),
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 10),
-                  TextField(
-                    controller: _specialtyCtrl,
-                    style: const TextStyle(color: Colors.white),
-                    decoration: InputDecoration(
-                      labelText: 'Specialty',
-                      labelStyle: const TextStyle(color: Colors.white60),
-                      filled: true,
-                      fillColor: const Color(0xFF12151C),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide.none,
+                    const SizedBox(height: 10),
+                    TextField(
+                      controller: _phoneCtrl,
+                      keyboardType: TextInputType.phone,
+                      maxLength: 10,
+                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                      style: TextStyle(color: p.textPrimary),
+                      decoration: InputDecoration(
+                        counterText: '',
+                        prefixText: '+91 ',
+                        prefixStyle: TextStyle(
+                          color: p.gold,
+                          fontWeight: FontWeight.w800,
+                        ),
+                        labelText: 'Trainer Mobile Number',
+                        filled: true,
+                        fillColor: p.cardSubtle,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide.none,
+                        ),
                       ),
                     ),
-                  ),
-                  if (_formError != null) ...[
-                    const SizedBox(height: 8),
-                    Text(
-                      _formError!,
-                      style: const TextStyle(
-                        color: Color(0xFFFF6B6B),
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
+                    const SizedBox(height: 10),
+                    TextField(
+                      controller: _specialtyCtrl,
+                      style: TextStyle(color: p.textPrimary),
+                      decoration: InputDecoration(
+                        labelText: 'Specialty',
+                        filled: true,
+                        fillColor: p.cardSubtle,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide.none,
+                        ),
+                      ),
+                    ),
+                    if (_formError != null) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        _formError!,
+                        style: TextStyle(
+                          color: p.danger,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 14),
+                    SizedBox(
+                      height: 48,
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: p.goldButton,
+                          foregroundColor: p.onAccent,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                        ),
+                        onPressed: () => _submitAddTrainer(state),
+                        child: const Text(
+                          'ADD TRAINER TO GYM',
+                          style: TextStyle(fontWeight: FontWeight.w900),
+                        ),
                       ),
                     ),
                   ],
-                  const SizedBox(height: 14),
-                  SizedBox(
-                    height: 48,
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.ownerGold,
-                        foregroundColor: Colors.black,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                      ),
-                      onPressed: () => _submitAddTrainer(state),
-                      child: const Text(
-                        'ADD TRAINER TO GYM',
-                        style: TextStyle(fontWeight: FontWeight.w900),
-                      ),
-                    ),
-                  ),
                 ],
-              ],
+              ),
             ),
-          ),
-        );
-      },
+          );
+        },
+      ),
     );
   }
 }
@@ -361,6 +369,7 @@ class _TabPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final p = AppPalette.of(context);
     return Expanded(
       child: GestureDetector(
         onTap: () {
@@ -371,18 +380,18 @@ class _TabPill extends StatelessWidget {
           padding: const EdgeInsets.symmetric(vertical: 10),
           decoration: BoxDecoration(
             color: selected
-                ? AppTheme.ownerGold.withValues(alpha: 0.18)
-                : const Color(0xFF12151C),
+                ? p.gold.withValues(alpha: 0.14)
+                : p.cardSubtle,
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: selected ? AppTheme.ownerGold : Colors.white12,
+              color: selected ? p.gold : p.border,
             ),
           ),
           child: Text(
             label,
             textAlign: TextAlign.center,
             style: TextStyle(
-              color: selected ? AppTheme.ownerGold : Colors.white60,
+              color: selected ? p.gold : p.textSecondary,
               fontSize: 12,
               fontWeight: FontWeight.w800,
             ),

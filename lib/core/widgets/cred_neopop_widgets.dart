@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../theme/app_theme.dart';
 
 /// CRED-style Matte Metal Card with specular top-left border highlight,
 /// subtle radial spotlight, and tactile spring-scale press animation.
@@ -61,6 +62,8 @@ class _CredMetalCardState extends State<CredMetalCard>
 
   @override
   Widget build(BuildContext context) {
+    final p = AppPalette.of(context);
+    final isLight = !p.isDark;
     return GestureDetector(
       onTapDown: widget.onTap != null
           ? (_) => setState(() => _pressed = true)
@@ -82,53 +85,89 @@ class _CredMetalCardState extends State<CredMetalCard>
         child: Container(
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(widget.borderRadius),
-            // Specular metallic 1.2px gradient rim
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                widget.glowColor.withValues(alpha: 0.55),
-                Colors.white.withValues(alpha: 0.14),
-                Colors.white.withValues(alpha: 0.03),
-                widget.glowColor.withValues(alpha: 0.18),
-              ],
-              stops: const [0.0, 0.25, 0.7, 1.0],
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.65),
-                blurRadius: 24,
-                offset: const Offset(0, 12),
-              ),
-              BoxShadow(
-                color: widget.glowColor.withValues(alpha: 0.08),
-                blurRadius: 28,
-                spreadRadius: -4,
-              ),
-            ],
+            // Specular rim in dark mode; crisp clean border in daylight Owner mode
+            gradient: isLight
+                ? null
+                : LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      widget.glowColor.withValues(alpha: 0.55),
+                      Colors.white.withValues(alpha: 0.14),
+                      Colors.white.withValues(alpha: 0.03),
+                      widget.glowColor.withValues(alpha: 0.18),
+                    ],
+                    stops: const [0.0, 0.25, 0.7, 1.0],
+                  ),
+            border: isLight
+                ? Border.all(
+                    color: Color.lerp(
+                      const Color(0xFFE2E8F0),
+                      widget.glowColor,
+                      0.22,
+                    )!,
+                    width: 1,
+                  )
+                : null,
+            boxShadow: isLight
+                ? [
+                    BoxShadow(
+                      color: const Color(0xFF0F172A).withValues(alpha: 0.05),
+                      blurRadius: 16,
+                      offset: const Offset(0, 4),
+                    ),
+                  ]
+                : [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.65),
+                      blurRadius: 24,
+                      offset: const Offset(0, 12),
+                    ),
+                    BoxShadow(
+                      color: widget.glowColor.withValues(alpha: 0.08),
+                      blurRadius: 28,
+                      spreadRadius: -4,
+                    ),
+                  ],
           ),
-          padding: const EdgeInsets.all(1.2),
+          padding: EdgeInsets.all(isLight ? 0 : 1.2),
           child: ClipRRect(
-            borderRadius: BorderRadius.circular(widget.borderRadius - 1.2),
+            borderRadius: BorderRadius.circular(
+              isLight ? widget.borderRadius - 1 : widget.borderRadius - 1.2,
+            ),
             child: Stack(
               children: [
                 Container(
                   padding: widget.padding,
                   decoration: BoxDecoration(
-                    gradient: RadialGradient(
-                      center: const Alignment(-0.85, -0.9),
-                      radius: 1.4,
-                      colors: [
-                        Color.lerp(
-                          const Color(0xFF212633),
-                          widget.glowColor,
-                          0.11,
-                        )!,
-                        const Color(0xFF1A1E29),
-                        const Color(0xFF151922),
-                      ],
-                      stops: const [0.0, 0.55, 1.0],
-                    ),
+                    color: isLight ? Colors.white : null,
+                    gradient: isLight
+                        ? RadialGradient(
+                            center: const Alignment(-0.9, -0.9),
+                            radius: 1.5,
+                            colors: [
+                              Color.lerp(
+                                Colors.white,
+                                widget.glowColor,
+                                0.045,
+                              )!,
+                              Colors.white,
+                            ],
+                          )
+                        : RadialGradient(
+                            center: const Alignment(-0.85, -0.9),
+                            radius: 1.4,
+                            colors: [
+                              Color.lerp(
+                                const Color(0xFF212633),
+                                widget.glowColor,
+                                0.11,
+                              )!,
+                              const Color(0xFF1A1E29),
+                              const Color(0xFF151922),
+                            ],
+                            stops: const [0.0, 0.55, 1.0],
+                          ),
                   ),
                   child: widget.child,
                 ),
@@ -294,6 +333,7 @@ class CredArcGauge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final p = AppPalette.of(context);
     final targetRatio = (current / max).clamp(0.0, 1.0);
     return TweenAnimationBuilder<double>(
       tween: Tween<double>(begin: 0, end: targetRatio),
@@ -308,6 +348,9 @@ class CredArcGauge extends StatelessWidget {
             painter: _CredArcPainter(
               ratio: animRatio,
               activeColor: activeColor,
+              trackColor: p.isDark
+                  ? Colors.white.withValues(alpha: 0.08)
+                  : const Color(0xFFE2E8F0),
             ),
             child: Center(
               child: Column(
@@ -315,10 +358,10 @@ class CredArcGauge extends StatelessWidget {
                 children: [
                   Text(
                     '$animCount',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 22,
                       fontWeight: FontWeight.w900,
-                      color: Colors.white,
+                      color: p.textPrimary,
                       letterSpacing: -0.8,
                       height: 1.0,
                     ),
@@ -326,11 +369,11 @@ class CredArcGauge extends StatelessWidget {
                   const SizedBox(height: 2),
                   Text(
                     'OF $max',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 9,
                       fontWeight: FontWeight.w800,
                       letterSpacing: 1.2,
-                      color: Colors.white38,
+                      color: p.textMuted,
                     ),
                   ),
                 ],
@@ -346,8 +389,13 @@ class CredArcGauge extends StatelessWidget {
 class _CredArcPainter extends CustomPainter {
   final double ratio;
   final Color activeColor;
+  final Color trackColor;
 
-  _CredArcPainter({required this.ratio, required this.activeColor});
+  _CredArcPainter({
+    required this.ratio,
+    required this.activeColor,
+    required this.trackColor,
+  });
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -357,7 +405,7 @@ class _CredArcPainter extends CustomPainter {
     const sweepTotal = math.pi * 1.5;
 
     final trackPaint = Paint()
-      ..color = Colors.white.withValues(alpha: 0.08)
+      ..color = trackColor
       ..style = PaintingStyle.stroke
       ..strokeWidth = 7
       ..strokeCap = StrokeCap.round;
@@ -404,7 +452,9 @@ class _CredArcPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _CredArcPainter oldDelegate) {
-    return oldDelegate.ratio != ratio || oldDelegate.activeColor != activeColor;
+    return oldDelegate.ratio != ratio ||
+        oldDelegate.activeColor != activeColor ||
+        oldDelegate.trackColor != trackColor;
   }
 }
 

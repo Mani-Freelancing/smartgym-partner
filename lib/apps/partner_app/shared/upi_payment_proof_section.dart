@@ -15,7 +15,7 @@ class UpiPaymentProofSection extends StatefulWidget {
   final int enteredAmount;
   final List<GymMember> existingMembers;
   final Color accentColor;
-  final Color cardBackground;
+  final Color? cardBackground;
   final ValueChanged<({Uint8List bytes, String base64, UpiProofExtraction ocr})>
       onProofSelected;
   final ValueChanged<String> onError;
@@ -29,7 +29,7 @@ class UpiPaymentProofSection extends StatefulWidget {
     required this.onProofSelected,
     required this.onError,
     this.accentColor = AppTheme.ownerGold,
-    this.cardBackground = const Color(0xFF1A1E29),
+    this.cardBackground,
   });
 
   @override
@@ -43,61 +43,65 @@ class _UpiPaymentProofSectionState extends State<UpiPaymentProofSection> {
 
   Future<void> _pickScreenshot() async {
     HapticFeedback.selectionClick();
+    final p = AppPalette.of(context);
     final source = await showModalBottomSheet<ImageSource>(
       context: context,
-      backgroundColor: const Color(0xFF1A1E29),
+      backgroundColor: p.card,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
       ),
-      builder: (ctx) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Upload Payment Proof',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-              const SizedBox(height: 10),
-              ListTile(
-                leading: Icon(
-                  Icons.camera_alt_rounded,
-                  color: widget.accentColor,
-                ),
-                title: const Text(
-                  'Take Photo (Camera)',
+      builder: (ctx) => Theme(
+        data: Theme.of(context),
+        child: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Upload Payment Proof',
                   style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w800,
+                    color: p.textPrimary,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w900,
                   ),
                 ),
-                subtitle: const Text(
-                  'Snap payment screen to verify ₹ amount & UTR',
-                  style: TextStyle(color: Colors.white54, fontSize: 12),
-                ),
-                onTap: () => Navigator.pop(ctx, ImageSource.camera),
-              ),
-              ListTile(
-                leading: const Icon(
-                  Icons.photo_library_rounded,
-                  color: AppTheme.trainerCyan,
-                ),
-                title: const Text(
-                  'Choose from Gallery',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w800,
+                const SizedBox(height: 10),
+                ListTile(
+                  leading: Icon(
+                    Icons.camera_alt_rounded,
+                    color: widget.accentColor,
                   ),
+                  title: Text(
+                    'Take Photo (Camera)',
+                    style: TextStyle(
+                      color: p.textPrimary,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  subtitle: Text(
+                    'Snap payment screen to verify ₹ amount & UTR',
+                    style: TextStyle(color: p.textMuted, fontSize: 12),
+                  ),
+                  onTap: () => Navigator.pop(ctx, ImageSource.camera),
                 ),
-                onTap: () => Navigator.pop(ctx, ImageSource.gallery),
-              ),
-            ],
+                ListTile(
+                  leading: Icon(
+                    Icons.photo_library_rounded,
+                    color: p.cyan,
+                  ),
+                  title: Text(
+                    'Choose from Gallery',
+                    style: TextStyle(
+                      color: p.textPrimary,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  onTap: () => Navigator.pop(ctx, ImageSource.gallery),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -165,6 +169,7 @@ class _UpiPaymentProofSectionState extends State<UpiPaymentProofSection> {
 
   @override
   Widget build(BuildContext context) {
+    final p = AppPalette.of(context);
     final effectiveOcr = UpiProofOcrService.refineForExpectedAmount(
       widget.ocrExtraction,
       widget.enteredAmount,
@@ -175,10 +180,10 @@ class _UpiPaymentProofSectionState extends State<UpiPaymentProofSection> {
       existingMembers: widget.existingMembers,
     );
     final (badgeColor, badgeIcon) = switch (audit.severity) {
-      UpiProofSeverity.verified => (AppTheme.accent, Icons.verified_rounded),
-      UpiProofSeverity.warning => (AppTheme.amber, Icons.warning_amber_rounded),
-      UpiProofSeverity.blocked => (AppTheme.danger, Icons.error_rounded),
-      UpiProofSeverity.neutral => (Colors.white60, Icons.receipt_long_rounded),
+      UpiProofSeverity.verified => (p.accent, Icons.verified_rounded),
+      UpiProofSeverity.warning => (p.amber, Icons.warning_amber_rounded),
+      UpiProofSeverity.blocked => (p.danger, Icons.error_rounded),
+      UpiProofSeverity.neutral => (p.textSecondary, Icons.receipt_long_rounded),
     };
 
     return Column(
@@ -191,14 +196,14 @@ class _UpiPaymentProofSectionState extends State<UpiPaymentProofSection> {
           child: Container(
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
-              color: widget.cardBackground,
+              color: widget.cardBackground ?? p.card,
               borderRadius: BorderRadius.circular(14),
               border: Border.all(
                 color: widget.proofBytes != null
                     ? (audit.isBlocked
-                        ? AppTheme.danger.withValues(alpha: 0.7)
-                        : AppTheme.accent.withValues(alpha: 0.5))
-                    : widget.accentColor.withValues(alpha: 0.35),
+                        ? p.danger.withValues(alpha: 0.7)
+                        : p.accent.withValues(alpha: 0.5))
+                    : widget.accentColor.withValues(alpha: 0.45),
               ),
             ),
             child: widget.proofBytes != null
@@ -223,18 +228,16 @@ class _UpiPaymentProofSectionState extends State<UpiPaymentProofSection> {
                                   ? 'Checking Amount & UTR...'
                                   : 'Payment Screenshot Attached',
                               style: TextStyle(
-                                color: audit.isBlocked
-                                    ? AppTheme.danger
-                                    : AppTheme.accent,
+                                color: audit.isBlocked ? p.danger : p.accent,
                                 fontSize: 13,
                                 fontWeight: FontWeight.w800,
                               ),
                             ),
                             const SizedBox(height: 2),
-                            const Text(
+                            Text(
                               'Tap to change screenshot',
                               style: TextStyle(
-                                color: Colors.white54,
+                                color: p.textMuted,
                                 fontSize: 11.5,
                               ),
                             ),
@@ -254,9 +257,7 @@ class _UpiPaymentProofSectionState extends State<UpiPaymentProofSection> {
                               audit.isBlocked
                                   ? Icons.error_rounded
                                   : Icons.check_circle_rounded,
-                              color: audit.isBlocked
-                                  ? AppTheme.danger
-                                  : AppTheme.accent,
+                              color: audit.isBlocked ? p.danger : p.accent,
                             ),
                     ],
                   )
@@ -318,9 +319,7 @@ class _UpiPaymentProofSectionState extends State<UpiPaymentProofSection> {
                         Text(
                           'Paid Entered: ₹${widget.enteredAmount}  •  Screenshot: ₹${effectiveOcr.amountInr}',
                           style: TextStyle(
-                            color: audit.isBlocked
-                                ? AppTheme.danger
-                                : AppTheme.accent,
+                            color: audit.isBlocked ? p.danger : p.accent,
                             fontSize: 11.5,
                             fontWeight: FontWeight.w800,
                           ),
@@ -329,8 +328,8 @@ class _UpiPaymentProofSectionState extends State<UpiPaymentProofSection> {
                       ],
                       Text(
                         audit.detail,
-                        style: const TextStyle(
-                          color: Colors.white70,
+                        style: TextStyle(
+                          color: p.textSecondary,
                           fontSize: 11.5,
                           height: 1.35,
                         ),

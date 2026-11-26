@@ -145,6 +145,18 @@ rules_version = '2';
 //   - details: string (required, 0..200 chars)
 //   - removedAt: timestamp (optional)
 //
+// Collection: gyms/{gymId}/trainer_attendance/{logId}
+// Fields:
+//   - id: string (required, 1..128 chars)
+//   - trainerId: string (required, 1..128 chars)
+//   - trainerName: string (required, 1..100 chars)
+//   - trainerPhone: string (required, 0..20 chars)
+//   - dateKey: string (required, YYYY-MM-DD, 10 chars, validated via isValidCrowdDateString)
+//   - timeLabel: string (required, 1..30 chars)
+//   - eventType: string (required, "duty_checkin" | "login")
+//   - timestampMs: int (required, >= 0, <= 4102444800000)
+//   - createdAt: timestamp (optional)
+//
 // Collection: app_config/{docId}
 // Document ID: Config document key (e.g. "ai" for rotating Gemini API keys)
 // Access: Read-only for authenticated users; writes denied to clients (Admin SDK / Console only)
@@ -572,6 +584,29 @@ service cloud.firestore {
              isValidOptionalTimestamp(data, 'removedAt');
     }
 
+    function isValidTrainerAttendance(data) {
+      return hasRequiredFields([
+               'id', 'trainerId', 'trainerName', 'trainerPhone',
+               'dateKey', 'timeLabel', 'eventType', 'timestampMs'
+             ]) &&
+             hasOnlyAllowedFields([
+               'id', 'trainerId', 'trainerName', 'trainerPhone',
+               'dateKey', 'timeLabel', 'eventType', 'timestampMs', 'createdAt'
+             ]) &&
+             isValidString(data.id, 1, 128) &&
+             isValidString(data.trainerId, 1, 128) &&
+             isValidString(data.trainerName, 1, 100) &&
+             isValidString(data.trainerPhone, 0, 20) &&
+             isValidCrowdDateString(data.dateKey) &&
+             isValidString(data.timeLabel, 1, 30) &&
+             data.eventType is string &&
+             data.eventType in ['duty_checkin', 'login'] &&
+             data.timestampMs is int &&
+             data.timestampMs >= 0 &&
+             data.timestampMs <= 4102444800000 &&
+             isValidOptionalTimestamp(data, 'createdAt');
+    }
+
     // ===============================================================
     // Collection Rules
     // ===============================================================
@@ -797,6 +832,27 @@ service cloud.firestore {
         allow read: if isGymOwner(gymId);
 
         allow create: if isGymOwner(gymId) && isValidRemovedLog(request.resource.data);
+
+        allow delete: if isGymOwner(gymId);
+      }
+
+      // Append-only trainer login & duty check-in attendance logs subcollection
+      match /trainer_attendance/{logId} {
+        allow read: if isGymOwner(gymId) ||
+                       (isGymTrainer(gymId) &&
+                        hasPhone() &&
+                        'trainerPhone' in resource.data &&
+                        resource.data.trainerPhone == userPhone());
+
+        allow create: if isValidTrainerAttendance(request.resource.data) &&
+                         (
+                           isGymOwner(gymId) ||
+                           (isGymTrainer(gymId) &&
+                            hasPhone() &&
+                            request.resource.data.trainerPhone == userPhone())
+                         );
+
+        allow update: if false;
 
         allow delete: if isGymOwner(gymId);
       }

@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/widgets/logout_confirm_dialog.dart';
 import '../../data/services/attendance_guard_service.dart';
 import '../../data/services/hero_avatar_service.dart';
 import '../../shared_bloc/smart_gym_bloc.dart';
@@ -877,13 +878,7 @@ class CustomerDrawer extends StatelessWidget {
                       fontWeight: FontWeight.w800,
                     ),
                   ),
-                  onTap: () {
-                    Navigator.pop(context);
-                    HapticFeedback.mediumImpact();
-                    context
-                        .read<SmartGymBloc>()
-                        .add(const LogoutPartnerEvent());
-                  },
+                  onTap: () => confirmAndLogout(context, closeDrawer: true),
                 ),
               ],
             ),

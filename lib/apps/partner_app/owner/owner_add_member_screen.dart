@@ -119,6 +119,7 @@ class _OwnerAddMemberScreenState extends State<OwnerAddMemberScreen> {
 
   Future<void> _pickJoiningDate() async {
     HapticFeedback.selectionClick();
+    final p = AppPalette.light;
     final picked = await showDatePicker(
       context: context,
       initialDate: _joiningDate,
@@ -126,12 +127,12 @@ class _OwnerAddMemberScreenState extends State<OwnerAddMemberScreen> {
       lastDate: DateTime.now().add(const Duration(days: 365)),
       builder: (context, child) {
         return Theme(
-          data: ThemeData.dark().copyWith(
-            colorScheme: const ColorScheme.dark(
-              primary: AppTheme.ownerGold,
-              onPrimary: Colors.black,
-              surface: Color(0xFF1A1E29),
-              onSurface: Colors.white,
+          data: AppTheme.lightTheme.copyWith(
+            colorScheme: ColorScheme.light(
+              primary: p.gold,
+              onPrimary: p.onAccent,
+              surface: p.card,
+              onSurface: p.textPrimary,
             ),
           ),
           child: child!,
@@ -146,7 +147,7 @@ class _OwnerAddMemberScreenState extends State<OwnerAddMemberScreen> {
     }
   }
 
-  Future<void> _submit(SmartGymState state) async {
+  Future<void> _submit(BuildContext submitContext, SmartGymState state) async {
     final name = _nameCtrl.text.trim();
     final digits = _phoneCtrl.text.replaceAll(RegExp(r'\D'), '');
     final fee = int.tryParse(_amountCtrl.text.trim());
@@ -253,717 +254,718 @@ class _OwnerAddMemberScreenState extends State<OwnerAddMemberScreen> {
           ),
         );
 
+    final p = AppPalette.of(submitContext);
     await MemberWhatsAppService.showEnrollmentSuccessDialog(
-      context: context,
+      context: submitContext,
       gymName: state.currentGym.name,
       member: enrolledMember,
-      accentColor: AppTheme.ownerGold,
+      accentColor: p.gold,
     );
     if (mounted) Navigator.of(context).pop();
   }
 
   @override
   Widget build(BuildContext context) {
-    return BlocBuilder<SmartGymBloc, SmartGymState>(
-      builder: (context, state) {
-        final gym = state.currentGym;
-        final feePreview = int.tryParse(_amountCtrl.text.trim()) ?? 0;
-        final duePreview = int.tryParse(_dueCtrl.text.trim()) ?? 0;
-        final now = DateTime.now();
-        final today = DateTime(now.year, now.month, now.day);
-        final daysLeft = _expiryDate.difference(today).inDays;
+    return AppTheme.ensureOwnerLight(
+      context,
+      child: BlocBuilder<SmartGymBloc, SmartGymState>(
+        builder: (context, state) {
+          final p = AppPalette.of(context);
+          final gym = state.currentGym;
+          final feePreview = int.tryParse(_amountCtrl.text.trim()) ?? 0;
+          final duePreview = int.tryParse(_dueCtrl.text.trim()) ?? 0;
+          final now = DateTime.now();
+          final today = DateTime(now.year, now.month, now.day);
+          final daysLeft = _expiryDate.difference(today).inDays;
+          final planBadgeColor = _isPt ? p.cyan : p.accent;
 
-        return Scaffold(
-          backgroundColor: AppTheme.scaffoldBg,
-          appBar: AppBar(
-            backgroundColor: AppTheme.scaffoldBg,
-            foregroundColor: Colors.white,
-            title: const Text(
-              'Enroll Paid Member',
-              style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900),
+          return Scaffold(
+            backgroundColor: p.bg,
+            appBar: AppBar(
+              backgroundColor: p.bg,
+              foregroundColor: p.textPrimary,
+              title: const Text(
+                'Enroll Paid Member',
+                style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900),
+              ),
             ),
-          ),
-          body: SingleChildScrollView(
-            physics: const BouncingScrollPhysics(),
-            padding: const EdgeInsets.fromLTRB(20, 8, 20, 36),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                // 1. Live Membership Summary Card
-                CredMetalCard(
-                  glowColor: _isPt ? AppTheme.champagne : AppTheme.ownerGold,
-                  enableShimmer: true,
-                  padding: const EdgeInsets.all(20),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            gym.name.toUpperCase(),
-                            style: const TextStyle(
-                              color: AppTheme.ownerGold,
-                              fontSize: 10,
-                              fontWeight: FontWeight.w900,
-                              letterSpacing: 1.4,
-                            ),
-                          ),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 9,
-                              vertical: 4,
-                            ),
-                            decoration: BoxDecoration(
-                              color: (_isPt
-                                      ? AppTheme.champagne
-                                      : AppTheme.accent)
-                                  .withValues(alpha: 0.16),
-                              borderRadius: BorderRadius.circular(99),
-                            ),
-                            child: Text(
-                              _isPt ? 'PT VIP PLAN' : 'REGULAR PLAN',
+            body: SingleChildScrollView(
+              physics: const BouncingScrollPhysics(),
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 36),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // 1. Live Membership Summary Card
+                  CredMetalCard(
+                    glowColor: _isPt ? p.cyan : p.gold,
+                    enableShimmer: true,
+                    padding: const EdgeInsets.all(20),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              gym.name.toUpperCase(),
                               style: TextStyle(
-                                color:
-                                    _isPt ? AppTheme.champagne : AppTheme.accent,
-                                fontSize: 9.5,
+                                color: p.gold,
+                                fontSize: 10,
                                 fontWeight: FontWeight.w900,
+                                letterSpacing: 1.4,
                               ),
                             ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 10),
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.baseline,
-                        textBaseline: TextBaseline.alphabetic,
-                        children: [
-                          Text(
-                            '₹$feePreview',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 32,
-                              fontWeight: FontWeight.w900,
-                              letterSpacing: -0.8,
-                            ),
-                          ),
-                          if (duePreview > 0) ...[
-                            const SizedBox(width: 10),
-                            Text(
-                              '+ ₹$duePreview due',
-                              style: const TextStyle(
-                                color: AppTheme.amber,
-                                fontSize: 13.5,
-                                fontWeight: FontWeight.w900,
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 9,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: planBadgeColor.withValues(alpha: 0.14),
+                                borderRadius: BorderRadius.circular(99),
+                              ),
+                              child: Text(
+                                _isPt ? 'PT VIP PLAN' : 'REGULAR PLAN',
+                                style: TextStyle(
+                                  color: planBadgeColor,
+                                  fontSize: 9.5,
+                                  fontWeight: FontWeight.w900,
+                                ),
                               ),
                             ),
                           ],
-                        ],
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        '$_months ${_months == 1 ? 'Month' : 'Months'} • ${_formatDate(_joiningDate)} → ${_formatDate(_expiryDate)} ($daysLeft days)',
-                        style: const TextStyle(
-                          color: Colors.white70,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
                         ),
-                      ),
-                      if (_nameCtrl.text.trim().isNotEmpty ||
-                          _selectedGender != null) ...[
-                        const SizedBox(height: 8),
+                        const SizedBox(height: 10),
                         Row(
+                          crossAxisAlignment: CrossAxisAlignment.baseline,
+                          textBaseline: TextBaseline.alphabetic,
                           children: [
-                            if (_selectedGender != null)
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 3,
+                            Text(
+                              '₹$feePreview',
+                              style: TextStyle(
+                                color: p.textPrimary,
+                                fontSize: 32,
+                                fontWeight: FontWeight.w900,
+                                letterSpacing: -0.8,
+                              ),
+                            ),
+                            if (duePreview > 0) ...[
+                              const SizedBox(width: 10),
+                              Text(
+                                '+ ₹$duePreview due',
+                                style: TextStyle(
+                                  color: p.amber,
+                                  fontSize: 13.5,
+                                  fontWeight: FontWeight.w900,
                                 ),
-                                margin: const EdgeInsets.only(right: 8),
-                                decoration: BoxDecoration(
-                                  color:
-                                      AppTheme.ownerGold.withValues(alpha: 0.16),
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: Text(
-                                  _selectedGender!.label.toUpperCase(),
-                                  style: const TextStyle(
-                                    color: AppTheme.ownerGold,
-                                    fontSize: 9.5,
-                                    fontWeight: FontWeight.w900,
-                                    letterSpacing: 0.8,
+                              ),
+                            ],
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          '$_months ${_months == 1 ? 'Month' : 'Months'} • ${_formatDate(_joiningDate)} → ${_formatDate(_expiryDate)} ($daysLeft days)',
+                          style: TextStyle(
+                            color: p.textSecondary,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        if (_nameCtrl.text.trim().isNotEmpty ||
+                            _selectedGender != null) ...[
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              if (_selectedGender != null)
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 3,
+                                  ),
+                                  margin: const EdgeInsets.only(right: 8),
+                                  decoration: BoxDecoration(
+                                    color: p.gold.withValues(alpha: 0.14),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Text(
+                                    _selectedGender!.label.toUpperCase(),
+                                    style: TextStyle(
+                                      color: p.gold,
+                                      fontSize: 9.5,
+                                      fontWeight: FontWeight.w900,
+                                      letterSpacing: 0.8,
+                                    ),
                                   ),
                                 ),
-                              ),
-                            Expanded(
-                              child: Text(
-                                GymMember(
-                                  id: 'preview',
-                                  name: _nameCtrl.text.trim().isEmpty
-                                      ? 'New Member'
-                                      : _nameCtrl.text.trim(),
-                                  gender: _selectedGender?.value ?? '',
-                                  phone: '',
-                                  planTitle: '',
-                                  feePaid: 0,
-                                  joinedDate: '',
-                                  expiryDate: '',
-                                  daysLeft: 0,
-                                  isPtClient: false,
-                                  addedByTrainer: '',
-                                ).respectfulName,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 12.5,
-                                  fontWeight: FontWeight.w800,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 22),
-
-                // 2. Member Details
-                const _SectionLabel('MEMBER DETAILS'),
-                const SizedBox(height: 10),
-                _PremiumField(
-                  fieldKey: const ValueKey('enroll_name_input'),
-                  controller: _nameCtrl,
-                  label: 'Full Name',
-                  hint: 'e.g. Rahul Sharma',
-                  icon: Icons.person_outline_rounded,
-                  onChanged: (_) => setState(() {}),
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Expanded(
-                      flex: 3,
-                      child: _PremiumField(
-                        fieldKey: const ValueKey('enroll_phone_input'),
-                        controller: _phoneCtrl,
-                        label: 'Mobile Number',
-                        hint: '98490 00000',
-                        icon: Icons.phone_android_rounded,
-                        prefixText: '+91 ',
-                        keyboardType: TextInputType.phone,
-                        maxLength: 10,
-                        formatters: [FilteringTextInputFormatter.digitsOnly],
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      flex: 2,
-                      child: _PremiumField(
-                        controller: _weightCtrl,
-                        label: 'Weight (kg)',
-                        hint: '70.0',
-                        icon: Icons.monitor_weight_outlined,
-                        keyboardType: const TextInputType.numberWithOptions(
-                          decimal: true,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 14),
-                const Text(
-                  'Gender',
-                  style: TextStyle(
-                    color: Colors.white70,
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                const Text(
-                  'Respectful salutation (Mr. / Ms. / Mx.)',
-                  style: TextStyle(
-                    color: Colors.white38,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: MemberGender.values.map((g) {
-                    return _GenderChip(
-                      key: ValueKey('gender_chip_${g.name}'),
-                      gender: g,
-                      selected: _selectedGender == g,
-                      onTap: () => setState(() {
-                        _selectedGender = g;
-                        if (_errorText == 'Please select member gender.') {
-                          _errorText = null;
-                        }
-                      }),
-                    );
-                  }).toList(),
-                ),
-                const SizedBox(height: 22),
-
-                // 3. Gym Packages + Plan Duration
-                const _SectionLabel('MEMBERSHIP PLAN & DURATION'),
-                const SizedBox(height: 10),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: gym.effectiveFeePlans.map((plan) {
-                    final selected = _selectedPlan?.id == plan.id;
-                    return GestureDetector(
-                      key: ValueKey('fee_plan_chip_${plan.id}'),
-                      onTap: () {
-                        HapticFeedback.selectionClick();
-                        setState(() {
-                          _selectedPlan = plan;
-                          _months = plan.durationMonths ?? 1;
-                          _isPt = plan.includesPt;
-                          _amountEditedManually = false;
-                          _amountCtrl.text = plan.price.toString();
-                        });
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 8,
-                        ),
-                        decoration: BoxDecoration(
-                          color: selected
-                              ? AppTheme.ownerGold.withValues(alpha: 0.18)
-                              : const Color(0xFF1A1E29),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: selected
-                                ? AppTheme.ownerGold
-                                : Colors.white12,
-                          ),
-                        ),
-                        child: Text(
-                          '${plan.name} • ₹${plan.price}',
-                          style: TextStyle(
-                            color: selected
-                                ? AppTheme.ownerGold
-                                : Colors.white70,
-                            fontWeight: FontWeight.w800,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ),
-                    );
-                  }).toList(),
-                ),
-                const SizedBox(height: 12),
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF1A1E29),
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: Colors.white12),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Expanded(
-                        child: Text(
-                          'Custom Months',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            color: Colors.white70,
-                            fontSize: 13.5,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ),
-                      Row(
-                        children: [
-                          IconButton(
-                            onPressed: _months > 1
-                                ? () {
-                                    HapticFeedback.selectionClick();
-                                    setState(() {
-                                      _months--;
-                                      _selectedPlan =
-                                          GymFeePlan.matchPlanForDuration(
-                                        gym.effectiveFeePlans,
-                                        months: _months,
-                                        isPt: _isPt,
-                                      );
-                                      _recalculateSuggestedAmount(state);
-                                    });
-                                  }
-                                : null,
-                            icon: const Icon(
-                              Icons.remove_circle_outline_rounded,
-                              color: AppTheme.ownerGold,
-                            ),
-                          ),
-                          SizedBox(
-                            width: 36,
-                            child: Text(
-                              '$_months',
-                              textAlign: TextAlign.center,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 16,
-                                fontWeight: FontWeight.w900,
-                              ),
-                            ),
-                          ),
-                          IconButton(
-                            onPressed: _months < 36
-                                ? () {
-                                    HapticFeedback.selectionClick();
-                                    setState(() {
-                                      _months++;
-                                      _selectedPlan =
-                                          GymFeePlan.matchPlanForDuration(
-                                        gym.effectiveFeePlans,
-                                        months: _months,
-                                        isPt: _isPt,
-                                      );
-                                      _recalculateSuggestedAmount(state);
-                                    });
-                                  }
-                                : null,
-                            icon: const Icon(
-                              Icons.add_circle_outline_rounded,
-                              color: AppTheme.ownerGold,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 22),
-
-                // 4. Amount & Joining Date
-                const _SectionLabel('PAYMENT & JOINING DATE'),
-                const SizedBox(height: 10),
-                Row(
-                  children: [
-                    Expanded(
-                      child: _PremiumField(
-                        controller: _amountCtrl,
-                        label: 'Amount Paid (₹)',
-                        hint: '1500',
-                        icon: Icons.currency_rupee_rounded,
-                        keyboardType: TextInputType.number,
-                        formatters: [FilteringTextInputFormatter.digitsOnly],
-                        onChanged: (_) => setState(() {
-                          _amountEditedManually = true;
-                        }),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: TextField(
-                        controller: _joinDateCtrl,
-                        readOnly: true,
-                        onTap: _pickJoiningDate,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w700,
-                        ),
-                        decoration: InputDecoration(
-                          labelText: 'Joining Date',
-                          hintText: '18/11/2026',
-                          labelStyle: const TextStyle(
-                            color: Colors.white60,
-                            fontSize: 12,
-                          ),
-                          hintStyle: const TextStyle(color: Colors.white24),
-                          suffixIcon: IconButton(
-                            tooltip: 'Pick from Calendar',
-                            icon: const Icon(
-                              Icons.calendar_today_rounded,
-                              color: AppTheme.ownerGold,
-                              size: 18,
-                            ),
-                            onPressed: _pickJoiningDate,
-                          ),
-                          filled: true,
-                          fillColor: const Color(0xFF1A1E29),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(14),
-                            borderSide: const BorderSide(color: Colors.white12),
-                          ),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(14),
-                            borderSide: const BorderSide(color: Colors.white12),
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(14),
-                            borderSide:
-                                const BorderSide(color: AppTheme.ownerGold),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                _PremiumField(
-                  controller: _dueCtrl,
-                  label: 'Pending Due / Balance (₹) • Optional',
-                  hint: '0 (if paid in full)',
-                  icon: Icons.pending_actions_rounded,
-                  keyboardType: TextInputType.number,
-                  formatters: [FilteringTextInputFormatter.digitsOnly],
-                  onChanged: (_) => setState(() {}),
-                ),
-                const SizedBox(height: 16),
-
-                // 5. Personal Training Toggle + Trainer Selector
-                Builder(
-                  builder: (context) {
-                    final activeTrainer = state.trainers.isNotEmpty
-                        ? state.trainers.firstWhere(
-                            (t) => t.name == _selectedTrainer,
-                            orElse: () => state.trainers.first,
-                          )
-                        : null;
-                    final splitPct = activeTrainer?.commissionPercent ?? 0;
-                    final splitPreview = (_isPt && activeTrainer != null)
-                        ? PtSplitCalculator.computeMemberSplit(
-                            member: GymMember(
-                              id: 'preview',
-                              name: '',
-                              phone: '',
-                              planTitle: '',
-                              feePaid: feePreview,
-                              joinedDate: '',
-                              expiryDate: '',
-                              daysLeft: 0,
-                              assignedTrainer: activeTrainer.name,
-                              isPtClient: true,
-                              addedByTrainer: '',
-                            ),
-                            trainers: state.trainers,
-                            gym: gym,
-                          )
-                        : null;
-
-                    final ptSubtitle = !_isPt
-                        ? (activeTrainer != null
-                            ? 'Assign a coach ($splitPct% split) & unlock meal tracking'
-                            : 'Assign a personal trainer & unlock meal tracking')
-                        : activeTrainer == null
-                            ? 'Personal training & meal tracking included'
-                            : (gym.ptSplitExcludesBaseFee
-                                ? 'Base ₹${gym.monthlyFee} Owner • $splitPct% split on PT add-on'
-                                : 'Coach gets $splitPct% • Owner gets ${100 - splitPct}% & meal tracking');
-
-                    return Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF1A1E29),
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(
-                          color: _isPt
-                              ? AppTheme.champagne.withValues(alpha: 0.45)
-                              : Colors.white12,
-                        ),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          SwitchListTile(
-                            key: const ValueKey('enroll_pt_switch'),
-                            contentPadding: EdgeInsets.zero,
-                            activeThumbColor: AppTheme.champagne,
-                            title: const Text(
-                              'Personal Training (PT VIP)',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 14,
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
-                            subtitle: Text(
-                              ptSubtitle,
-                              style: const TextStyle(
-                                color: Colors.white54,
-                                fontSize: 11.5,
-                              ),
-                            ),
-                            value: _isPt,
-                            onChanged: (v) {
-                              HapticFeedback.selectionClick();
-                              setState(() {
-                                _isPt = v;
-                                _selectedPlan = GymFeePlan.matchPlanForDuration(
-                                  gym.effectiveFeePlans,
-                                  months: _months,
-                                  isPt: _isPt,
-                                );
-                                _recalculateSuggestedAmount(state);
-                              });
-                            },
-                          ),
-                          if (_isPt && state.trainers.isNotEmpty) ...[
-                            const Divider(color: Colors.white12, height: 8),
-                            DropdownButtonFormField<String>(
-                              key: const ValueKey('enroll_pt_trainer_dropdown'),
-                              initialValue:
-                                  _selectedTrainer ?? state.trainers.first.name,
-                              isExpanded: true,
-                              dropdownColor: const Color(0xFF1A1E29),
-                              decoration: const InputDecoration(
-                                labelText: 'Assign Personal Trainer',
-                                labelStyle: TextStyle(color: Colors.white60),
-                                border: InputBorder.none,
-                              ),
-                              items: state.trainers
-                                  .map(
-                                    (t) => DropdownMenuItem<String>(
-                                      value: t.name,
-                                      child: Text(
-                                        '${t.name} (${t.commissionPercent}% PT)',
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: const TextStyle(
-                                          color: Colors.white,
-                                        ),
-                                      ),
-                                    ),
-                                  )
-                                  .toList(),
-                              onChanged: (val) =>
-                                  setState(() => _selectedTrainer = val),
-                            ),
-                            if (splitPreview != null && feePreview > 0) ...[
-                              Padding(
-                                padding: const EdgeInsets.only(bottom: 8),
+                              Expanded(
                                 child: Text(
-                                  gym.ptSplitExcludesBaseFee &&
-                                          splitPreview.baseOwnerKeep > 0
-                                      ? 'Split Preview: Owner ₹${splitPreview.ownerShare} (incl. ₹${splitPreview.baseOwnerKeep} base)  |  ${activeTrainer!.name} ₹${splitPreview.trainerShare}'
-                                      : 'Split Preview: Owner ₹${splitPreview.ownerShare}  |  ${activeTrainer!.name} ₹${splitPreview.trainerShare}',
-                                  key: const ValueKey('enroll_pt_split_preview'),
-                                  style: const TextStyle(
-                                    color: AppTheme.champagne,
-                                    fontSize: 11.5,
+                                  GymMember(
+                                    id: 'preview',
+                                    name: _nameCtrl.text.trim().isEmpty
+                                        ? 'New Member'
+                                        : _nameCtrl.text.trim(),
+                                    gender: _selectedGender?.value ?? '',
+                                    phone: '',
+                                    planTitle: '',
+                                    feePaid: 0,
+                                    joinedDate: '',
+                                    expiryDate: '',
+                                    daysLeft: 0,
+                                    isPtClient: false,
+                                    addedByTrainer: '',
+                                  ).respectfulName,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    color: p.textPrimary,
+                                    fontSize: 12.5,
                                     fontWeight: FontWeight.w800,
                                   ),
                                 ),
                               ),
                             ],
-                          ],
+                          ),
                         ],
-                      ),
-                    );
-                  },
-                ),
-                const SizedBox(height: 22),
-
-                // 6. Payment Mode (Cash vs Online + Screenshot)
-                const _SectionLabel('PAYMENT MODE & PROOF'),
-                const SizedBox(height: 10),
-                Row(
-                  children: [
-                    Expanded(
-                      child: _ModeChip(
-                        label: 'Cash',
-                        icon: Icons.payments_rounded,
-                        selected: _paymentMode == 'Cash',
-                        accent: AppTheme.accent,
-                        onTap: () => setState(() {
-                          _paymentMode = 'Cash';
-                          _errorText = null;
-                        }),
-                      ),
+                      ],
                     ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: _ModeChip(
-                        label: 'Online / UPI',
-                        icon: Icons.qr_code_2_rounded,
-                        selected: _paymentMode == 'Online',
-                        accent: AppTheme.ownerGold,
+                  ),
+                  const SizedBox(height: 22),
+
+                  // 2. Member Details
+                  const _SectionLabel('MEMBER DETAILS'),
+                  const SizedBox(height: 10),
+                  _PremiumField(
+                    fieldKey: const ValueKey('enroll_name_input'),
+                    controller: _nameCtrl,
+                    label: 'Full Name',
+                    hint: 'e.g. Rahul Sharma',
+                    icon: Icons.person_outline_rounded,
+                    onChanged: (_) => setState(() {}),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        flex: 3,
+                        child: _PremiumField(
+                          fieldKey: const ValueKey('enroll_phone_input'),
+                          controller: _phoneCtrl,
+                          label: 'Mobile Number',
+                          hint: '98490 00000',
+                          icon: Icons.phone_android_rounded,
+                          prefixText: '+91 ',
+                          keyboardType: TextInputType.phone,
+                          maxLength: 10,
+                          formatters: [FilteringTextInputFormatter.digitsOnly],
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        flex: 2,
+                        child: _PremiumField(
+                          controller: _weightCtrl,
+                          label: 'Weight (kg)',
+                          hint: '70.0',
+                          icon: Icons.monitor_weight_outlined,
+                          keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+                  Text(
+                    'Gender',
+                    style: TextStyle(
+                      color: p.textSecondary,
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    'Respectful salutation (Mr. / Ms. / Mx.)',
+                    style: TextStyle(
+                      color: p.textMuted,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: MemberGender.values.map((g) {
+                      return _GenderChip(
+                        key: ValueKey('gender_chip_${g.name}'),
+                        gender: g,
+                        selected: _selectedGender == g,
                         onTap: () => setState(() {
-                          _paymentMode = 'Online';
-                          _errorText = null;
+                          _selectedGender = g;
+                          if (_errorText == 'Please select member gender.') {
+                            _errorText = null;
+                          }
                         }),
+                      );
+                    }).toList(),
+                  ),
+                  const SizedBox(height: 22),
+
+                  // 3. Gym Packages + Plan Duration
+                  const _SectionLabel('MEMBERSHIP PLAN & DURATION'),
+                  const SizedBox(height: 10),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: gym.effectiveFeePlans.map((plan) {
+                      final selected = _selectedPlan?.id == plan.id;
+                      return GestureDetector(
+                        key: ValueKey('fee_plan_chip_${plan.id}'),
+                        onTap: () {
+                          HapticFeedback.selectionClick();
+                          setState(() {
+                            _selectedPlan = plan;
+                            _months = plan.durationMonths ?? 1;
+                            _isPt = plan.includesPt;
+                            _amountEditedManually = false;
+                            _amountCtrl.text = plan.price.toString();
+                          });
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 8,
+                          ),
+                          decoration: BoxDecoration(
+                            color: selected
+                                ? p.gold.withValues(alpha: 0.14)
+                                : p.card,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: selected ? p.gold : p.border,
+                            ),
+                          ),
+                          child: Text(
+                            '${plan.name} • ₹${plan.price}',
+                            style: TextStyle(
+                              color: selected ? p.gold : p.textSecondary,
+                              fontWeight: FontWeight.w800,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                  const SizedBox(height: 12),
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: p.card,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: p.border),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            'Custom Months',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: p.textSecondary,
+                              fontSize: 13.5,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                        Row(
+                          children: [
+                            IconButton(
+                              onPressed: _months > 1
+                                  ? () {
+                                      HapticFeedback.selectionClick();
+                                      setState(() {
+                                        _months--;
+                                        _selectedPlan =
+                                            GymFeePlan.matchPlanForDuration(
+                                          gym.effectiveFeePlans,
+                                          months: _months,
+                                          isPt: _isPt,
+                                        );
+                                        _recalculateSuggestedAmount(state);
+                                      });
+                                    }
+                                  : null,
+                              icon: Icon(
+                                Icons.remove_circle_outline_rounded,
+                                color: p.gold,
+                              ),
+                            ),
+                            SizedBox(
+                              width: 36,
+                              child: Text(
+                                '$_months',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  color: p.textPrimary,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                            ),
+                            IconButton(
+                              onPressed: _months < 36
+                                  ? () {
+                                      HapticFeedback.selectionClick();
+                                      setState(() {
+                                        _months++;
+                                        _selectedPlan =
+                                            GymFeePlan.matchPlanForDuration(
+                                          gym.effectiveFeePlans,
+                                          months: _months,
+                                          isPt: _isPt,
+                                        );
+                                        _recalculateSuggestedAmount(state);
+                                      });
+                                    }
+                                  : null,
+                              icon: Icon(
+                                Icons.add_circle_outline_rounded,
+                                color: p.gold,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 22),
+
+                  // 4. Amount & Joining Date
+                  const _SectionLabel('PAYMENT & JOINING DATE'),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _PremiumField(
+                          controller: _amountCtrl,
+                          label: 'Amount Paid (₹)',
+                          hint: '1500',
+                          icon: Icons.currency_rupee_rounded,
+                          keyboardType: TextInputType.number,
+                          formatters: [FilteringTextInputFormatter.digitsOnly],
+                          onChanged: (_) => setState(() {
+                            _amountEditedManually = true;
+                          }),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: TextField(
+                          controller: _joinDateCtrl,
+                          readOnly: true,
+                          onTap: _pickJoiningDate,
+                          style: TextStyle(
+                            color: p.textPrimary,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                          ),
+                          decoration: InputDecoration(
+                            labelText: 'Joining Date',
+                            hintText: '18/11/2026',
+                            labelStyle: TextStyle(
+                              color: p.textSecondary,
+                              fontSize: 12,
+                            ),
+                            hintStyle: TextStyle(color: p.textMuted),
+                            suffixIcon: IconButton(
+                              tooltip: 'Pick from Calendar',
+                              icon: Icon(
+                                Icons.calendar_today_rounded,
+                                color: p.gold,
+                                size: 18,
+                              ),
+                              onPressed: _pickJoiningDate,
+                            ),
+                            filled: true,
+                            fillColor: p.card,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(14),
+                              borderSide: BorderSide(color: p.border),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(14),
+                              borderSide: BorderSide(color: p.border),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(14),
+                              borderSide: BorderSide(color: p.gold),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  _PremiumField(
+                    controller: _dueCtrl,
+                    label: 'Pending Due / Balance (₹) • Optional',
+                    hint: '0 (if paid in full)',
+                    icon: Icons.pending_actions_rounded,
+                    keyboardType: TextInputType.number,
+                    formatters: [FilteringTextInputFormatter.digitsOnly],
+                    onChanged: (_) => setState(() {}),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // 5. Personal Training Toggle + Trainer Selector
+                  Builder(
+                    builder: (context) {
+                      final activeTrainer = state.trainers.isNotEmpty
+                          ? state.trainers.firstWhere(
+                              (t) => t.name == _selectedTrainer,
+                              orElse: () => state.trainers.first,
+                            )
+                          : null;
+                      final splitPct = activeTrainer?.commissionPercent ?? 0;
+                      final splitPreview = (_isPt && activeTrainer != null)
+                          ? PtSplitCalculator.computeMemberSplit(
+                              member: GymMember(
+                                id: 'preview',
+                                name: '',
+                                phone: '',
+                                planTitle: '',
+                                feePaid: feePreview,
+                                joinedDate: '',
+                                expiryDate: '',
+                                daysLeft: 0,
+                                assignedTrainer: activeTrainer.name,
+                                isPtClient: true,
+                                addedByTrainer: '',
+                              ),
+                              trainers: state.trainers,
+                              gym: gym,
+                            )
+                          : null;
+
+                      final ptSubtitle = !_isPt
+                          ? (activeTrainer != null
+                              ? 'Assign a coach ($splitPct% split) & unlock meal tracking'
+                              : 'Assign a personal trainer & unlock meal tracking')
+                          : activeTrainer == null
+                              ? 'Personal training & meal tracking included'
+                              : (gym.ptSplitExcludesBaseFee
+                                  ? 'Base ₹${gym.monthlyFee} Owner • $splitPct% split on PT add-on'
+                                  : 'Coach gets $splitPct% • Owner gets ${100 - splitPct}% & meal tracking');
+
+                      return Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: p.card,
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(
+                            color: _isPt
+                                ? p.gold.withValues(alpha: 0.45)
+                                : p.border,
+                          ),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            SwitchListTile(
+                              key: const ValueKey('enroll_pt_switch'),
+                              contentPadding: EdgeInsets.zero,
+                              activeThumbColor: p.gold,
+                              title: Text(
+                                'Personal Training (PT VIP)',
+                                style: TextStyle(
+                                  color: p.textPrimary,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                              subtitle: Text(
+                                ptSubtitle,
+                                style: TextStyle(
+                                  color: p.textMuted,
+                                  fontSize: 11.5,
+                                ),
+                              ),
+                              value: _isPt,
+                              onChanged: (v) {
+                                HapticFeedback.selectionClick();
+                                setState(() {
+                                  _isPt = v;
+                                  _selectedPlan =
+                                      GymFeePlan.matchPlanForDuration(
+                                    gym.effectiveFeePlans,
+                                    months: _months,
+                                    isPt: _isPt,
+                                  );
+                                  _recalculateSuggestedAmount(state);
+                                });
+                              },
+                            ),
+                            if (_isPt && state.trainers.isNotEmpty) ...[
+                              Divider(color: p.divider, height: 8),
+                              DropdownButtonFormField<String>(
+                                key: const ValueKey(
+                                  'enroll_pt_trainer_dropdown',
+                                ),
+                                initialValue: _selectedTrainer ??
+                                    state.trainers.first.name,
+                                isExpanded: true,
+                                dropdownColor: p.card,
+                                decoration: InputDecoration(
+                                  labelText: 'Assign Personal Trainer',
+                                  labelStyle: TextStyle(color: p.textSecondary),
+                                  border: InputBorder.none,
+                                ),
+                                items: state.trainers
+                                    .map(
+                                      (t) => DropdownMenuItem<String>(
+                                        value: t.name,
+                                        child: Text(
+                                          '${t.name} (${t.commissionPercent}% PT)',
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: TextStyle(
+                                            color: p.textPrimary,
+                                          ),
+                                        ),
+                                      ),
+                                    )
+                                    .toList(),
+                                onChanged: (val) =>
+                                    setState(() => _selectedTrainer = val),
+                              ),
+                              if (splitPreview != null && feePreview > 0) ...[
+                                Padding(
+                                  padding: const EdgeInsets.only(bottom: 8),
+                                  child: Text(
+                                    gym.ptSplitExcludesBaseFee &&
+                                            splitPreview.baseOwnerKeep > 0
+                                        ? 'Split Preview: Owner ₹${splitPreview.ownerShare} (incl. ₹${splitPreview.baseOwnerKeep} base)  |  ${activeTrainer!.name} ₹${splitPreview.trainerShare}'
+                                        : 'Split Preview: Owner ₹${splitPreview.ownerShare}  |  ${activeTrainer!.name} ₹${splitPreview.trainerShare}',
+                                    key: const ValueKey(
+                                      'enroll_pt_split_preview',
+                                    ),
+                                    style: TextStyle(
+                                      color: p.gold,
+                                      fontSize: 11.5,
+                                      fontWeight: FontWeight.w800,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 22),
+
+                  // 6. Payment Mode (Cash vs Online + Screenshot)
+                  const _SectionLabel('PAYMENT MODE & PROOF'),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _ModeChip(
+                          label: 'Cash',
+                          icon: Icons.payments_rounded,
+                          selected: _paymentMode == 'Cash',
+                          accent: p.accent,
+                          onTap: () => setState(() {
+                            _paymentMode = 'Cash';
+                            _errorText = null;
+                          }),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: _ModeChip(
+                          label: 'Online / UPI',
+                          icon: Icons.qr_code_2_rounded,
+                          selected: _paymentMode == 'Online',
+                          accent: p.gold,
+                          onTap: () => setState(() {
+                            _paymentMode = 'Online';
+                            _errorText = null;
+                          }),
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (_paymentMode == 'Online') ...[
+                    const SizedBox(height: 12),
+                    UpiPaymentProofSection(
+                      proofBytes: _paymentProofBytes,
+                      ocrExtraction: _ocrExtraction,
+                      enteredAmount: feePreview,
+                      existingMembers: state.members,
+                      accentColor: p.gold,
+                      onProofSelected: (result) {
+                        setState(() {
+                          _paymentProofBytes = result.bytes;
+                          _paymentProofBase64 = result.base64;
+                          _ocrExtraction = result.ocr;
+                          _errorText = null;
+                        });
+                      },
+                      onError: (msg) => setState(() => _errorText = msg),
+                    ),
+                  ],
+
+                  if (_errorText != null) ...[
+                    const SizedBox(height: 14),
+                    Text(
+                      _errorText!,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: p.danger,
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
                   ],
-                ),
-                if (_paymentMode == 'Online') ...[
-                  const SizedBox(height: 12),
-                  UpiPaymentProofSection(
-                    proofBytes: _paymentProofBytes,
-                    ocrExtraction: _ocrExtraction,
-                    enteredAmount: feePreview,
-                    existingMembers: state.members,
-                    accentColor: AppTheme.ownerGold,
-                    onProofSelected: (result) {
-                      setState(() {
-                        _paymentProofBytes = result.bytes;
-                        _paymentProofBase64 = result.base64;
-                        _ocrExtraction = result.ocr;
-                        _errorText = null;
-                      });
-                    },
-                    onError: (msg) => setState(() => _errorText = msg),
-                  ),
-                ],
-
-                if (_errorText != null) ...[
-                  const SizedBox(height: 14),
-                  Text(
-                    _errorText!,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      color: AppTheme.danger,
-                      fontSize: 12.5,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ],
-                const SizedBox(height: 22),
-                SizedBox(
-                  height: 52,
-                  child: ElevatedButton.icon(
-                    key: const ValueKey('enroll_submit_btn'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.ownerGold,
-                      foregroundColor: Colors.black,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14),
+                  const SizedBox(height: 22),
+                  SizedBox(
+                    height: 52,
+                    child: ElevatedButton.icon(
+                      key: const ValueKey('enroll_submit_btn'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: p.goldButton,
+                        foregroundColor: p.onAccent,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
                       ),
-                    ),
-                    onPressed: () => _submit(state),
-                    icon: const Icon(Icons.verified_rounded, size: 20),
-                    label: const Text(
-                      'ENROLL PAID MEMBER',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: 1.0,
+                      onPressed: () => _submit(context, state),
+                      icon: const Icon(Icons.verified_rounded, size: 20),
+                      label: const Text(
+                        'ENROLL PAID MEMBER',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 1.0,
+                        ),
                       ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-        );
-      },
+          );
+        },
+      ),
     );
   }
 }
@@ -974,10 +976,11 @@ class _SectionLabel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final p = AppPalette.of(context);
     return Text(
       text,
-      style: const TextStyle(
-        color: Colors.white38,
+      style: TextStyle(
+        color: p.textMuted,
         fontSize: 10.5,
         fontWeight: FontWeight.w900,
         letterSpacing: 1.5,
@@ -1013,6 +1016,7 @@ class _PremiumField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final p = AppPalette.of(context);
     return TextField(
       key: fieldKey,
       controller: controller,
@@ -1020,8 +1024,8 @@ class _PremiumField extends StatelessWidget {
       maxLength: maxLength,
       inputFormatters: formatters,
       onChanged: onChanged,
-      style: const TextStyle(
-        color: Colors.white,
+      style: TextStyle(
+        color: p.textPrimary,
         fontSize: 14.5,
         fontWeight: FontWeight.w700,
       ),
@@ -1030,26 +1034,26 @@ class _PremiumField extends StatelessWidget {
         labelText: label,
         hintText: hint,
         prefixText: prefixText,
-        prefixStyle: const TextStyle(
-          color: AppTheme.ownerGold,
+        prefixStyle: TextStyle(
+          color: p.gold,
           fontWeight: FontWeight.w800,
         ),
-        prefixIcon: Icon(icon, color: AppTheme.ownerGold, size: 19),
-        labelStyle: const TextStyle(color: Colors.white60, fontSize: 12.5),
-        hintStyle: const TextStyle(color: Colors.white24),
+        prefixIcon: Icon(icon, color: p.gold, size: 19),
+        labelStyle: TextStyle(color: p.textSecondary, fontSize: 12.5),
+        hintStyle: TextStyle(color: p.textMuted),
         filled: true,
-        fillColor: const Color(0xFF1A1E29),
+        fillColor: p.card,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
-          borderSide: const BorderSide(color: Colors.white12),
+          borderSide: BorderSide(color: p.border),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
-          borderSide: const BorderSide(color: Colors.white12),
+          borderSide: BorderSide(color: p.border),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
-          borderSide: const BorderSide(color: AppTheme.ownerGold),
+          borderSide: BorderSide(color: p.gold),
         ),
       ),
     );
@@ -1073,6 +1077,7 @@ class _ModeChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final p = AppPalette.of(context);
     return GestureDetector(
       onTap: () {
         HapticFeedback.selectionClick();
@@ -1081,19 +1086,17 @@ class _ModeChip extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
         decoration: BoxDecoration(
-          color: selected
-              ? accent.withValues(alpha: 0.16)
-              : const Color(0xFF1A1E29),
+          color: selected ? accent.withValues(alpha: 0.14) : p.card,
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
-            color: selected ? accent : Colors.white12,
+            color: selected ? accent : p.border,
             width: selected ? 1.5 : 1,
           ),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, size: 17, color: selected ? accent : Colors.white54),
+            Icon(icon, size: 17, color: selected ? accent : p.textMuted),
             const SizedBox(width: 7),
             Flexible(
               child: Text(
@@ -1101,7 +1104,7 @@ class _ModeChip extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  color: selected ? accent : Colors.white70,
+                  color: selected ? accent : p.textSecondary,
                   fontSize: 13,
                   fontWeight: FontWeight.w800,
                 ),
@@ -1134,7 +1137,8 @@ class _GenderChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final accent = AppTheme.ownerGold;
+    final p = AppPalette.of(context);
+    final accent = p.gold;
     return GestureDetector(
       onTap: () {
         HapticFeedback.selectionClick();
@@ -1143,12 +1147,10 @@ class _GenderChip extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 10),
         decoration: BoxDecoration(
-          color: selected
-              ? accent.withValues(alpha: 0.18)
-              : const Color(0xFF1A1E29),
+          color: selected ? accent.withValues(alpha: 0.14) : p.card,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: selected ? accent : Colors.white12,
+            color: selected ? accent : p.border,
             width: selected ? 1.4 : 1,
           ),
         ),
@@ -1158,13 +1160,13 @@ class _GenderChip extends StatelessWidget {
             Icon(
               _icons[gender] ?? Icons.person_outline_rounded,
               size: 17,
-              color: selected ? accent : Colors.white54,
+              color: selected ? accent : p.textMuted,
             ),
             const SizedBox(width: 6),
             Text(
               '${gender.label} (${gender.honorific})',
               style: TextStyle(
-                color: selected ? accent : Colors.white70,
+                color: selected ? accent : p.textSecondary,
                 fontSize: 12.5,
                 fontWeight: FontWeight.w800,
               ),

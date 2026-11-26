@@ -6,6 +6,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/logout_confirm_dialog.dart';
 import '../../../data/services/gym_location_service.dart';
 import '../../../data/services/onboarding_draft_service.dart';
 import '../../../domain/models/gym_fee_plan.dart';
@@ -1704,13 +1705,14 @@ class _PartnerOnboardingScreenState extends State<PartnerOnboardingScreen>
                           TextButton(
                             onPressed: state.isOnboardingBusy
                                 ? null
-                                : () async {
-                                    await _persistDraftNow();
-                                    if (!context.mounted) return;
-                                    context
-                                        .read<SmartGymBloc>()
-                                        .add(const LogoutPartnerEvent());
-                                  },
+                                : () => confirmAndLogout(
+                                      context,
+                                      beforeLogout: _persistDraftNow,
+                                      title: 'Switch Mobile Number?',
+                                      message:
+                                          'Are you sure you want to log out and switch to another number?',
+                                      confirmLabel: 'Switch',
+                                    ),
                             child: const Text(
                               'Switch Number',
                               style: TextStyle(

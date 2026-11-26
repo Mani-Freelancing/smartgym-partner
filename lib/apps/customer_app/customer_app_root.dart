@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/widgets/logout_confirm_dialog.dart';
 import '../../data/services/hero_avatar_service.dart';
 import '../../shared_bloc/smart_gym_bloc.dart';
 import '../../shared_bloc/smart_gym_event.dart';
@@ -202,9 +203,13 @@ class _CustomerAppRootState extends State<CustomerAppRoot> {
                           ),
                           const SizedBox(height: 20),
                           TextButton(
-                            onPressed: () => context
-                                .read<SmartGymBloc>()
-                                .add(const LogoutPartnerEvent()),
+                            onPressed: () => confirmAndLogout(
+                              context,
+                              title: 'Switch Mobile Number?',
+                              message:
+                                  'Are you sure you want to log out and try another mobile number?',
+                              confirmLabel: 'Switch',
+                            ),
                             child: const Text(
                               'Switch Mobile Number',
                               style: TextStyle(

@@ -16,7 +16,49 @@ class AppTheme {
   static const Color danger = Color(0xFFFF453A);
   static const Color softRed = Color(0xFFFF6B6B);
 
-  static ThemeData get lightTheme => darkTheme;
+  // Daylight Executive Palette for Owner Portal
+  static const Color lightScaffoldBg = Color(0xFFF5F7FB);
+  static const Color lightCardSurface = Color(0xFFFFFFFF);
+  static const Color lightCardSubtle = Color(0xFFF1F5F9);
+  static const Color lightOwnerGold = Color(0xFFB45309);
+  static const Color lightOwnerGoldButton = Color(0xFFB45309);
+  static const Color lightAccent = Color(0xFF059669);
+  static const Color lightCyan = Color(0xFF0F766E);
+  static const Color lightAmber = Color(0xFFD97706);
+  static const Color lightDanger = Color(0xFFDC2626);
+  static const Color lightPurple = Color(0xFF7C3AED);
+
+  static ThemeData get lightTheme {
+    return ThemeData(
+      brightness: Brightness.light,
+      scaffoldBackgroundColor: lightScaffoldBg,
+      colorScheme: const ColorScheme.light(
+        primary: lightAccent,
+        secondary: lightOwnerGold,
+        surface: lightCardSurface,
+        onSurface: Color(0xFF0F172A),
+        error: lightDanger,
+      ),
+      appBarTheme: const AppBarTheme(
+        backgroundColor: lightScaffoldBg,
+        foregroundColor: Color(0xFF0F172A),
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+      ),
+      dialogTheme: const DialogThemeData(
+        backgroundColor: lightCardSurface,
+        surfaceTintColor: Colors.transparent,
+      ),
+      bottomSheetTheme: const BottomSheetThemeData(
+        backgroundColor: lightCardSurface,
+        surfaceTintColor: Colors.transparent,
+      ),
+      dividerColor: const Color(0xFFE2E8F0),
+      useMaterial3: true,
+      extensions: const [AppPalette.light],
+    );
+  }
 
   static ThemeData get darkTheme {
     return ThemeData(
@@ -29,22 +71,109 @@ class AppTheme {
       ),
       dividerColor: const Color(0x14FFFFFF),
       useMaterial3: true,
+      extensions: const [AppPalette.dark],
     );
+  }
+
+  static Widget ensureOwnerLight(
+    BuildContext context, {
+    required Widget child,
+  }) {
+    if (Theme.of(context).extension<AppPalette>()?.isDark == false) {
+      return child;
+    }
+    return Theme(data: lightTheme, child: child);
   }
 }
 
-class AppPalette {
+class AppPalette extends ThemeExtension<AppPalette> {
   final bool isDark;
-  const AppPalette([this.isDark = true]);
+  final Color bg;
+  final Color card;
+  final Color cardSubtle;
+  final Color navBar;
+  final Color border;
+  final Color divider;
+  final Color textPrimary;
+  final Color textSecondary;
+  final Color textMuted;
+  final Color accent;
+  final Color gold;
+  final Color goldButton;
+  final Color cyan;
+  final Color amber;
+  final Color danger;
+  final Color purple;
+  final Color onAccent;
+  final Color snackBg;
 
-  Color get bg => AppTheme.scaffoldBg;
-  Color get card => AppTheme.cardSurface;
-  Color get cardSubtle => AppTheme.cardElevated;
-  Color get navBar => const Color(0xFF0D0F14);
-  Color get border => const Color(0x18FFFFFF);
-  Color get textPrimary => Colors.white;
-  Color get textSecondary => const Color(0xFF94A3B8);
-  Color get textMuted => const Color(0xFF64748B);
-  Color get accent => AppTheme.accent;
-  List<BoxShadow> get cardShadow => const [];
+  const AppPalette({
+    this.isDark = true,
+    this.bg = AppTheme.scaffoldBg,
+    this.card = AppTheme.cardSurface,
+    this.cardSubtle = AppTheme.cardElevated,
+    this.navBar = const Color(0xFF0D0F14),
+    this.border = const Color(0x18FFFFFF),
+    this.divider = const Color(0x14FFFFFF),
+    this.textPrimary = Colors.white,
+    this.textSecondary = const Color(0xB3FFFFFF),
+    this.textMuted = const Color(0x61FFFFFF),
+    this.accent = AppTheme.accent,
+    this.gold = AppTheme.ownerGold,
+    this.goldButton = AppTheme.ownerGold,
+    this.cyan = AppTheme.trainerCyan,
+    this.amber = AppTheme.amber,
+    this.danger = AppTheme.softRed,
+    this.purple = AppTheme.purple,
+    this.onAccent = Colors.black,
+    this.snackBg = const Color(0xFF1A1E29),
+  });
+
+  static const AppPalette dark = AppPalette();
+
+  static const AppPalette light = AppPalette(
+    isDark: false,
+    bg: AppTheme.lightScaffoldBg,
+    card: AppTheme.lightCardSurface,
+    cardSubtle: AppTheme.lightCardSubtle,
+    navBar: Colors.white,
+    border: Color(0xFFE2E8F0),
+    divider: Color(0xFFE2E8F0),
+    textPrimary: Color(0xFF0F172A),
+    textSecondary: Color(0xFF475569),
+    textMuted: Color(0xFF64748B),
+    accent: AppTheme.lightAccent,
+    gold: AppTheme.lightOwnerGold,
+    goldButton: AppTheme.lightOwnerGoldButton,
+    cyan: AppTheme.lightCyan,
+    amber: AppTheme.lightAmber,
+    danger: AppTheme.lightDanger,
+    purple: AppTheme.lightPurple,
+    onAccent: Colors.white,
+    snackBg: Color(0xFF0F172A),
+  );
+
+  static AppPalette of(BuildContext context) {
+    return Theme.of(context).extension<AppPalette>() ?? dark;
+  }
+
+  List<BoxShadow> get cardShadow => isDark
+      ? const []
+      : [
+          BoxShadow(
+            color: const Color(0xFF0F172A).withValues(alpha: 0.05),
+            blurRadius: 16,
+            offset: const Offset(0, 4),
+          ),
+        ];
+
+  @override
+  AppPalette copyWith({bool? isDark}) =>
+      (isDark ?? this.isDark) ? dark : light;
+
+  @override
+  AppPalette lerp(ThemeExtension<AppPalette>? other, double t) {
+    if (other is! AppPalette) return this;
+    return t < 0.5 ? this : other;
+  }
 }

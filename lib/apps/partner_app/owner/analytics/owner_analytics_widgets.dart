@@ -82,6 +82,7 @@ class _OwnerCeoHeroCardState extends State<OwnerCeoHeroCard> {
 
   @override
   Widget build(BuildContext context) {
+    final p = AppPalette.of(context);
     final gym = widget.state.currentGym;
     final report = OwnerAnalyticsEngine.buildReport(
       state: widget.state,
@@ -95,9 +96,9 @@ class _OwnerCeoHeroCardState extends State<OwnerCeoHeroCard> {
         : null;
 
     return CredMetalCard(
-      glowColor: AppTheme.ownerGold,
-      enableShimmer: true,
-      padding: const EdgeInsets.all(18),
+      glowColor: p.gold,
+      enableShimmer: p.isDark,
+      padding: const EdgeInsets.fromLTRB(14, 16, 14, 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -110,10 +111,10 @@ class _OwnerCeoHeroCardState extends State<OwnerCeoHeroCard> {
                   '${gym.name.toUpperCase()} • CEO OVERVIEW',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 10,
                     fontWeight: FontWeight.w900,
-                    color: AppTheme.ownerGold,
+                    color: p.gold,
                     letterSpacing: 1.4,
                   ),
                 ),
@@ -125,15 +126,15 @@ class _OwnerCeoHeroCardState extends State<OwnerCeoHeroCard> {
                   vertical: 3,
                 ),
                 decoration: BoxDecoration(
-                  color: AppTheme.accent.withValues(alpha: 0.14),
+                  color: p.accent.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(99),
                 ),
                 child: Text(
                   '${widget.state.liveCrowd}/${gym.maxCapacity} IN FLOOR',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 9.5,
                     fontWeight: FontWeight.w900,
-                    color: AppTheme.accent,
+                    color: p.accent,
                   ),
                 ),
               ),
@@ -155,11 +156,11 @@ class _OwnerCeoHeroCardState extends State<OwnerCeoHeroCard> {
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 32,
                         fontWeight: FontWeight.w900,
                         letterSpacing: -0.9,
-                        color: Colors.white,
+                        color: p.textPrimary,
                       ),
                     ),
                     const SizedBox(height: 2),
@@ -169,9 +170,9 @@ class _OwnerCeoHeroCardState extends State<OwnerCeoHeroCard> {
                           : '${report.rangeTitle} Collection',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 11.5,
-                        color: Colors.white60,
+                        color: p.textSecondary,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
@@ -185,9 +186,9 @@ class _OwnerCeoHeroCardState extends State<OwnerCeoHeroCard> {
                             : 'Total Enrolled: ${formatInr(widget.state.totalMonthlyRevenue)}',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 10.5,
-                          color: AppTheme.ownerGold,
+                          color: p.gold,
                           fontWeight: FontWeight.w700,
                         ),
                       ),
@@ -204,15 +205,13 @@ class _OwnerCeoHeroCardState extends State<OwnerCeoHeroCard> {
                   _MiniStatPill(
                     text:
                         '${selectedBucket?.joins ?? report.periodJoins} join(s)',
-                    color: AppTheme.trainerCyan,
+                    color: p.cyan,
                   ),
                   if (report.growthPercent != null && selectedBucket == null)
                     _MiniStatPill(
                       text:
                           '${report.growthPercent! >= 0 ? '+' : ''}${report.growthPercent}% pace',
-                      color: report.growthPercent! >= 0
-                          ? AppTheme.accent
-                          : AppTheme.softRed,
+                      color: report.growthPercent! >= 0 ? p.accent : p.danger,
                     ),
                 ],
               ),
@@ -226,9 +225,9 @@ class _OwnerCeoHeroCardState extends State<OwnerCeoHeroCard> {
               Container(
                 padding: const EdgeInsets.all(3),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF10131B),
+                  color: p.cardSubtle,
                   borderRadius: BorderRadius.circular(11),
-                  border: Border.all(color: Colors.white12),
+                  border: Border.all(color: p.border),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
@@ -264,9 +263,9 @@ class _OwnerCeoHeroCardState extends State<OwnerCeoHeroCard> {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   textAlign: TextAlign.right,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 10.5,
-                    color: Colors.white54,
+                    color: p.textSecondary,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -326,11 +325,13 @@ class _OwnerCeoHeroCardState extends State<OwnerCeoHeroCard> {
                   key: ValueKey('area_${_range.name}_${report.buckets.length}'),
                   report: report,
                   isBar: false,
+                  p: p,
                 ),
               AnalyticsChartType.bar => _buildInteractiveCartesianChart(
                   key: ValueKey('bar_${_range.name}_${report.buckets.length}'),
                   report: report,
                   isBar: true,
+                  p: p,
                 ),
               AnalyticsChartType.mix => _MixBreakdownView(
                   key: ValueKey('mix_${_range.name}'),
@@ -348,7 +349,7 @@ class _OwnerCeoHeroCardState extends State<OwnerCeoHeroCard> {
                   child: _HeroSplitChip(
                     label: 'Cash',
                     amount: formatInr(report.cashRevenue),
-                    accent: AppTheme.accent,
+                    accent: p.accent,
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -356,7 +357,7 @@ class _OwnerCeoHeroCardState extends State<OwnerCeoHeroCard> {
                   child: _HeroSplitChip(
                     label: 'Online / UPI',
                     amount: formatInr(report.onlineRevenue),
-                    accent: AppTheme.ownerGold,
+                    accent: p.gold,
                   ),
                 ),
               ],
@@ -375,7 +376,7 @@ class _OwnerCeoHeroCardState extends State<OwnerCeoHeroCard> {
                     amount: formatInr(
                       selectedBucket?.ownerNetRevenue ?? report.ownerNetRevenue,
                     ),
-                    accent: AppTheme.champagne,
+                    accent: p.gold,
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -386,7 +387,7 @@ class _OwnerCeoHeroCardState extends State<OwnerCeoHeroCard> {
                     amount: formatInr(
                       selectedBucket?.coachPayout ?? report.coachPayout,
                     ),
-                    accent: AppTheme.trainerCyan,
+                    accent: p.cyan,
                   ),
                 ),
               ],
@@ -401,6 +402,7 @@ class _OwnerCeoHeroCardState extends State<OwnerCeoHeroCard> {
     required Key key,
     required OwnerAnalyticsReport report,
     required bool isBar,
+    required AppPalette p,
   }) {
     final buckets = report.buckets;
     return Column(
@@ -423,10 +425,12 @@ class _OwnerCeoHeroCardState extends State<OwnerCeoHeroCard> {
                       ? _GlowingBarChartPainter(
                           buckets: buckets,
                           selectedIndex: _selectedBucketIndex,
+                          palette: p,
                         )
                       : _GlowingSplineChartPainter(
                           buckets: buckets,
                           selectedIndex: _selectedBucketIndex,
+                          palette: p,
                         ),
                 ),
               ),
@@ -449,7 +453,7 @@ class _OwnerCeoHeroCardState extends State<OwnerCeoHeroCard> {
                   style: TextStyle(
                     fontSize: 9.5,
                     fontWeight: active ? FontWeight.w900 : FontWeight.w600,
-                    color: active ? AppTheme.ownerGold : Colors.white38,
+                    color: active ? p.gold : p.textMuted,
                   ),
                 ),
               ),
@@ -464,16 +468,20 @@ class _OwnerCeoHeroCardState extends State<OwnerCeoHeroCard> {
 class _GlowingSplineChartPainter extends CustomPainter {
   final List<AnalyticsBucket> buckets;
   final int? selectedIndex;
+  final AppPalette palette;
 
   const _GlowingSplineChartPainter({
     required this.buckets,
     required this.selectedIndex,
+    required this.palette,
   });
 
   @override
   void paint(Canvas canvas, Size size) {
     final gridPaint = Paint()
-      ..color = Colors.white.withValues(alpha: 0.06)
+      ..color = palette.isDark
+          ? Colors.white.withValues(alpha: 0.06)
+          : const Color(0xFF0F172A).withValues(alpha: 0.07)
       ..strokeWidth = 1;
 
     const topPad = 14.0;
@@ -508,6 +516,9 @@ class _GlowingSplineChartPainter extends CustomPainter {
       points.add(Offset(x, y));
     }
 
+    final lineColor = palette.gold;
+    final endColor = palette.cyan;
+
     if (points.length >= 2) {
       final path = Path()..moveTo(points.first.dx, points.first.dy);
       for (var i = 0; i < points.length - 1; i++) {
@@ -527,23 +538,23 @@ class _GlowingSplineChartPainter extends CustomPainter {
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
           colors: [
-            AppTheme.ownerGold.withValues(alpha: 0.34),
-            AppTheme.trainerCyan.withValues(alpha: 0.08),
+            lineColor.withValues(alpha: palette.isDark ? 0.34 : 0.22),
+            endColor.withValues(alpha: palette.isDark ? 0.08 : 0.05),
             Colors.transparent,
           ],
         ).createShader(Rect.fromLTWH(0, topPad, size.width, chartH));
       canvas.drawPath(areaPath, fillPaint);
 
       final glowPaint = Paint()
-        ..color = AppTheme.ownerGold.withValues(alpha: 0.35)
+        ..color = lineColor.withValues(alpha: palette.isDark ? 0.35 : 0.16)
         ..style = PaintingStyle.stroke
         ..strokeWidth = 6
         ..strokeCap = StrokeCap.round;
       canvas.drawPath(path, glowPaint);
 
       final linePaint = Paint()
-        ..shader = const LinearGradient(
-          colors: [AppTheme.ownerGold, AppTheme.champagne],
+        ..shader = LinearGradient(
+          colors: [lineColor, palette.isDark ? AppTheme.champagne : lineColor],
         ).createShader(Rect.fromLTWH(0, 0, size.width, size.height))
         ..style = PaintingStyle.stroke
         ..strokeWidth = 2.6
@@ -554,41 +565,39 @@ class _GlowingSplineChartPainter extends CustomPainter {
         Offset(horizPad, points.first.dy),
         Offset(size.width - horizPad, points.first.dy),
         Paint()
-          ..color = AppTheme.ownerGold
+          ..color = lineColor
           ..strokeWidth = 2.4,
       );
     }
 
-    // Selected vertical crosshair + dot highlights
     for (var i = 0; i < points.length; i++) {
-      final p = points[i];
+      final pt = points[i];
       final isSelected = selectedIndex == i;
-      const dotColor = AppTheme.ownerGold;
 
       if (isSelected) {
         canvas.drawLine(
-          Offset(p.dx, topPad - 4),
-          Offset(p.dx, topPad + chartH),
+          Offset(pt.dx, topPad - 4),
+          Offset(pt.dx, topPad + chartH),
           Paint()
-            ..color = dotColor.withValues(alpha: 0.45)
+            ..color = lineColor.withValues(alpha: 0.45)
             ..strokeWidth = 1.4,
         );
         canvas.drawCircle(
-          p,
+          pt,
           7,
-          Paint()..color = dotColor.withValues(alpha: 0.25),
+          Paint()..color = lineColor.withValues(alpha: 0.22),
         );
       }
 
       canvas.drawCircle(
-        p,
+        pt,
         isSelected ? 4.2 : 3.0,
-        Paint()..color = dotColor,
+        Paint()..color = lineColor,
       );
       canvas.drawCircle(
-        p,
+        pt,
         1.5,
-        Paint()..color = const Color(0xFF131720),
+        Paint()..color = palette.card,
       );
     }
   }
@@ -596,22 +605,27 @@ class _GlowingSplineChartPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _GlowingSplineChartPainter oldDelegate) =>
       oldDelegate.buckets != buckets ||
-      oldDelegate.selectedIndex != selectedIndex;
+      oldDelegate.selectedIndex != selectedIndex ||
+      oldDelegate.palette.isDark != palette.isDark;
 }
 
 class _GlowingBarChartPainter extends CustomPainter {
   final List<AnalyticsBucket> buckets;
   final int? selectedIndex;
+  final AppPalette palette;
 
   const _GlowingBarChartPainter({
     required this.buckets,
     required this.selectedIndex,
+    required this.palette,
   });
 
   @override
   void paint(Canvas canvas, Size size) {
     final gridPaint = Paint()
-      ..color = Colors.white.withValues(alpha: 0.06)
+      ..color = palette.isDark
+          ? Colors.white.withValues(alpha: 0.06)
+          : const Color(0xFF0F172A).withValues(alpha: 0.07)
       ..strokeWidth = 1;
 
     const topPad = 14.0;
@@ -647,9 +661,9 @@ class _GlowingBarChartPainter extends CustomPainter {
       );
 
       final isSelected = selectedIndex == i;
-      final topColor = isSelected ? Colors.white : AppTheme.ownerGold;
+      final topColor = isSelected ? palette.textPrimary : palette.gold;
       final bottomColor =
-          AppTheme.ownerGold.withValues(alpha: isSelected ? 0.45 : 0.25);
+          palette.gold.withValues(alpha: isSelected ? 0.55 : 0.30);
 
       canvas.drawRRect(
         rect,
@@ -666,7 +680,8 @@ class _GlowingBarChartPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _GlowingBarChartPainter oldDelegate) =>
       oldDelegate.buckets != buckets ||
-      oldDelegate.selectedIndex != selectedIndex;
+      oldDelegate.selectedIndex != selectedIndex ||
+      oldDelegate.palette.isDark != palette.isDark;
 }
 
 class _MixBreakdownView extends StatelessWidget {
@@ -679,6 +694,7 @@ class _MixBreakdownView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final p = AppPalette.of(context);
     final totalChannel = report.cashRevenue + report.onlineRevenue;
     final onlineShare =
         totalChannel == 0 ? 0.0 : report.onlineRevenue / totalChannel;
@@ -699,6 +715,7 @@ class _MixBreakdownView extends StatelessWidget {
               painter: _GlowingDonutPainter(
                 onlineFraction: onlineShare,
                 cashFraction: cashShare,
+                palette: p,
               ),
               child: Center(
                 child: Column(
@@ -708,17 +725,17 @@ class _MixBreakdownView extends StatelessWidget {
                       totalChannel == 0
                           ? '0%'
                           : '${(onlineShare * 100).round()}%',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w900,
-                        color: Colors.white,
+                        color: p.textPrimary,
                       ),
                     ),
-                    const Text(
+                    Text(
                       'UPI / Online',
                       style: TextStyle(
                         fontSize: 9.5,
-                        color: AppTheme.ownerGold,
+                        color: p.gold,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
@@ -736,28 +753,28 @@ class _MixBreakdownView extends StatelessWidget {
                   label: 'Online / UPI',
                   amount: formatInr(report.onlineRevenue),
                   fraction: onlineShare,
-                  color: AppTheme.ownerGold,
+                  color: p.gold,
                 ),
                 const SizedBox(height: 8),
                 _BreakdownBarRow(
                   label: 'Cash Floor',
                   amount: formatInr(report.cashRevenue),
                   fraction: cashShare,
-                  color: AppTheme.accent,
+                  color: p.accent,
                 ),
                 const SizedBox(height: 8),
                 _BreakdownBarRow(
                   label: 'PT VIP Plans',
                   amount: formatInr(report.ptRevenue),
                   fraction: ptShare,
-                  color: AppTheme.trainerCyan,
+                  color: p.cyan,
                 ),
                 const SizedBox(height: 8),
                 _BreakdownBarRow(
                   label: 'Regular Plans',
                   amount: formatInr(report.regularRevenue),
                   fraction: regShare,
-                  color: AppTheme.purple,
+                  color: p.purple,
                 ),
               ],
             ),
@@ -771,10 +788,12 @@ class _MixBreakdownView extends StatelessWidget {
 class _GlowingDonutPainter extends CustomPainter {
   final double onlineFraction;
   final double cashFraction;
+  final AppPalette palette;
 
   const _GlowingDonutPainter({
     required this.onlineFraction,
     required this.cashFraction,
+    required this.palette,
   });
 
   @override
@@ -784,7 +803,9 @@ class _GlowingDonutPainter extends CustomPainter {
     final rect = Rect.fromCircle(center: center, radius: radius);
 
     final trackPaint = Paint()
-      ..color = Colors.white.withValues(alpha: 0.08)
+      ..color = palette.isDark
+          ? Colors.white.withValues(alpha: 0.08)
+          : const Color(0xFFE2E8F0)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 11;
     canvas.drawCircle(center, radius, trackPaint);
@@ -802,7 +823,7 @@ class _GlowingDonutPainter extends CustomPainter {
         onlineSweep,
         false,
         Paint()
-          ..color = AppTheme.ownerGold
+          ..color = palette.gold
           ..style = PaintingStyle.stroke
           ..strokeWidth = 11
           ..strokeCap = StrokeCap.round,
@@ -816,7 +837,7 @@ class _GlowingDonutPainter extends CustomPainter {
         cashSweep,
         false,
         Paint()
-          ..color = AppTheme.accent
+          ..color = palette.accent
           ..style = PaintingStyle.stroke
           ..strokeWidth = 11
           ..strokeCap = StrokeCap.round,
@@ -827,7 +848,8 @@ class _GlowingDonutPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _GlowingDonutPainter oldDelegate) =>
       oldDelegate.onlineFraction != onlineFraction ||
-      oldDelegate.cashFraction != cashFraction;
+      oldDelegate.cashFraction != cashFraction ||
+      oldDelegate.palette.isDark != palette.isDark;
 }
 
 class _BreakdownBarRow extends StatelessWidget {
@@ -845,6 +867,7 @@ class _BreakdownBarRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final p = AppPalette.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -856,9 +879,9 @@ class _BreakdownBarRow extends StatelessWidget {
                 label,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 10.5,
-                  color: Colors.white70,
+                  color: p.textSecondary,
                   fontWeight: FontWeight.w700,
                 ),
               ),
@@ -880,7 +903,7 @@ class _BreakdownBarRow extends StatelessWidget {
           child: LinearProgressIndicator(
             minHeight: 4,
             value: fraction.clamp(0.0, 1.0),
-            backgroundColor: Colors.white10,
+            backgroundColor: p.isDark ? Colors.white10 : const Color(0xFFE2E8F0),
             valueColor: AlwaysStoppedAnimation<Color>(color),
           ),
         ),
@@ -905,6 +928,7 @@ class _ChartTypeChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final p = AppPalette.of(context);
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
@@ -912,9 +936,12 @@ class _ChartTypeChip extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
         decoration: BoxDecoration(
           color: selected
-              ? AppTheme.ownerGold.withValues(alpha: 0.22)
+              ? (p.isDark
+                  ? p.gold.withValues(alpha: 0.22)
+                  : p.card)
               : Colors.transparent,
           borderRadius: BorderRadius.circular(9),
+          boxShadow: selected && !p.isDark ? p.cardShadow : null,
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -922,7 +949,7 @@ class _ChartTypeChip extends StatelessWidget {
             Icon(
               icon,
               size: 13,
-              color: selected ? AppTheme.ownerGold : Colors.white54,
+              color: selected ? p.gold : p.textMuted,
             ),
             const SizedBox(width: 4),
             Text(
@@ -930,7 +957,7 @@ class _ChartTypeChip extends StatelessWidget {
               style: TextStyle(
                 fontSize: 10.5,
                 fontWeight: selected ? FontWeight.w900 : FontWeight.w600,
-                color: selected ? Colors.white : Colors.white54,
+                color: selected ? p.textPrimary : p.textSecondary,
               ),
             ),
           ],
@@ -956,17 +983,16 @@ class _RangePill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final p = AppPalette.of(context);
     return GestureDetector(
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 7),
         decoration: BoxDecoration(
-          color: selected
-              ? AppTheme.ownerGold
-              : const Color(0xFF10131B),
+          color: selected ? p.goldButton : p.cardSubtle,
           borderRadius: BorderRadius.circular(99),
           border: Border.all(
-            color: selected ? AppTheme.ownerGold : Colors.white12,
+            color: selected ? p.goldButton : p.border,
           ),
         ),
         child: Center(
@@ -979,7 +1005,7 @@ class _RangePill extends StatelessWidget {
                   Icon(
                     icon,
                     size: 12,
-                    color: selected ? Colors.black : AppTheme.ownerGold,
+                    color: selected ? p.onAccent : p.gold,
                   ),
                   const SizedBox(width: 4),
                 ],
@@ -989,7 +1015,7 @@ class _RangePill extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.w800,
-                    color: selected ? Colors.black : Colors.white70,
+                    color: selected ? p.onAccent : p.textSecondary,
                   ),
                 ),
               ],
@@ -1015,7 +1041,7 @@ class _MiniStatPill extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.14),
+        color: color.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(99),
       ),
       child: Text(
@@ -1044,10 +1070,11 @@ class _HeroSplitChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final p = AppPalette.of(context);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: accent.withValues(alpha: 0.1),
+        color: accent.withValues(alpha: p.isDark ? 0.1 : 0.08),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: accent.withValues(alpha: 0.25)),
       ),
@@ -1059,10 +1086,10 @@ class _HeroSplitChip extends StatelessWidget {
               label,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.w700,
-                color: Colors.white70,
+                color: p.textSecondary,
               ),
             ),
           ),

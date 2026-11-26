@@ -36,14 +36,18 @@ Future<GymMapSelection?> showGymMapPicker(
   String? initialSearchQuery,
   int initialRadiusMeters = 100,
 }) {
+  final inheritedTheme = Theme.of(context);
   return Navigator.of(context).push<GymMapSelection>(
     MaterialPageRoute(
       fullscreenDialog: true,
-      builder: (_) => GymMapPickerScreen(
-        initialLat: initialLat,
-        initialLng: initialLng,
-        initialSearchQuery: initialSearchQuery,
-        initialRadiusMeters: initialRadiusMeters,
+      builder: (_) => Theme(
+        data: inheritedTheme,
+        child: GymMapPickerScreen(
+          initialLat: initialLat,
+          initialLng: initialLng,
+          initialSearchQuery: initialSearchQuery,
+          initialRadiusMeters: initialRadiusMeters,
+        ),
       ),
     ),
   );
@@ -244,8 +248,9 @@ class _GymMapPickerScreenState extends State<GymMapPickerScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final p = AppPalette.of(context);
     return Scaffold(
-      backgroundColor: AppTheme.scaffoldBg,
+      backgroundColor: p.bg,
       body: Stack(
         children: [
           FlutterMap(
@@ -290,8 +295,8 @@ class _GymMapPickerScreenState extends State<GymMapPickerScreen> {
                     point: _selectedCenter,
                     radius: _radiusMeters.toDouble(),
                     useRadiusInMeter: true,
-                    color: AppTheme.trainerCyan.withValues(alpha: 0.18),
-                    borderColor: AppTheme.trainerCyan,
+                    color: p.cyan.withValues(alpha: 0.18),
+                    borderColor: p.cyan,
                     borderStrokeWidth: 2.2,
                   ),
                 ],
@@ -318,9 +323,9 @@ class _GymMapPickerScreenState extends State<GymMapPickerScreen> {
                           ),
                         ],
                       ),
-                      child: const Icon(
+                      child: Icon(
                         Icons.location_on_rounded,
-                        color: AppTheme.ownerGold,
+                        color: p.gold,
                         size: 46,
                       ),
                     ),
@@ -329,7 +334,7 @@ class _GymMapPickerScreenState extends State<GymMapPickerScreen> {
                     width: 10,
                     height: 10,
                     decoration: BoxDecoration(
-                      color: AppTheme.trainerCyan,
+                      color: p.cyan,
                       shape: BoxShape.circle,
                       border: Border.all(color: Colors.white, width: 2),
                     ),
@@ -350,17 +355,17 @@ class _GymMapPickerScreenState extends State<GymMapPickerScreen> {
                   Row(
                     children: [
                       Material(
-                        color: const Color(0xFF141822).withValues(alpha: 0.94),
+                        color: p.card.withValues(alpha: 0.96),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(14),
-                          side: const BorderSide(color: Colors.white12),
+                          side: BorderSide(color: p.border),
                         ),
                         child: IconButton(
                           tooltip: 'Close Map',
                           onPressed: () => Navigator.of(context).pop(),
-                          icon: const Icon(
+                          icon: Icon(
                             Icons.arrow_back_rounded,
-                            color: Colors.white,
+                            color: p.textPrimary,
                           ),
                         ),
                       ),
@@ -368,15 +373,16 @@ class _GymMapPickerScreenState extends State<GymMapPickerScreen> {
                       Expanded(
                         child: Container(
                           decoration: BoxDecoration(
-                            color:
-                                const Color(0xFF141822).withValues(alpha: 0.96),
+                            color: p.card.withValues(alpha: 0.98),
                             borderRadius: BorderRadius.circular(14),
                             border: Border.all(
-                              color: AppTheme.ownerGold.withValues(alpha: 0.4),
+                              color: p.gold.withValues(alpha: 0.45),
                             ),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.4),
+                                color: Colors.black.withValues(
+                                  alpha: p.isDark ? 0.4 : 0.12,
+                                ),
                                 blurRadius: 12,
                               ),
                             ],
@@ -386,15 +392,15 @@ class _GymMapPickerScreenState extends State<GymMapPickerScreen> {
                             onChanged: _onSearchChanged,
                             onSubmitted: _runSearch,
                             textInputAction: TextInputAction.search,
-                            style: const TextStyle(
-                              color: Colors.white,
+                            style: TextStyle(
+                              color: p.textPrimary,
                               fontSize: 13.5,
                               fontWeight: FontWeight.w600,
                             ),
                             decoration: InputDecoration(
                               hintText: 'Search area, street or landmark...',
-                              hintStyle: const TextStyle(
-                                color: Colors.white38,
+                              hintStyle: TextStyle(
+                                color: p.textMuted,
                                 fontSize: 13,
                               ),
                               border: InputBorder.none,
@@ -402,20 +408,20 @@ class _GymMapPickerScreenState extends State<GymMapPickerScreen> {
                                 horizontal: 14,
                                 vertical: 13,
                               ),
-                              prefixIcon: const Icon(
+                              prefixIcon: Icon(
                                 Icons.search_rounded,
-                                color: AppTheme.ownerGold,
+                                color: p.gold,
                                 size: 20,
                               ),
                               suffixIcon: _searching
-                                  ? const Padding(
-                                      padding: EdgeInsets.all(13),
+                                  ? Padding(
+                                      padding: const EdgeInsets.all(13),
                                       child: SizedBox(
                                         width: 16,
                                         height: 16,
                                         child: CircularProgressIndicator(
                                           strokeWidth: 2,
-                                          color: AppTheme.ownerGold,
+                                          color: p.gold,
                                         ),
                                       ),
                                     )
@@ -425,9 +431,9 @@ class _GymMapPickerScreenState extends State<GymMapPickerScreen> {
                                         if (_searchCtrl.text.isNotEmpty)
                                           IconButton(
                                             tooltip: 'Clear search',
-                                            icon: const Icon(
+                                            icon: Icon(
                                               Icons.close_rounded,
-                                              color: Colors.white54,
+                                              color: p.textMuted,
                                               size: 18,
                                             ),
                                             onPressed: () {
@@ -440,9 +446,9 @@ class _GymMapPickerScreenState extends State<GymMapPickerScreen> {
                                           ),
                                         IconButton(
                                           tooltip: 'Search',
-                                          icon: const Icon(
+                                          icon: Icon(
                                             Icons.arrow_forward_rounded,
-                                            color: AppTheme.ownerGold,
+                                            color: p.gold,
                                             size: 18,
                                           ),
                                           onPressed: () =>
@@ -461,31 +467,31 @@ class _GymMapPickerScreenState extends State<GymMapPickerScreen> {
                     Container(
                       constraints: const BoxConstraints(maxHeight: 240),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF141822).withValues(alpha: 0.97),
+                        color: p.card.withValues(alpha: 0.98),
                         borderRadius: BorderRadius.circular(14),
-                        border: Border.all(color: Colors.white12),
+                        border: Border.all(color: p.border),
                       ),
                       child: ListView.separated(
                         shrinkWrap: true,
                         padding: EdgeInsets.zero,
                         itemCount: _suggestions.length,
                         separatorBuilder: (ctx, idx) =>
-                            const Divider(color: Colors.white10, height: 1),
+                            Divider(color: p.divider, height: 1),
                         itemBuilder: (ctx, i) {
                           final item = _suggestions[i];
                           return ListTile(
                             dense: true,
-                            leading: const Icon(
+                            leading: Icon(
                               Icons.place_rounded,
-                              color: AppTheme.trainerCyan,
+                              color: p.cyan,
                               size: 19,
                             ),
                             title: Text(
                               item.title,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                color: Colors.white,
+                              style: TextStyle(
+                                color: p.textPrimary,
                                 fontSize: 13,
                                 fontWeight: FontWeight.w800,
                               ),
@@ -496,8 +502,8 @@ class _GymMapPickerScreenState extends State<GymMapPickerScreen> {
                                     item.subtitle,
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(
-                                      color: Colors.white54,
+                                    style: TextStyle(
+                                      color: p.textSecondary,
                                       fontSize: 11.5,
                                     ),
                                   ),
@@ -516,21 +522,22 @@ class _GymMapPickerScreenState extends State<GymMapPickerScreen> {
                       ),
                       decoration: BoxDecoration(
                         color: (_statusIsError
-                                ? const Color(0xFF2D161A)
-                                : const Color(0xFF141822))
-                            .withValues(alpha: 0.94),
+                                ? (p.isDark
+                                    ? const Color(0xFF2D161A)
+                                    : const Color(0xFFFEE2E2))
+                                : p.card)
+                            .withValues(alpha: 0.96),
                         borderRadius: BorderRadius.circular(10),
                         border: Border.all(
                           color: _statusIsError
-                              ? AppTheme.danger.withValues(alpha: 0.5)
-                              : Colors.white12,
+                              ? p.danger.withValues(alpha: 0.5)
+                              : p.border,
                         ),
                       ),
                       child: Text(
                         _statusMessage!,
                         style: TextStyle(
-                          color:
-                              _statusIsError ? AppTheme.danger : Colors.white70,
+                          color: _statusIsError ? p.danger : p.textSecondary,
                           fontSize: 11.5,
                           fontWeight: FontWeight.w700,
                         ),
@@ -569,7 +576,7 @@ class _GymMapPickerScreenState extends State<GymMapPickerScreen> {
                 _MapFloatingButton(
                   tooltip: 'Use Current GPS',
                   icon: Icons.my_location_rounded,
-                  iconColor: AppTheme.trainerCyan,
+                  iconColor: p.cyan,
                   loading: _fetchingGps,
                   onTap: _fetchingGps ? null : _centerOnCurrentGps,
                 ),
@@ -593,7 +600,7 @@ class _GymMapPickerScreenState extends State<GymMapPickerScreen> {
             ),
           ),
 
-          // Bottom Dark Confirmation Panel
+          // Bottom Confirmation Panel
           Align(
             alignment: Alignment.bottomCenter,
             child: Container(
@@ -604,10 +611,11 @@ class _GymMapPickerScreenState extends State<GymMapPickerScreen> {
                 18,
                 MediaQuery.of(context).padding.bottom + 16,
               ),
-              decoration: const BoxDecoration(
-                color: Color(0xFF141822),
-                borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-                border: Border(top: BorderSide(color: Colors.white12)),
+              decoration: BoxDecoration(
+                color: p.card,
+                borderRadius:
+                    const BorderRadius.vertical(top: Radius.circular(24)),
+                border: Border(top: BorderSide(color: p.border)),
               ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -615,9 +623,9 @@ class _GymMapPickerScreenState extends State<GymMapPickerScreen> {
                 children: [
                   Row(
                     children: [
-                      const Icon(
+                      Icon(
                         Icons.radar_rounded,
-                        color: AppTheme.trainerCyan,
+                        color: p.cyan,
                         size: 18,
                       ),
                       const SizedBox(width: 8),
@@ -625,8 +633,8 @@ class _GymMapPickerScreenState extends State<GymMapPickerScreen> {
                         child: Text(
                           'Pin: ${_selectedCenter.latitude.toStringAsFixed(5)}, '
                           '${_selectedCenter.longitude.toStringAsFixed(5)}',
-                          style: const TextStyle(
-                            color: Colors.white,
+                          style: TextStyle(
+                            color: p.textPrimary,
                             fontSize: 13,
                             fontWeight: FontWeight.w900,
                           ),
@@ -634,8 +642,8 @@ class _GymMapPickerScreenState extends State<GymMapPickerScreen> {
                       ),
                       Text(
                         '${_radiusMeters}m lock zone',
-                        style: const TextStyle(
-                          color: AppTheme.trainerCyan,
+                        style: TextStyle(
+                          color: p.cyan,
                           fontSize: 11.5,
                           fontWeight: FontWeight.w800,
                         ),
@@ -643,9 +651,9 @@ class _GymMapPickerScreenState extends State<GymMapPickerScreen> {
                     ],
                   ),
                   const SizedBox(height: 4),
-                  const Text(
-                    'Drag the map or tap a building so the cyan circle covers your gym floor.',
-                    style: TextStyle(color: Colors.white54, fontSize: 11.5),
+                  Text(
+                    'Drag the map or tap a building so the circle covers your gym floor.',
+                    style: TextStyle(color: p.textSecondary, fontSize: 11.5),
                   ),
                   const SizedBox(height: 12),
                   Row(
@@ -670,23 +678,18 @@ class _GymMapPickerScreenState extends State<GymMapPickerScreen> {
                               padding: const EdgeInsets.symmetric(vertical: 8),
                               decoration: BoxDecoration(
                                 color: sel
-                                    ? AppTheme.trainerCyan
-                                        .withValues(alpha: 0.18)
-                                    : const Color(0xFF1A1E29),
+                                    ? p.cyan.withValues(alpha: 0.14)
+                                    : p.cardSubtle,
                                 borderRadius: BorderRadius.circular(11),
                                 border: Border.all(
-                                  color: sel
-                                      ? AppTheme.trainerCyan
-                                      : Colors.white12,
+                                  color: sel ? p.cyan : p.border,
                                 ),
                               ),
                               child: Center(
                                 child: Text(
                                   '${r}m • $label',
                                   style: TextStyle(
-                                    color: sel
-                                        ? AppTheme.trainerCyan
-                                        : Colors.white70,
+                                    color: sel ? p.cyan : p.textSecondary,
                                     fontSize: 11.5,
                                     fontWeight: FontWeight.w800,
                                   ),
@@ -703,8 +706,8 @@ class _GymMapPickerScreenState extends State<GymMapPickerScreen> {
                     height: 50,
                     child: ElevatedButton.icon(
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.ownerGold,
-                        foregroundColor: Colors.black,
+                        backgroundColor: p.goldButton,
+                        foregroundColor: p.onAccent,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(14),
                         ),
@@ -733,25 +736,27 @@ class _GymMapPickerScreenState extends State<GymMapPickerScreen> {
 class _MapFloatingButton extends StatelessWidget {
   final String tooltip;
   final IconData icon;
-  final Color iconColor;
+  final Color? iconColor;
   final bool loading;
   final VoidCallback? onTap;
 
   const _MapFloatingButton({
     required this.tooltip,
     required this.icon,
-    this.iconColor = Colors.white,
+    this.iconColor,
     this.loading = false,
     required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
+    final p = AppPalette.of(context);
+    final resolvedIconColor = iconColor ?? p.textPrimary;
     return Material(
-      color: const Color(0xFF141822).withValues(alpha: 0.94),
+      color: p.card.withValues(alpha: 0.96),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        side: const BorderSide(color: Colors.white12),
+        side: BorderSide(color: p.border),
       ),
       elevation: 4,
       child: InkWell(
@@ -769,10 +774,10 @@ class _MapFloatingButton extends StatelessWidget {
                       height: 18,
                       child: CircularProgressIndicator(
                         strokeWidth: 2,
-                        color: iconColor,
+                        color: resolvedIconColor,
                       ),
                     )
-                  : Icon(icon, color: iconColor, size: 21),
+                  : Icon(icon, color: resolvedIconColor, size: 21),
             ),
           ),
         ),

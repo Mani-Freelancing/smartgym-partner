@@ -48,13 +48,20 @@ class _PartnerLoginScreenState extends State<PartnerLoginScreen>
   }
 
   PhoneAuthService _getAuthService() {
-    return _authService ??= PhoneAuthService();
+    return _authService ??= widget.authService ?? PhoneAuthService();
   }
 
   Future<void> _handleSendOtp(SmartGymState state) async {
     final digits = _phoneCtrl.text.replaceAll(RegExp(r'\D'), '');
+    debugPrint(
+      '[LOGIN][PartnerLoginScreen._handleSendOtp] raw="${_phoneCtrl.text}" '
+      'digitsLen=${digits.length}',
+    );
     if (digits.length != 10) {
       HapticFeedback.heavyImpact();
+      debugPrint(
+        '[LOGIN][PartnerLoginScreen._handleSendOtp] validation failed: invalid digitsLen=${digits.length}',
+      );
       setState(() {
         _errorText = 'Enter a valid 10-digit mobile number';
       });
@@ -68,10 +75,17 @@ class _PartnerLoginScreenState extends State<PartnerLoginScreen>
     });
 
     final fullPhone = '+91$digits';
+    debugPrint(
+      '[LOGIN][PartnerLoginScreen._handleSendOtp] calling sendOtp(phone=$fullPhone)',
+    );
     try {
       await _getAuthService().sendOtp(
         phoneNumber: fullPhone,
-        onCodeSent: (_) {
+        onCodeSent: (verId) {
+          debugPrint(
+            '[LOGIN][PartnerLoginScreen._handleSendOtp -> onCodeSent] '
+            'phone=$fullPhone verIdLen=${verId.length}',
+          );
           if (!mounted) return;
           setState(() {
             _isLoading = false;
@@ -79,29 +93,53 @@ class _PartnerLoginScreenState extends State<PartnerLoginScreen>
           });
         },
         onError: (msg) {
+          debugPrint(
+            '[LOGIN][PartnerLoginScreen._handleSendOtp -> onError] '
+            'phone=$fullPhone error=$msg',
+          );
           if (!mounted) return;
           setState(() {
             _isLoading = false;
             _errorText = msg;
           });
         },
-        onAutoVerified: (_) {
+        onAutoVerified: (cred) {
+          debugPrint(
+            '[LOGIN][PartnerLoginScreen._handleSendOtp -> onAutoVerified] '
+            'phone=$fullPhone uid=${cred.user?.uid}',
+          );
           if (!mounted) return;
           _completeLogin(state, fullPhone);
         },
       );
-    } catch (_) {
-      // Fallback for offline/test environments without Firebase initialized
+    } catch (e, st) {
+      debugPrint(
+        '[LOGIN][PartnerLoginScreen._handleSendOtp CATCH] phone=$fullPhone '
+        'error=$e\n$st',
+      );
       if (!mounted) return;
+      if (PhoneAuthService.isOfflineTestError(e)) {
+        debugPrint(
+          '[LOGIN][PartnerLoginScreen._handleSendOtp] offline/no-app test mode -> showing OTP step',
+        );
+        setState(() {
+          _isLoading = false;
+          _otpSent = true;
+        });
+        return;
+      }
       setState(() {
         _isLoading = false;
-        _otpSent = true;
+        _errorText = PhoneAuthService.formatAuthError(e);
       });
     }
   }
 
   Future<void> _handleVerifyOtp(SmartGymState state) async {
     final otp = _otpCtrl.text.trim();
+    debugPrint(
+      '[LOGIN][PartnerLoginScreen._handleVerifyOtp] otpLen=${otp.length}',
+    );
     if (otp.length != 6) {
       HapticFeedback.heavyImpact();
       setState(() {
@@ -121,19 +159,24 @@ class _PartnerLoginScreenState extends State<PartnerLoginScreen>
 
     try {
       await _getAuthService().verifyOtp(smsCode: otp);
+      debugPrint(
+        '[LOGIN][PartnerLoginScreen._handleVerifyOtp] OTP verified for $fullPhone',
+      );
       if (!mounted) return;
       _completeLogin(state, fullPhone);
-    } catch (e) {
+    } catch (e, st) {
+      debugPrint(
+        '[LOGIN][PartnerLoginScreen._handleVerifyOtp CATCH] phone=$fullPhone '
+        'error=$e\n$st',
+      );
       if (!mounted) return;
-      // If Firebase isn't initialized in widget test, allow test flow
-      if (e.toString().contains('no-app') ||
-          e.toString().contains('FirebaseApp')) {
+      if (PhoneAuthService.isOfflineTestError(e)) {
         _completeLogin(state, fullPhone);
         return;
       }
       setState(() {
         _isLoading = false;
-        _errorText = 'Invalid OTP. Please check and try again.';
+        _errorText = PhoneAuthService.formatAuthError(e);
       });
     }
   }
@@ -141,6 +184,10 @@ class _PartnerLoginScreenState extends State<PartnerLoginScreen>
   void _completeLogin(SmartGymState state, String fullPhone) {
     final isOwner = _selectedRole == PartnerRole.owner;
     final trainerName = isOwner ? null : state.currentGym.headTrainer;
+    debugPrint(
+      '[LOGIN][PartnerLoginScreen._completeLogin] dispatching LoginPartnerEvent '
+      'role=$_selectedRole phone=$fullPhone trainerName=$trainerName',
+    );
     setState(() => _isLoading = false);
     context.read<SmartGymBloc>().add(
           LoginPartnerEvent(
@@ -433,10 +480,10 @@ class _PartnerLoginScreenState extends State<PartnerLoginScreen>
                             }
                           },
                         ),
-                        if (_errorText != null) ...[
+                        if ((_errorText ?? state.authError) != null) ...[
                           const SizedBox(height: 8),
                           Text(
-                            _errorText!,
+                            (_errorText ?? state.authError)!,
                             style: const TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.w700,
@@ -544,10 +591,10 @@ class _PartnerLoginScreenState extends State<PartnerLoginScreen>
                             }
                           },
                         ),
-                        if (_errorText != null) ...[
+                        if ((_errorText ?? state.authError) != null) ...[
                           const SizedBox(height: 8),
                           Text(
-                            _errorText!,
+                            (_errorText ?? state.authError)!,
                             style: const TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.w700,

@@ -92,7 +92,7 @@ class TrainerMealQueueScreen extends StatelessWidget {
             physics: const AlwaysScrollableScrollPhysics(
               parent: BouncingScrollPhysics(),
             ),
-            padding: const EdgeInsets.fromLTRB(20, 10, 20, 32),
+            padding: const EdgeInsets.fromLTRB(12, 10, 12, 32),
           children: [
             const Text(
               '1-TAP VIP MEAL PLATE REVIEW QUEUE',

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../../core/theme/app_theme.dart';
 import '../../domain/models/gym_member.dart';
 
 /// Shared WhatsApp messaging and admission welcome-pass prompts for Partner apps.
@@ -107,125 +108,130 @@ class MemberWhatsAppService {
     required GymMember member,
     Color accentColor = const Color(0xFFE5C158),
   }) async {
+    final p = AppPalette.of(context);
     await showDialog<void>(
       context: context,
-      builder: (dialogCtx) => AlertDialog(
-        backgroundColor: const Color(0xFF141822),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(22),
-          side: BorderSide(color: accentColor.withValues(alpha: 0.35)),
-        ),
-        title: Row(
-          children: [
-            Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                color: whatsappGreen.withValues(alpha: 0.16),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: const Icon(
-                Icons.verified_rounded,
-                color: whatsappGreen,
-                size: 20,
-              ),
-            ),
-            const SizedBox(width: 10),
-            const Expanded(
-              child: Text(
-                'Member Enrolled!',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 17,
-                  fontWeight: FontWeight.w900,
+      builder: (dialogCtx) => Theme(
+        data: Theme.of(context),
+        child: AlertDialog(
+          backgroundColor: p.card,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(22),
+            side: BorderSide(color: accentColor.withValues(alpha: 0.35)),
+          ),
+          title: Row(
+            children: [
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: whatsappGreen.withValues(alpha: 0.16),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(
+                  Icons.verified_rounded,
+                  color: whatsappGreen,
+                  size: 20,
                 ),
               ),
-            ),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              '${member.respectfulName} • ${member.planTitle}',
-              style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.w800,
-                fontSize: 14,
-              ),
-            ),
-            if (member.genderLabel.isNotEmpty) ...[
-              const SizedBox(height: 4),
-              Text(
-                'Gender: ${member.genderLabel}',
-                style: const TextStyle(
-                  color: Colors.white60,
-                  fontWeight: FontWeight.w700,
-                  fontSize: 12,
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'Member Enrolled!',
+                  style: TextStyle(
+                    color: p.textPrimary,
+                    fontSize: 17,
+                    fontWeight: FontWeight.w900,
+                  ),
                 ),
               ),
             ],
-            const SizedBox(height: 6),
-            Text(
-              'Paid ₹${member.feePaid} (${member.paymentMode})'
-              '${member.hasDue ? ' • Pending Due ₹${member.dueAmount}' : ''}',
-              style: TextStyle(
-                color: member.hasDue ? const Color(0xFFF59E0B) : accentColor,
-                fontWeight: FontWeight.w700,
-                fontSize: 12.5,
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '${member.respectfulName} • ${member.planTitle}',
+                style: TextStyle(
+                  color: p.textPrimary,
+                  fontWeight: FontWeight.w800,
+                  fontSize: 14,
+                ),
+              ),
+              if (member.genderLabel.isNotEmpty) ...[
+                const SizedBox(height: 4),
+                Text(
+                  'Gender: ${member.genderLabel}',
+                  style: TextStyle(
+                    color: p.textSecondary,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+              const SizedBox(height: 6),
+              Text(
+                'Paid ₹${member.feePaid} (${member.paymentMode})'
+                '${member.hasDue ? ' • Pending Due ₹${member.dueAmount}' : ''}',
+                style: TextStyle(
+                  color: member.hasDue ? p.amber : accentColor,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 12.5,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Send a formatted Welcome Pass with gym validity, fee receipt & app login steps directly on WhatsApp.',
+                style: TextStyle(
+                  color: p.textSecondary,
+                  fontSize: 12,
+                  height: 1.4,
+                ),
+              ),
+            ],
+          ),
+          actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogCtx),
+              child: Text(
+                'Done',
+                style: TextStyle(
+                  color: p.textMuted,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
             ),
-            const SizedBox(height: 12),
-            const Text(
-              'Send a formatted Welcome Pass with gym validity, fee receipt & app login steps directly on WhatsApp.',
-              style: TextStyle(
-                color: Colors.white60,
-                fontSize: 12,
-                height: 1.4,
+            ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: whatsappGreen,
+                foregroundColor: Colors.black,
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              onPressed: () async {
+                HapticFeedback.mediumImpact();
+                Navigator.pop(dialogCtx);
+                if (context.mounted) {
+                  await sendWelcomePass(
+                    context: context,
+                    gymName: gymName,
+                    member: member,
+                  );
+                }
+              },
+              icon: const Icon(Icons.chat_rounded, size: 17),
+              label: const Text(
+                'WhatsApp Welcome Pass',
+                style: TextStyle(fontWeight: FontWeight.w900, fontSize: 12.5),
               ),
             ),
           ],
         ),
-        actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogCtx),
-            child: const Text(
-              'Done',
-              style: TextStyle(
-                color: Colors.white54,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-          ElevatedButton.icon(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: whatsappGreen,
-              foregroundColor: Colors.black,
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-            onPressed: () async {
-              HapticFeedback.mediumImpact();
-              Navigator.pop(dialogCtx);
-              if (context.mounted) {
-                await sendWelcomePass(
-                  context: context,
-                  gymName: gymName,
-                  member: member,
-                );
-              }
-            },
-            icon: const Icon(Icons.chat_rounded, size: 17),
-            label: const Text(
-              'WhatsApp Welcome Pass',
-              style: TextStyle(fontWeight: FontWeight.w900, fontSize: 12.5),
-            ),
-          ),
-        ],
       ),
     );
   }

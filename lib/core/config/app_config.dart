@@ -121,6 +121,22 @@ class AppConfig {
     }
     return null;
   }
+
+  static void logBootInfo({
+    required String entrypoint,
+    required String? firebaseProjectId,
+    required String? firebaseAppId,
+    String? uid,
+    String? phone,
+  }) {
+    debugPrint(
+      '[BOOT][$entrypoint] env=$environmentName '
+      'firebaseProject=${firebaseProjectId ?? "null"} '
+      'appId=${firebaseAppId ?? "null"} '
+      'packageId=$packageId '
+      'uid=${uid ?? "none"} phone=${phone ?? "none"}',
+    );
+  }
 }
 
 /// Non-interactive corner badge rendered on top of Staging builds so live

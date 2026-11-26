@@ -8,6 +8,7 @@ import '../../domain/models/machine_guide.dart';
 import '../../domain/models/meal_review_item.dart';
 import '../../domain/models/missing_member.dart';
 import '../../domain/models/removed_record.dart';
+import '../../domain/models/trainer_attendance_log.dart';
 import '../../domain/models/trainer_join_request.dart';
 import '../../domain/models/trainer_profile.dart';
 import '../../domain/models/walk_in_enquiry.dart';
@@ -32,30 +33,72 @@ class FirestoreService {
 
   User? get currentUser => _auth.currentUser;
 
-  Future<void> signOut() => _auth.signOut();
-
-  Future<PhoneLookupResult?> lookupPhone(String phone) async {
-    final doc = await _db.collection('phone_index').doc(phone).get();
-    if (!doc.exists || doc.data() == null) return null;
-    final data = doc.data()!;
-    return PhoneLookupResult(
-      phone: phone,
-      role: (data['role'] ?? 'owner') as String,
-      gymId: (data['gymId'] ?? '') as String,
-      name: (data['name'] ?? '') as String,
+  Future<void> signOut() async {
+    debugPrint(
+      '[FIRESTORE][signOut] project=${_db.app.options.projectId} '
+      'uid=${_auth.currentUser?.uid}',
     );
+    await _auth.signOut();
   }
 
-  Stream<PhoneLookupResult?> watchPhoneLookup(String phone) {
-    return _db.collection('phone_index').doc(phone).snapshots().map((doc) {
-      if (!doc.exists || doc.data() == null) return null;
+  Future<PhoneLookupResult?> lookupPhone(String phone) async {
+    final project = _db.app.options.projectId;
+    debugPrint(
+      '[FIRESTORE][lookupPhone] GET phone_index/$phone project=$project '
+      'uid=${_auth.currentUser?.uid}',
+    );
+    try {
+      final doc = await _db.collection('phone_index').doc(phone).get();
+      if (!doc.exists || doc.data() == null) {
+        debugPrint(
+          '[FIRESTORE][lookupPhone] NOT FOUND phone_index/$phone',
+        );
+        return null;
+      }
       final data = doc.data()!;
-      return PhoneLookupResult(
+      final result = PhoneLookupResult(
         phone: phone,
         role: (data['role'] ?? 'owner') as String,
         gymId: (data['gymId'] ?? '') as String,
         name: (data['name'] ?? '') as String,
       );
+      debugPrint(
+        '[FIRESTORE][lookupPhone] FOUND phone=$phone role=${result.role} '
+        'gymId=${result.gymId} name=${result.name}',
+      );
+      return result;
+    } catch (e, st) {
+      debugPrint(
+        '[FIRESTORE][lookupPhone ERROR] phone=$phone project=$project '
+        'error=$e\n$st',
+      );
+      rethrow;
+    }
+  }
+
+  Stream<PhoneLookupResult?> watchPhoneLookup(String phone) {
+    debugPrint(
+      '[FIRESTORE][watchPhoneLookup] LISTEN phone_index/$phone '
+      'project=${_db.app.options.projectId}',
+    );
+    return _db.collection('phone_index').doc(phone).snapshots().map((doc) {
+      if (!doc.exists || doc.data() == null) {
+        debugPrint(
+          '[FIRESTORE][watchPhoneLookup] snapshot missing for $phone',
+        );
+        return null;
+      }
+      final data = doc.data()!;
+      final res = PhoneLookupResult(
+        phone: phone,
+        role: (data['role'] ?? 'owner') as String,
+        gymId: (data['gymId'] ?? '') as String,
+        name: (data['name'] ?? '') as String,
+      );
+      debugPrint(
+        '[FIRESTORE][watchPhoneLookup] snapshot phone=$phone role=${res.role} gymId=${res.gymId}',
+      );
+      return res;
     });
   }
 
@@ -110,6 +153,10 @@ class FirestoreService {
       gymPayload['longitude'] = longitude;
     }
 
+    debugPrint(
+      '[FIRESTORE][createNewGym] START project=${_db.app.options.projectId} '
+      'gymId=$gymId ownerUid=$uid ownerPhone=$ownerPhone',
+    );
     final batch = _db.batch();
     final gymRef = _db.collection('gyms').doc(gymId);
     batch.set(gymRef, gymPayload);
@@ -125,6 +172,7 @@ class FirestoreService {
     });
 
     await batch.commit();
+    debugPrint('[FIRESTORE][createNewGym] SUCCESS gymId=$gymId');
     return gymId;
   }
 
@@ -328,9 +376,13 @@ class FirestoreService {
 
   /// Checks if the current trainer phone has a pending approval request.
   Future<String?> lookupPendingGymName(String phone) async {
+    debugPrint('[FIRESTORE][lookupPendingGymName] checking pending_requests/$phone');
     try {
       final doc = await _db.collection('pending_requests').doc(phone).get();
-      if (!doc.exists || doc.data() == null) return null;
+      if (!doc.exists || doc.data() == null) {
+        debugPrint('[FIRESTORE][lookupPendingGymName] none for $phone');
+        return null;
+      }
       final data = doc.data()!;
       final gymId = (data['gymId'] ?? '') as String;
       final gymName = (data['gymName'] ?? '') as String;
@@ -345,12 +397,18 @@ class FirestoreService {
             .doc(uid)
             .get();
         if (!reqDoc.exists) {
+          debugPrint(
+            '[FIRESTORE][lookupPendingGymName] trainer_requests/$uid missing -> deleting pending_requests/$phone',
+          );
           await _db.collection('pending_requests').doc(phone).delete();
           return null;
         }
       }
-      return gymName.isEmpty ? 'this gym' : gymName;
-    } catch (_) {
+      final resolved = gymName.isEmpty ? 'this gym' : gymName;
+      debugPrint('[FIRESTORE][lookupPendingGymName] FOUND pending gym=$resolved');
+      return resolved;
+    } catch (e, st) {
+      debugPrint('[FIRESTORE][lookupPendingGymName ERROR] $e\n$st');
       return null;
     }
   }
@@ -978,6 +1036,88 @@ class FirestoreService {
     });
   }
 
+  Stream<List<TrainerAttendanceLog>> watchTrainerAttendanceLogs(String gymId) {
+    return _db
+        .collection('gyms')
+        .doc(gymId)
+        .collection('trainer_attendance')
+        .orderBy('timestampMs', descending: true)
+        .limit(300)
+        .snapshots()
+        .map(
+          (snap) => snap.docs.map((doc) {
+            final d = doc.data();
+            return TrainerAttendanceLog(
+              id: (d['id'] ?? doc.id) as String,
+              trainerId: (d['trainerId'] ?? '') as String,
+              trainerName: (d['trainerName'] ?? '') as String,
+              trainerPhone: (d['trainerPhone'] ?? '') as String,
+              dateKey: (d['dateKey'] ?? '') as String,
+              timeLabel: (d['timeLabel'] ?? '') as String,
+              eventType: (d['eventType'] ?? 'duty_checkin') as String,
+              timestampMs: (d['timestampMs'] as num?)?.toInt() ?? 0,
+            );
+          }).toList(),
+        );
+  }
+
+  Future<void> addTrainerAttendanceLog(
+    String gymId,
+    TrainerAttendanceLog log,
+  ) async {
+    await _db
+        .collection('gyms')
+        .doc(gymId)
+        .collection('trainer_attendance')
+        .doc(log.id)
+        .set({
+      'id': log.id,
+      'trainerId': log.trainerId,
+      'trainerName': log.trainerName,
+      'trainerPhone': log.trainerPhone,
+      'dateKey': log.dateKey,
+      'timeLabel': log.timeLabel,
+      'eventType': log.eventType,
+      'timestampMs': log.timestampMs,
+      'createdAt': FieldValue.serverTimestamp(),
+    });
+  }
+
+  Future<void> recordTrainerLogin({
+    required String gymId,
+    required String phone,
+    String fallbackName = '',
+  }) async {
+    if (gymId.isEmpty || phone.isEmpty) return;
+    var trainerId = _auth.currentUser?.uid ?? phone;
+    var trainerName = fallbackName.trim().isEmpty ? 'Trainer' : fallbackName.trim();
+    try {
+      final snap = await _db
+          .collection('gyms')
+          .doc(gymId)
+          .collection('trainers')
+          .where('phone', isEqualTo: phone)
+          .limit(1)
+          .get();
+      if (snap.docs.isNotEmpty) {
+        final doc = snap.docs.first;
+        trainerId = doc.id;
+        final docName = (doc.data()['name'] ?? '').toString().trim();
+        if (docName.isNotEmpty) {
+          trainerName = docName;
+        }
+      }
+    } catch (_) {}
+
+    final log = TrainerAttendanceLog.fromDateTime(
+      trainerId: trainerId,
+      trainerName: trainerName,
+      trainerPhone: phone,
+      eventType: 'login',
+    );
+    await addTrainerAttendanceLog(gymId, log);
+  }
+
   Future<void> updateMemberWeight(
     String gymId,
     String memberId,
@@ -1082,11 +1222,20 @@ class FirestoreService {
     required String gymId,
     String? name,
   }) async {
+    debugPrint(
+      '[FIRESTORE][registerPhoneLookup] phone=$phone role=$role gymId=$gymId',
+    );
     final docRef = _db.collection('phone_index').doc(phone);
     try {
       final existing = await docRef.get();
-      if (existing.exists) return;
-    } catch (_) {
+      if (existing.exists) {
+        debugPrint('[FIRESTORE][registerPhoneLookup] already exists for $phone');
+        return;
+      }
+    } catch (e) {
+      debugPrint(
+        '[FIRESTORE][registerPhoneLookup pre-check ignored] $e',
+      );
       // Non-existent phone_index doc may fail read rule; proceed to create.
     }
     await docRef.set({
@@ -1097,6 +1246,7 @@ class FirestoreService {
       'name': name ?? '',
       'updatedAt': FieldValue.serverTimestamp(),
     });
+    debugPrint('[FIRESTORE][registerPhoneLookup] created phone_index/$phone');
   }
 
   Future<List<MissingMember>> fetchMissingMembers(String gymId) async {

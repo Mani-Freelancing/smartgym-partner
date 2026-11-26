@@ -1195,14 +1195,14 @@ class TrainerMembersOnboardingScreen extends StatelessWidget {
             physics: const AlwaysScrollableScrollPhysics(
               parent: BouncingScrollPhysics(),
             ),
-            padding: const EdgeInsets.fromLTRB(20, 10, 20, 32),
+            padding: const EdgeInsets.fromLTRB(12, 10, 12, 32),
           children: [
             // Quick Onboarding Actions for Floor Trainer
             CredStaggeredItem(
               index: 0,
               child: CredMetalCard(
                 glowColor: AppTheme.accent,
-                padding: const EdgeInsets.all(20),
+                padding: const EdgeInsets.all(16),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [

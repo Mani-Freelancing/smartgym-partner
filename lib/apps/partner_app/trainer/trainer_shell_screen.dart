@@ -28,7 +28,7 @@ class _TrainerShellScreenState extends State<TrainerShellScreen> {
       body: _screens[_tabIndex],
       bottomNavigationBar: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
+          padding: const EdgeInsets.fromLTRB(12, 4, 12, 10),
           child: Container(
             height: 62,
             padding: const EdgeInsets.symmetric(horizontal: 6),

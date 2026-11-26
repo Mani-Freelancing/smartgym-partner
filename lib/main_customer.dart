@@ -1,3 +1,4 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -17,6 +18,14 @@ Future<void> main() async {
     options: AppConfig.firebaseOptionsForInit(),
   );
   AppConfig.syncFromFirebaseProjectId(app.options.projectId);
+  final user = FirebaseAuth.instance.currentUser;
+  AppConfig.logBootInfo(
+    entrypoint: 'main_customer.dart',
+    firebaseProjectId: app.options.projectId,
+    firebaseAppId: app.options.appId,
+    uid: user?.uid,
+    phone: user?.phoneNumber,
+  );
   runApp(SmartGymCustomerApp(firestoreService: FirestoreService()));
 }
 

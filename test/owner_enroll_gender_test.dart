@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_demo_application/apps/partner_app/owner/owner_add_member_screen.dart';
 import 'package:flutter_demo_application/apps/partner_app/owner/screens/owner_audit_log_screen.dart';
+import 'package:flutter_demo_application/core/theme/app_theme.dart';
 import 'package:flutter_demo_application/data/repositories/gym_repository.dart';
 import 'package:flutter_demo_application/domain/models/gym_member.dart';
 import 'package:flutter_demo_application/domain/models/gym_tenant.dart';
@@ -130,7 +131,7 @@ void main() {
       ),
     );
     final defaultPlanBox = defaultPlanContainer.decoration! as BoxDecoration;
-    expect(defaultPlanBox.border?.top.color, const Color(0xFFE5C158));
+    expect(defaultPlanBox.border?.top.color, AppTheme.lightOwnerGold);
     expect(find.text('1 Mo'), findsNothing);
     expect(find.text('3 Mos'), findsNothing);
     expect(find.text('6 Mos'), findsNothing);
@@ -151,7 +152,7 @@ void main() {
     final qPlan = bloc.state.currentGym.effectiveFeePlans
         .firstWhere((p) => p.id == 'plan_3m');
     final qPlanBox = qPlanContainer.decoration! as BoxDecoration;
-    expect(qPlanBox.border?.top.color, const Color(0xFFE5C158));
+    expect(qPlanBox.border?.top.color, AppTheme.lightOwnerGold);
     expect(find.text('₹${qPlan.price}'), findsOneWidget);
     expect(find.textContaining('3 Months'), findsWidgets);
 

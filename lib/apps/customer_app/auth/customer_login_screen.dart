@@ -49,8 +49,15 @@ class _CustomerLoginScreenState extends State<CustomerLoginScreen>
 
   Future<void> _handleSendOtp(SmartGymState state) async {
     final digits = _phoneCtrl.text.replaceAll(RegExp(r'\D'), '');
+    debugPrint(
+      '[LOGIN][CustomerLoginScreen._handleSendOtp] raw="${_phoneCtrl.text}" '
+      'digitsLen=${digits.length}',
+    );
     if (digits.length != 10) {
       HapticFeedback.heavyImpact();
+      debugPrint(
+        '[LOGIN][CustomerLoginScreen._handleSendOtp] validation failed: invalid digitsLen=${digits.length}',
+      );
       setState(() => _errorText = 'Enter a valid 10-digit mobile number');
       return;
     }
@@ -62,10 +69,17 @@ class _CustomerLoginScreenState extends State<CustomerLoginScreen>
     });
 
     final fullPhone = '+91$digits';
+    debugPrint(
+      '[LOGIN][CustomerLoginScreen._handleSendOtp] calling sendOtp(phone=$fullPhone)',
+    );
     try {
       await _getAuthService().sendOtp(
         phoneNumber: fullPhone,
-        onCodeSent: (_) {
+        onCodeSent: (verId) {
+          debugPrint(
+            '[LOGIN][CustomerLoginScreen._handleSendOtp -> onCodeSent] '
+            'phone=$fullPhone verIdLen=${verId.length}',
+          );
           if (!mounted) return;
           setState(() {
             _isLoading = false;
@@ -73,28 +87,53 @@ class _CustomerLoginScreenState extends State<CustomerLoginScreen>
           });
         },
         onError: (msg) {
+          debugPrint(
+            '[LOGIN][CustomerLoginScreen._handleSendOtp -> onError] '
+            'phone=$fullPhone error=$msg',
+          );
           if (!mounted) return;
           setState(() {
             _isLoading = false;
             _errorText = msg;
           });
         },
-        onAutoVerified: (_) {
+        onAutoVerified: (cred) {
+          debugPrint(
+            '[LOGIN][CustomerLoginScreen._handleSendOtp -> onAutoVerified] '
+            'phone=$fullPhone uid=${cred.user?.uid}',
+          );
           if (!mounted) return;
           _completeLogin(fullPhone);
         },
       );
-    } catch (_) {
+    } catch (e, st) {
+      debugPrint(
+        '[LOGIN][CustomerLoginScreen._handleSendOtp CATCH] phone=$fullPhone '
+        'error=$e\n$st',
+      );
       if (!mounted) return;
+      if (PhoneAuthService.isOfflineTestError(e)) {
+        debugPrint(
+          '[LOGIN][CustomerLoginScreen._handleSendOtp] offline/no-app test mode -> showing OTP step',
+        );
+        setState(() {
+          _isLoading = false;
+          _otpSent = true;
+        });
+        return;
+      }
       setState(() {
         _isLoading = false;
-        _otpSent = true;
+        _errorText = PhoneAuthService.formatAuthError(e);
       });
     }
   }
 
   Future<void> _handleVerifyOtp() async {
     final otp = _otpCtrl.text.trim();
+    debugPrint(
+      '[LOGIN][CustomerLoginScreen._handleVerifyOtp] otpLen=${otp.length}',
+    );
     if (otp.length != 6) {
       HapticFeedback.heavyImpact();
       setState(() => _errorText = 'Enter the 6-digit OTP sent to your phone');
@@ -112,23 +151,33 @@ class _CustomerLoginScreenState extends State<CustomerLoginScreen>
 
     try {
       await _getAuthService().verifyOtp(smsCode: otp);
+      debugPrint(
+        '[LOGIN][CustomerLoginScreen._handleVerifyOtp] OTP verified for $fullPhone',
+      );
       if (!mounted) return;
       _completeLogin(fullPhone);
-    } catch (e) {
+    } catch (e, st) {
+      debugPrint(
+        '[LOGIN][CustomerLoginScreen._handleVerifyOtp CATCH] phone=$fullPhone '
+        'error=$e\n$st',
+      );
       if (!mounted) return;
-      if (e.toString().contains('no-app') ||
-          e.toString().contains('FirebaseApp')) {
+      if (PhoneAuthService.isOfflineTestError(e)) {
         _completeLogin(fullPhone);
         return;
       }
       setState(() {
         _isLoading = false;
-        _errorText = 'Invalid OTP. Please check and try again.';
+        _errorText = PhoneAuthService.formatAuthError(e);
       });
     }
   }
 
   void _completeLogin(String fullPhone) {
+    debugPrint(
+      '[LOGIN][CustomerLoginScreen._completeLogin] dispatching LoginPartnerEvent '
+      'phone=$fullPhone',
+    );
     setState(() => _isLoading = false);
     context.read<SmartGymBloc>().add(
           LoginPartnerEvent(
@@ -436,10 +485,10 @@ class _CustomerLoginScreenState extends State<CustomerLoginScreen>
                               ),
                             ),
                           ],
-                          if (_errorText != null) ...[
+                          if ((_errorText ?? state.authError) != null) ...[
                             const SizedBox(height: 10),
                             Text(
-                              _errorText!,
+                              (_errorText ?? state.authError)!,
                               style: const TextStyle(
                                 color: AppTheme.danger,
                                 fontSize: 12,
