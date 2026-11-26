@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_demo_application/apps/customer_app/auth/customer_login_screen.dart';
 import 'package:flutter_demo_application/apps/customer_app/screens/customer_pass_screen.dart';
 import 'package:flutter_demo_application/apps/partner_app/auth/partner_login_screen.dart';
 import 'package:flutter_demo_application/apps/partner_app/owner/owner_drawer.dart';
@@ -20,7 +21,7 @@ import 'package:flutter_demo_application/shared_bloc/smart_gym_state.dart';
 
 void main() {
   testWidgets(
-    'SmartGymPartnerApp switches MaterialApp theme: dark for Login & Trainer, light for Owner',
+    'SmartGymPartnerApp switches MaterialApp theme: light for Partner Login & Owner, dark for Trainer',
     (WidgetTester tester) async {
       tester.view.physicalSize = const Size(390, 900);
       tester.view.devicePixelRatio = 1.0;
@@ -30,17 +31,18 @@ void main() {
       await tester.pumpWidget(const SmartGymPartnerApp());
       await tester.pump(const Duration(milliseconds: 300));
 
-      // 1. Unauthenticated login stays Dark
+      // 1. Unauthenticated Partner Login uses Light Sapphire Theme
       final loginFinder = find.byType(PartnerLoginScreen);
       expect(loginFinder, findsOneWidget);
       final loginCtx = tester.element(loginFinder);
-      expect(Theme.of(loginCtx).brightness, Brightness.dark);
-      expect(AppPalette.of(loginCtx).isDark, isTrue);
+      expect(Theme.of(loginCtx).brightness, Brightness.light);
+      expect(AppPalette.of(loginCtx), AppPalette.light);
+      expect(AppPalette.of(loginCtx).isDark, isFalse);
 
       final appLogin = tester.widget<MaterialApp>(find.byType(MaterialApp));
-      expect(appLogin.theme?.brightness, Brightness.dark);
+      expect(appLogin.theme?.brightness, Brightness.light);
 
-      // 2. Logging in as Owner switches MaterialApp and shell to Light Theme
+      // 2. Logging in as Owner keeps MaterialApp and shell in Light Theme
       final bloc = BlocProvider.of<SmartGymBloc>(loginCtx);
       bloc.add(
         const LoginPartnerEvent(
@@ -64,7 +66,7 @@ void main() {
       expect(AppPalette.of(ownerCtx), AppPalette.light);
       expect(AppPalette.of(ownerCtx).isDark, isFalse);
 
-      // 3. Logging out & signing in as Trainer restores Dark Theme
+      // 3. Logging out restores Light Login; signing in as Trainer switches to Dark Theme
       bloc.add(const LogoutPartnerEvent());
       await tester.pump(const Duration(milliseconds: 300));
       bloc.add(
@@ -181,7 +183,7 @@ void main() {
   );
 
   testWidgets(
-    'CustomerPassScreen stays in CRED Dark Theme with AppPalette.dark',
+    'CustomerLoginScreen & CustomerPassScreen stay in existing CRED Dark Theme',
     (WidgetTester tester) async {
       tester.view.physicalSize = const Size(390, 900);
       tester.view.devicePixelRatio = 1.0;
@@ -190,6 +192,21 @@ void main() {
 
       final bloc = SmartGymBloc(repository: GymRepository());
       addTearDown(bloc.close);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.darkTheme,
+          home: BlocProvider.value(
+            value: bloc,
+            child: const CustomerLoginScreen(),
+          ),
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 250));
+
+      final custLoginCtx = tester.element(find.byType(CustomerLoginScreen));
+      expect(Theme.of(custLoginCtx).brightness, Brightness.dark);
+      expect(AppPalette.of(custLoginCtx), AppPalette.dark);
 
       await tester.pumpWidget(
         MaterialApp(

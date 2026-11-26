@@ -16,16 +16,16 @@ class AppTheme {
   static const Color danger = Color(0xFFFF453A);
   static const Color softRed = Color(0xFFFF6B6B);
 
-  // Daylight Executive Palette for Owner Portal
-  static const Color lightScaffoldBg = Color(0xFFF5F7FB);
+  // Razorpay / Ocean Sapphire Fintech Palette for Owner Portal
+  static const Color lightScaffoldBg = Color(0xFFF4F7FC);
   static const Color lightCardSurface = Color(0xFFFFFFFF);
   static const Color lightCardSubtle = Color(0xFFF1F5F9);
-  static const Color lightOwnerGold = Color(0xFFB45309);
-  static const Color lightOwnerGoldButton = Color(0xFFB45309);
+  static const Color lightOwnerGold = Color(0xFF2563EB);
+  static const Color lightOwnerGoldButton = Color(0xFF2563EB);
   static const Color lightAccent = Color(0xFF059669);
-  static const Color lightCyan = Color(0xFF0F766E);
+  static const Color lightCyan = Color(0xFF0891B2);
   static const Color lightAmber = Color(0xFFD97706);
-  static const Color lightDanger = Color(0xFFDC2626);
+  static const Color lightDanger = Color(0xFFE11D48);
   static const Color lightPurple = Color(0xFF7C3AED);
 
   static ThemeData get lightTheme {
@@ -33,8 +33,8 @@ class AppTheme {
       brightness: Brightness.light,
       scaffoldBackgroundColor: lightScaffoldBg,
       colorScheme: const ColorScheme.light(
-        primary: lightAccent,
-        secondary: lightOwnerGold,
+        primary: lightOwnerGold,
+        secondary: lightPurple,
         surface: lightCardSurface,
         onSurface: Color(0xFF0F172A),
         error: lightDanger,
@@ -138,7 +138,7 @@ class AppPalette extends ThemeExtension<AppPalette> {
     cardSubtle: AppTheme.lightCardSubtle,
     navBar: Colors.white,
     border: Color(0xFFE2E8F0),
-    divider: Color(0xFFE2E8F0),
+    divider: Color(0xFFE8EDF5),
     textPrimary: Color(0xFF0F172A),
     textSecondary: Color(0xFF475569),
     textMuted: Color(0xFF64748B),
@@ -161,9 +161,14 @@ class AppPalette extends ThemeExtension<AppPalette> {
       ? const []
       : [
           BoxShadow(
-            color: const Color(0xFF0F172A).withValues(alpha: 0.05),
-            blurRadius: 16,
-            offset: const Offset(0, 4),
+            color: const Color(0xFF1E3A8A).withValues(alpha: 0.055),
+            blurRadius: 20,
+            offset: const Offset(0, 6),
+          ),
+          BoxShadow(
+            color: const Color(0xFF0F172A).withValues(alpha: 0.03),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
           ),
         ];
 

@@ -145,7 +145,7 @@ class _OwnerShellScreenState extends State<OwnerShellScreen> {
             borderRadius: BorderRadius.circular(18),
             border: selected
                 ? Border.all(
-                    color: p.gold.withValues(alpha: p.isDark ? 0.55 : 0.38),
+                    color: p.gold.withValues(alpha: p.isDark ? 0.55 : 0.30),
                     width: 1.1,
                   )
                 : Border.all(color: Colors.transparent),

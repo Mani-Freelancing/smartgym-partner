@@ -23,11 +23,13 @@ class PartnerAppRoot extends StatelessWidget {
       builder: (context, state) {
         if (state.isAuthChecking) {
           return Theme(
-            data: AppTheme.darkTheme,
+            data: AppTheme.lightTheme,
             child: const Scaffold(
-              backgroundColor: AppTheme.scaffoldBg,
+              backgroundColor: AppTheme.lightScaffoldBg,
               body: Center(
-                child: CircularProgressIndicator(color: AppTheme.ownerGold),
+                child: CircularProgressIndicator(
+                  color: AppTheme.lightOwnerGold,
+                ),
               ),
             ),
           );
@@ -42,7 +44,7 @@ class PartnerAppRoot extends StatelessWidget {
 
         if (!state.isPartnerLoggedIn) {
           return Theme(
-            data: AppTheme.darkTheme,
+            data: AppTheme.lightTheme,
             child: const PartnerLoginScreen(),
           );
         }
@@ -85,10 +87,16 @@ class PartnerAppRoot extends StatelessWidget {
                                 fixedSize: const Size(40, 40),
                                 padding: EdgeInsets.zero,
                                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                backgroundColor: p.gold.withValues(alpha: 0.12),
-                                foregroundColor: p.gold,
+                                backgroundColor: p.isDark
+                                    ? p.gold.withValues(alpha: 0.12)
+                                    : p.card,
+                                foregroundColor:
+                                    p.isDark ? p.gold : p.textPrimary,
+                                side: p.isDark
+                                    ? null
+                                    : BorderSide(color: p.border),
                                 shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(10),
+                                  borderRadius: BorderRadius.circular(11),
                                 ),
                               ),
                               onPressed: () {
@@ -168,10 +176,15 @@ class PartnerAppRoot extends StatelessWidget {
                               fixedSize: const Size(40, 40),
                               padding: EdgeInsets.zero,
                               tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                              backgroundColor: p.gold.withValues(alpha: 0.12),
+                              backgroundColor: p.isDark
+                                  ? p.gold.withValues(alpha: 0.12)
+                                  : p.card,
                               foregroundColor: p.gold,
+                              side: p.isDark
+                                  ? null
+                                  : BorderSide(color: p.border),
                               shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(10),
+                                borderRadius: BorderRadius.circular(11),
                               ),
                             ),
                             onPressed: () {

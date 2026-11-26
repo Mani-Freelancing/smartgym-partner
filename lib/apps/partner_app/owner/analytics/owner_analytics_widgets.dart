@@ -126,7 +126,7 @@ class _OwnerCeoHeroCardState extends State<OwnerCeoHeroCard> {
                   vertical: 3,
                 ),
                 decoration: BoxDecoration(
-                  color: p.accent.withValues(alpha: 0.12),
+                  color: (p.isDark ? p.accent : p.cyan).withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(99),
                 ),
                 child: Text(
@@ -134,7 +134,7 @@ class _OwnerCeoHeroCardState extends State<OwnerCeoHeroCard> {
                   style: TextStyle(
                     fontSize: 9.5,
                     fontWeight: FontWeight.w900,
-                    color: p.accent,
+                    color: p.isDark ? p.accent : p.cyan,
                   ),
                 ),
               ),
@@ -205,7 +205,7 @@ class _OwnerCeoHeroCardState extends State<OwnerCeoHeroCard> {
                   _MiniStatPill(
                     text:
                         '${selectedBucket?.joins ?? report.periodJoins} join(s)',
-                    color: p.cyan,
+                    color: p.isDark ? p.cyan : p.purple,
                   ),
                   if (report.growthPercent != null && selectedBucket == null)
                     _MiniStatPill(
@@ -387,7 +387,7 @@ class _OwnerCeoHeroCardState extends State<OwnerCeoHeroCard> {
                     amount: formatInr(
                       selectedBucket?.coachPayout ?? report.coachPayout,
                     ),
-                    accent: p.cyan,
+                    accent: p.isDark ? p.cyan : p.purple,
                   ),
                 ),
               ],
@@ -554,7 +554,9 @@ class _GlowingSplineChartPainter extends CustomPainter {
 
       final linePaint = Paint()
         ..shader = LinearGradient(
-          colors: [lineColor, palette.isDark ? AppTheme.champagne : lineColor],
+          colors: palette.isDark
+              ? [lineColor, AppTheme.champagne]
+              : [lineColor, const Color(0xFF0EA5E9)],
         ).createShader(Rect.fromLTWH(0, 0, size.width, size.height))
         ..style = PaintingStyle.stroke
         ..strokeWidth = 2.6
@@ -661,9 +663,12 @@ class _GlowingBarChartPainter extends CustomPainter {
       );
 
       final isSelected = selectedIndex == i;
-      final topColor = isSelected ? palette.textPrimary : palette.gold;
+      final baseColor = palette.gold;
+      final topColor = isSelected
+          ? (palette.isDark ? palette.textPrimary : const Color(0xFF1D4ED8))
+          : baseColor;
       final bottomColor =
-          palette.gold.withValues(alpha: isSelected ? 0.55 : 0.30);
+          baseColor.withValues(alpha: isSelected ? 0.60 : 0.26);
 
       canvas.drawRRect(
         rect,
@@ -767,14 +772,14 @@ class _MixBreakdownView extends StatelessWidget {
                   label: 'PT VIP Plans',
                   amount: formatInr(report.ptRevenue),
                   fraction: ptShare,
-                  color: p.cyan,
+                  color: p.isDark ? p.cyan : p.purple,
                 ),
                 const SizedBox(height: 8),
                 _BreakdownBarRow(
                   label: 'Regular Plans',
                   amount: formatInr(report.regularRevenue),
                   fraction: regShare,
-                  color: p.purple,
+                  color: p.isDark ? p.purple : p.cyan,
                 ),
               ],
             ),
@@ -994,6 +999,15 @@ class _RangePill extends StatelessWidget {
           border: Border.all(
             color: selected ? p.goldButton : p.border,
           ),
+          boxShadow: selected && !p.isDark
+              ? [
+                  BoxShadow(
+                    color: p.goldButton.withValues(alpha: 0.25),
+                    blurRadius: 10,
+                    offset: const Offset(0, 3),
+                  ),
+                ]
+              : null,
         ),
         child: Center(
           child: FittedBox(

@@ -108,13 +108,14 @@ class _OwnerQrPosterScreenState extends State<OwnerQrPosterScreen> {
         final fileName = '${prefix}_${DateTime.now().millisecondsSinceEpoch}.png';
         final savedLocation = await _saveToDownloads(bytes, fileName);
         if (!mounted) return;
+        final p = AppPalette.of(context);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            backgroundColor: AppTheme.trainerCyan,
+            backgroundColor: p.cyan,
             content: Text(
               'Image saved to $savedLocation',
-              style: const TextStyle(
-                color: Colors.black,
+              style: TextStyle(
+                color: p.onAccent,
                 fontWeight: FontWeight.w800,
               ),
             ),
@@ -243,13 +244,14 @@ class _OwnerQrPosterScreenState extends State<OwnerQrPosterScreen> {
       final savedLocation = await _saveToDownloads(pdfBytes, fileName);
 
       if (!mounted) return;
+      final p = AppPalette.of(context);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          backgroundColor: AppTheme.ownerGold,
+          backgroundColor: p.goldButton,
           content: Text(
             'PDF saved to $savedLocation',
-            style: const TextStyle(
-              color: Colors.black,
+            style: TextStyle(
+              color: p.onAccent,
               fontWeight: FontWeight.w800,
             ),
           ),

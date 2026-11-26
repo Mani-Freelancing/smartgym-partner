@@ -526,7 +526,7 @@ class OwnerOrdersLeadsScreen extends StatelessWidget {
                                         fontSize: 10,
                                         fontWeight: FontWeight.w900,
                                         letterSpacing: 1.1,
-                                        color: p.cyan,
+                                        color: p.isDark ? p.cyan : p.purple,
                                       ),
                                     ),
                                     const SizedBox(height: 3),
@@ -1137,7 +1137,7 @@ class _TrainerRosterCard extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 11.5,
                       fontWeight: FontWeight.w800,
-                      color: p.cyan,
+                      color: p.isDark ? p.cyan : p.purple,
                     ),
                   ),
                 ],

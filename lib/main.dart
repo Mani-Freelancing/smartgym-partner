@@ -45,10 +45,12 @@ class SmartGymOSApp extends StatelessWidget {
         child: BlocBuilder<SmartGymBloc, SmartGymState>(
           buildWhen: (prev, curr) =>
               prev.isPartnerLoggedIn != curr.isPartnerLoggedIn ||
-              prev.partnerRole != curr.partnerRole,
+              prev.partnerRole != curr.partnerRole ||
+              prev.needsOnboarding != curr.needsOnboarding,
           builder: (context, state) {
-            final useLightTheme = state.isPartnerLoggedIn &&
-                state.partnerRole == PartnerRole.owner;
+            final useLightTheme = !state.needsOnboarding &&
+                (!state.isPartnerLoggedIn ||
+                    state.partnerRole == PartnerRole.owner);
             return MaterialApp(
               title: AppConfig.partnerAppTitle(),
               debugShowCheckedModeBanner: false,

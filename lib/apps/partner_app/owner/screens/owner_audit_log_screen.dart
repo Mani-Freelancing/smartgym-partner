@@ -436,7 +436,9 @@ class _OwnerAuditLogScreenState extends State<OwnerAuditLogScreen> {
                         return Padding(
                           padding: const EdgeInsets.only(bottom: 10),
                           child: CredMetalCard(
-                            glowColor: m.isPtClient ? p.gold : p.accent,
+                            glowColor: m.isPtClient
+                                ? (p.isDark ? p.gold : p.purple)
+                                : p.accent,
                             padding: const EdgeInsets.all(16),
                             borderRadius: 18,
                             child: Column(

@@ -104,7 +104,7 @@ class _CredMetalCardState extends State<CredMetalCard>
                     color: Color.lerp(
                       const Color(0xFFE2E8F0),
                       widget.glowColor,
-                      0.22,
+                      0.24,
                     )!,
                     width: 1,
                   )
@@ -112,9 +112,14 @@ class _CredMetalCardState extends State<CredMetalCard>
             boxShadow: isLight
                 ? [
                     BoxShadow(
-                      color: const Color(0xFF0F172A).withValues(alpha: 0.05),
-                      blurRadius: 16,
-                      offset: const Offset(0, 4),
+                      color: const Color(0xFF1E3A8A).withValues(alpha: 0.055),
+                      blurRadius: 22,
+                      offset: const Offset(0, 7),
+                    ),
+                    BoxShadow(
+                      color: widget.glowColor.withValues(alpha: 0.045),
+                      blurRadius: 12,
+                      spreadRadius: -2,
                     ),
                   ]
                 : [
@@ -149,7 +154,7 @@ class _CredMetalCardState extends State<CredMetalCard>
                               Color.lerp(
                                 Colors.white,
                                 widget.glowColor,
-                                0.045,
+                                0.055,
                               )!,
                               Colors.white,
                             ],

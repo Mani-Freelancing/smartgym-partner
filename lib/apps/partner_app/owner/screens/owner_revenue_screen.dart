@@ -98,8 +98,7 @@ class OwnerRevenueScreen extends StatelessWidget {
                             sub: expiringList.isEmpty
                                 ? 'All memberships ok'
                                 : 'Within 5 days / due',
-                            accentColor:
-                                expiringList.isEmpty ? p.accent : p.amber,
+                            accentColor: p.amber,
                             onTap: () => _openAudit(context, 'Expiring'),
                           ),
                         ),
@@ -121,7 +120,7 @@ class OwnerRevenueScreen extends StatelessWidget {
                             surfaceTint: state.totalPendingDues > 0
                                 ? (p.isDark
                                     ? const Color(0xFF2E191E)
-                                    : const Color(0xFFFEF2F2))
+                                    : const Color(0xFFFFF1F2))
                                 : null,
                             onTap: () => _openAudit(context, 'Dues'),
                           ),
@@ -136,7 +135,7 @@ class OwnerRevenueScreen extends StatelessWidget {
                             sub: pendingEnquiries == 0
                                 ? 'No pending leads'
                                 : 'Pending follow-up',
-                            accentColor: p.gold,
+                            accentColor: p.isDark ? p.gold : p.purple,
                             onTap: onOpenWalkInLeads,
                           ),
                         ),
@@ -163,6 +162,8 @@ class OwnerRevenueScreen extends StatelessWidget {
                         style: ElevatedButton.styleFrom(
                           backgroundColor: p.goldButton,
                           foregroundColor: p.onAccent,
+                          elevation: p.isDark ? 0 : 4,
+                          shadowColor: p.goldButton.withValues(alpha: 0.35),
                           padding: const EdgeInsets.symmetric(horizontal: 14),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(14),
