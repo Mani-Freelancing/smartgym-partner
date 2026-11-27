@@ -34,7 +34,7 @@ class _PartnerLoginScreenState extends State<PartnerLoginScreen>
     _authService = widget.authService;
     _pulseCtrl = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 2200),
+      duration: const Duration(milliseconds: 2400),
     )..repeat(reverse: true);
   }
 
@@ -205,12 +205,12 @@ class _PartnerLoginScreenState extends State<PartnerLoginScreen>
         builder: (context, state) {
           final p = AppPalette.of(context);
           final isOwner = _selectedRole == PartnerRole.owner;
-          final accent = p.gold;
 
           return Scaffold(
             backgroundColor: p.bg,
             body: Stack(
               children: [
+                // Soft warm golden-cream radial glow
                 Positioned(
                   top: -120,
                   left: -60,
@@ -223,8 +223,8 @@ class _PartnerLoginScreenState extends State<PartnerLoginScreen>
                           center: Alignment.topCenter,
                           radius: 0.9,
                           colors: [
-                            accent.withValues(alpha: 0.12),
-                            accent.withValues(alpha: 0.03),
+                            const Color(0xFFF6C667).withValues(alpha: 0.25),
+                            const Color(0xFFF6C667).withValues(alpha: 0.06),
                             Colors.transparent,
                           ],
                         ),
@@ -236,12 +236,13 @@ class _PartnerLoginScreenState extends State<PartnerLoginScreen>
                   bottom: false,
                   child: Column(
                     children: [
+                      // Brand Crest Header
                       Padding(
-                        padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
+                        padding: const EdgeInsets.fromLTRB(24, 18, 24, 0),
                         child: Center(
                           child: Container(
                             padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
+                              horizontal: 13,
                               vertical: 7,
                             ),
                             decoration: BoxDecoration(
@@ -257,13 +258,13 @@ class _PartnerLoginScreenState extends State<PartnerLoginScreen>
                                   width: 24,
                                   height: 24,
                                   decoration: BoxDecoration(
-                                    color: accent.withValues(alpha: 0.12),
+                                    color: p.cardSubtle,
                                     borderRadius: BorderRadius.circular(7),
                                   ),
                                   child: Icon(
-                                    Icons.bolt_rounded,
-                                    color: accent,
-                                    size: 16,
+                                    Icons.shield_rounded,
+                                    color: p.gold,
+                                    size: 15,
                                   ),
                                 ),
                                 const SizedBox(width: 8),
@@ -272,9 +273,9 @@ class _PartnerLoginScreenState extends State<PartnerLoginScreen>
                                     'SMARTGYM PARTNER',
                                     overflow: TextOverflow.ellipsis,
                                     style: TextStyle(
-                                      fontSize: 12,
+                                      fontSize: 11.5,
                                       fontWeight: FontWeight.w900,
-                                      letterSpacing: 1.4,
+                                      letterSpacing: 1.5,
                                       color: p.textPrimary,
                                     ),
                                   ),
@@ -285,7 +286,7 @@ class _PartnerLoginScreenState extends State<PartnerLoginScreen>
                         ),
                       ),
 
-                      // TOP STAGE: Clean Daylight Emblem + Headline
+                      // TOP STAGE: Golden Crest Medallion + Headline
                       Expanded(
                         child: Center(
                           child: SingleChildScrollView(
@@ -297,41 +298,41 @@ class _PartnerLoginScreenState extends State<PartnerLoginScreen>
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
                                 SizedBox(
-                                  width: 116,
-                                  height: 116,
+                                  width: 112,
+                                  height: 112,
                                   child: Center(
                                     child: AnimatedBuilder(
                                       animation: _pulseCtrl,
                                       builder: (context, _) {
                                         final scale =
-                                            1.0 + (_pulseCtrl.value * 0.08);
+                                            1.0 + (_pulseCtrl.value * 0.07);
                                         return Stack(
                                           alignment: Alignment.center,
                                           children: [
                                             Transform.scale(
-                                              scale: scale * 1.24,
+                                              scale: scale * 1.18,
                                               child: Container(
-                                                width: 84,
-                                                height: 84,
+                                                width: 82,
+                                                height: 82,
                                                 decoration: BoxDecoration(
                                                   shape: BoxShape.circle,
-                                                  color: accent
-                                                      .withValues(alpha: 0.06),
+                                                  color: p.gold.withValues(
+                                                    alpha: 0.08,
+                                                  ),
                                                 ),
                                               ),
                                             ),
                                             Transform.scale(
                                               scale: scale,
                                               child: Container(
-                                                width: 80,
-                                                height: 80,
+                                                width: 76,
+                                                height: 76,
                                                 decoration: BoxDecoration(
                                                   shape: BoxShape.circle,
-                                                  color: accent
-                                                      .withValues(alpha: 0.11),
+                                                  color: p.cardSubtle,
                                                   border: Border.all(
-                                                    color: accent.withValues(
-                                                      alpha: 0.28,
+                                                    color: p.gold.withValues(
+                                                      alpha: 0.35,
                                                     ),
                                                   ),
                                                 ),
@@ -342,17 +343,20 @@ class _PartnerLoginScreenState extends State<PartnerLoginScreen>
                                               height: 62,
                                               decoration: BoxDecoration(
                                                 shape: BoxShape.circle,
-                                                color: p.card,
-                                                border: Border.all(
-                                                  color: accent,
-                                                  width: 1.6,
+                                                gradient: const LinearGradient(
+                                                  begin: Alignment.topLeft,
+                                                  end: Alignment.bottomRight,
+                                                  colors: [
+                                                    Color(0xFFF3B43F),
+                                                    Color(0xFFD98A16),
+                                                  ],
                                                 ),
                                                 boxShadow: [
                                                   BoxShadow(
-                                                    color: accent.withValues(
-                                                      alpha: 0.22,
+                                                    color: p.gold.withValues(
+                                                      alpha: 0.32,
                                                     ),
-                                                    blurRadius: 20,
+                                                    blurRadius: 18,
                                                     offset: const Offset(0, 6),
                                                   ),
                                                 ],
@@ -364,8 +368,8 @@ class _PartnerLoginScreenState extends State<PartnerLoginScreen>
                                                         ? Icons.insights_rounded
                                                         : Icons
                                                             .fitness_center_rounded,
-                                                color: accent,
-                                                size: 28,
+                                                color: Colors.white,
+                                                size: 27,
                                               ),
                                             ),
                                           ],
@@ -389,7 +393,7 @@ class _PartnerLoginScreenState extends State<PartnerLoginScreen>
                                       fontSize: 27,
                                       fontWeight: FontWeight.w900,
                                       letterSpacing: -0.7,
-                                      height: 1.15,
+                                      height: 1.14,
                                       color: p.textPrimary,
                                     ),
                                   ),
@@ -397,7 +401,7 @@ class _PartnerLoginScreenState extends State<PartnerLoginScreen>
                                 const SizedBox(height: 8),
                                 ConstrainedBox(
                                   constraints:
-                                      const BoxConstraints(maxWidth: 310),
+                                      const BoxConstraints(maxWidth: 306),
                                   child: Text(
                                     _otpSent
                                         ? 'We sent a 6-digit SMS code to +91 ${_phoneCtrl.text}'
@@ -408,33 +412,27 @@ class _PartnerLoginScreenState extends State<PartnerLoginScreen>
                                     style: TextStyle(
                                       fontSize: 13.5,
                                       color: p.textSecondary,
-                                      height: 1.45,
+                                      height: 1.46,
                                     ),
                                   ),
                                 ),
                                 if (!_otpSent) ...[
-                                  const SizedBox(height: 16),
-                                  Wrap(
-                                    spacing: 8,
-                                    runSpacing: 8,
-                                    alignment: WrapAlignment.center,
-                                    children: [
-                                      _PartnerFeatureBadge(
-                                        icon: Icons.currency_rupee_rounded,
-                                        label: '0% UPI Fees',
-                                        color: p.gold,
-                                      ),
-                                      _PartnerFeatureBadge(
-                                        icon: Icons.verified_user_outlined,
-                                        label: 'Cash & PT Control',
-                                        color: p.accent,
-                                      ),
-                                      _PartnerFeatureBadge(
-                                        icon: Icons.group_work_outlined,
-                                        label: 'Owner & Coach',
-                                        color: p.purple,
-                                      ),
-                                    ],
+                                  const SizedBox(height: 18),
+                                  Container(
+                                    width: 44,
+                                    height: 1.5,
+                                    color: p.gold.withValues(alpha: 0.45),
+                                  ),
+                                  const SizedBox(height: 12),
+                                  Text(
+                                    '0% UPI FEES  •  CASH & PT CONTROL  •  OWNER & COACH',
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                      fontSize: 9.5,
+                                      fontWeight: FontWeight.w800,
+                                      letterSpacing: 1.4,
+                                      color: p.textMuted,
+                                    ),
                                   ),
                                 ],
                               ],
@@ -464,7 +462,7 @@ class _PartnerLoginScreenState extends State<PartnerLoginScreen>
                             ),
                             boxShadow: [
                               BoxShadow(
-                                color: const Color(0xFF1E3A8A)
+                                color: const Color(0xFF8C6218)
                                     .withValues(alpha: 0.08),
                                 blurRadius: 28,
                                 offset: const Offset(0, -8),
@@ -479,11 +477,11 @@ class _PartnerLoginScreenState extends State<PartnerLoginScreen>
                               children: [
                                 Center(
                                   child: Container(
-                                    width: 40,
-                                    height: 4,
+                                    width: 38,
+                                    height: 3.5,
                                     margin: const EdgeInsets.only(bottom: 18),
                                     decoration: BoxDecoration(
-                                      color: const Color(0xFFCBD5E1),
+                                      color: p.border,
                                       borderRadius: BorderRadius.circular(99),
                                     ),
                                   ),
@@ -492,7 +490,7 @@ class _PartnerLoginScreenState extends State<PartnerLoginScreen>
                                   Text(
                                     'Mobile Number',
                                     style: TextStyle(
-                                      fontSize: 13,
+                                      fontSize: 12.5,
                                       fontWeight: FontWeight.w700,
                                       color: p.textSecondary,
                                     ),
@@ -542,7 +540,7 @@ class _PartnerLoginScreenState extends State<PartnerLoginScreen>
                                               style: TextStyle(
                                                 fontSize: 16,
                                                 fontWeight: FontWeight.w900,
-                                                color: accent,
+                                                color: p.gold,
                                               ),
                                             ),
                                             const SizedBox(width: 10),
@@ -555,24 +553,24 @@ class _PartnerLoginScreenState extends State<PartnerLoginScreen>
                                         ),
                                       ),
                                       filled: true,
-                                      fillColor: p.cardSubtle,
+                                      fillColor: p.bg,
                                       contentPadding:
                                           const EdgeInsets.symmetric(
                                         horizontal: 16,
                                         vertical: 16,
                                       ),
                                       border: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(16),
+                                        borderRadius: BorderRadius.circular(15),
                                         borderSide: BorderSide(color: p.border),
                                       ),
                                       enabledBorder: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(16),
+                                        borderRadius: BorderRadius.circular(15),
                                         borderSide: BorderSide(color: p.border),
                                       ),
                                       focusedBorder: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(16),
+                                        borderRadius: BorderRadius.circular(15),
                                         borderSide: BorderSide(
-                                          color: accent,
+                                          color: p.gold,
                                           width: 1.6,
                                         ),
                                       ),
@@ -603,21 +601,21 @@ class _PartnerLoginScreenState extends State<PartnerLoginScreen>
                                           vertical: 10,
                                         ),
                                         child: CircularProgressIndicator(
-                                          color: accent,
+                                          color: p.gold,
                                         ),
                                       ),
                                     )
                                   else
                                     SizedBox(
                                       width: double.infinity,
-                                      height: 52,
+                                      height: 54,
                                       child: ElevatedButton.icon(
                                         style: ElevatedButton.styleFrom(
                                           backgroundColor: p.goldButton,
                                           foregroundColor: p.onAccent,
-                                          elevation: 4,
+                                          elevation: 3,
                                           shadowColor: p.goldButton
-                                              .withValues(alpha: 0.34),
+                                              .withValues(alpha: 0.35),
                                           shape: RoundedRectangleBorder(
                                             borderRadius:
                                                 BorderRadius.circular(15),
@@ -626,14 +624,14 @@ class _PartnerLoginScreenState extends State<PartnerLoginScreen>
                                         onPressed: () => _handleSendOtp(state),
                                         icon: const Icon(
                                           Icons.arrow_forward_rounded,
-                                          size: 19,
+                                          size: 18,
                                         ),
                                         label: const Text(
                                           'CONTINUE',
                                           style: TextStyle(
                                             fontSize: 13.5,
                                             fontWeight: FontWeight.w900,
-                                            letterSpacing: 1.1,
+                                            letterSpacing: 1.3,
                                           ),
                                         ),
                                       ),
@@ -673,7 +671,7 @@ class _PartnerLoginScreenState extends State<PartnerLoginScreen>
                                         child: Text(
                                           'Enter 6-digit OTP',
                                           style: TextStyle(
-                                            fontSize: 13,
+                                            fontSize: 12.5,
                                             fontWeight: FontWeight.w700,
                                             color: p.textSecondary,
                                           ),
@@ -688,7 +686,7 @@ class _PartnerLoginScreenState extends State<PartnerLoginScreen>
                                           minimumSize: Size.zero,
                                           tapTargetSize:
                                               MaterialTapTargetSize.shrinkWrap,
-                                          foregroundColor: accent,
+                                          foregroundColor: p.gold,
                                         ),
                                         onPressed: () {
                                           setState(() {
@@ -701,7 +699,7 @@ class _PartnerLoginScreenState extends State<PartnerLoginScreen>
                                           'Edit number',
                                           style: TextStyle(
                                             fontSize: 12.5,
-                                            color: accent,
+                                            color: p.gold,
                                             fontWeight: FontWeight.w800,
                                           ),
                                         ),
@@ -734,7 +732,7 @@ class _PartnerLoginScreenState extends State<PartnerLoginScreen>
                                             .withValues(alpha: 0.45),
                                       ),
                                       filled: true,
-                                      fillColor: p.cardSubtle,
+                                      fillColor: p.bg,
                                       contentPadding:
                                           const EdgeInsets.fromLTRB(
                                         28,
@@ -743,17 +741,17 @@ class _PartnerLoginScreenState extends State<PartnerLoginScreen>
                                         16,
                                       ),
                                       border: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(16),
+                                        borderRadius: BorderRadius.circular(15),
                                         borderSide: BorderSide(color: p.border),
                                       ),
                                       enabledBorder: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(16),
+                                        borderRadius: BorderRadius.circular(15),
                                         borderSide: BorderSide(color: p.border),
                                       ),
                                       focusedBorder: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(16),
+                                        borderRadius: BorderRadius.circular(15),
                                         borderSide: BorderSide(
-                                          color: accent,
+                                          color: p.gold,
                                           width: 1.6,
                                         ),
                                       ),
@@ -784,21 +782,21 @@ class _PartnerLoginScreenState extends State<PartnerLoginScreen>
                                           vertical: 10,
                                         ),
                                         child: CircularProgressIndicator(
-                                          color: accent,
+                                          color: p.gold,
                                         ),
                                       ),
                                     )
                                   else
                                     SizedBox(
                                       width: double.infinity,
-                                      height: 52,
+                                      height: 54,
                                       child: ElevatedButton.icon(
                                         style: ElevatedButton.styleFrom(
                                           backgroundColor: p.goldButton,
                                           foregroundColor: p.onAccent,
-                                          elevation: 4,
+                                          elevation: 3,
                                           shadowColor: p.goldButton
-                                              .withValues(alpha: 0.34),
+                                              .withValues(alpha: 0.35),
                                           shape: RoundedRectangleBorder(
                                             borderRadius:
                                                 BorderRadius.circular(15),
@@ -808,14 +806,14 @@ class _PartnerLoginScreenState extends State<PartnerLoginScreen>
                                             _handleVerifyOtp(state),
                                         icon: const Icon(
                                           Icons.check_circle_outline_rounded,
-                                          size: 19,
+                                          size: 18,
                                         ),
                                         label: const Text(
                                           'VERIFY & CONTINUE',
                                           style: TextStyle(
                                             fontSize: 13.5,
                                             fontWeight: FontWeight.w900,
-                                            letterSpacing: 1.0,
+                                            letterSpacing: 1.2,
                                           ),
                                         ),
                                       ),
@@ -844,46 +842,6 @@ class _PartnerLoginScreenState extends State<PartnerLoginScreen>
             ),
           );
         },
-      ),
-    );
-  }
-}
-
-class _PartnerFeatureBadge extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final Color color;
-
-  const _PartnerFeatureBadge({
-    required this.icon,
-    required this.label,
-    required this.color,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final p = AppPalette.of(context);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-      decoration: BoxDecoration(
-        color: p.card,
-        borderRadius: BorderRadius.circular(99),
-        border: Border.all(color: p.border),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 13, color: color),
-          const SizedBox(width: 5),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
-              color: p.textSecondary,
-            ),
-          ),
-        ],
       ),
     );
   }

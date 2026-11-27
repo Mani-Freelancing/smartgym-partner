@@ -448,7 +448,7 @@ class OwnerOrdersLeadsScreen extends StatelessWidget {
                         ),
                       ),
                     ),
-                    if (state.trainers.isNotEmpty) ...[
+                    if (state.trainers.isNotEmpty)
                       Container(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 10,
@@ -470,38 +470,6 @@ class OwnerOrdersLeadsScreen extends StatelessWidget {
                           ),
                         ),
                       ),
-                      const SizedBox(width: 8),
-                    ],
-                    InkWell(
-                      key: const ValueKey('owner_trainer_history_btn'),
-                      onTap: () => _openAttendanceHistory(context),
-                      borderRadius: BorderRadius.circular(8),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 4,
-                          vertical: 4,
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              Icons.history_rounded,
-                              size: 14,
-                              color: p.gold,
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              'History',
-                              style: TextStyle(
-                                fontSize: 11.5,
-                                fontWeight: FontWeight.w800,
-                                color: p.gold,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
                   ],
                 ),
                 const SizedBox(height: 10),
@@ -713,7 +681,7 @@ class OwnerOrdersLeadsScreen extends StatelessWidget {
                     glowColor: p.gold,
                     padding: const EdgeInsets.all(20),
                     child: Text(
-                      'No trainers have joined yet.\nTap the QR icon at the top right to invite trainers via Staff Invite QR or + Add Phone.',
+                      'No trainers have joined yet.\nTap the QR icon at the top right to invite trainers via Staff Invite QR or + Add Trainer.',
                       style: TextStyle(
                         fontSize: 13,
                         color: p.textSecondary,
@@ -888,7 +856,7 @@ class _TrainerRosterCard extends StatelessWidget {
     ].where((part) => part.isNotEmpty).join(' • ');
 
     return CredMetalCard(
-      glowColor: statusColor,
+      glowColor: p.isDark ? statusColor : p.textMuted,
       padding: const EdgeInsets.all(16),
       borderRadius: 20,
       child: Column(
@@ -1081,35 +1049,6 @@ class _TrainerRosterCard extends StatelessWidget {
                     fontSize: 12,
                     fontWeight: FontWeight.w700,
                     color: onDuty ? p.textSecondary : p.textMuted,
-                  ),
-                ),
-              ),
-              InkWell(
-                key: ValueKey('trainer_history_${trainer.id}'),
-                onTap: onViewHistory,
-                borderRadius: BorderRadius.circular(6),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 4,
-                    vertical: 2,
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        'History',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w800,
-                          color: p.gold,
-                        ),
-                      ),
-                      Icon(
-                        Icons.chevron_right_rounded,
-                        size: 14,
-                        color: p.gold,
-                      ),
-                    ],
                   ),
                 ),
               ),
@@ -1507,11 +1446,27 @@ class _EditTrainerSheetState extends State<_EditTrainerSheet> {
                         controller: _specCtrl,
                         style: TextStyle(
                           color: p.textPrimary,
+                          fontSize: 13.5,
                           fontWeight: FontWeight.w700,
                         ),
                         decoration: InputDecoration(
-                          labelText: 'Specialty',
-                          labelStyle: TextStyle(color: p.textSecondary),
+                          isDense: true,
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 13,
+                          ),
+                          labelText: 'Specialty / Category',
+                          labelStyle: TextStyle(
+                            color: p.textSecondary,
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w600,
+                          ),
+                          hintText: 'e.g. Strength & Fat Loss Coach',
+                          hintStyle: TextStyle(
+                            color: p.textMuted,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                          ),
                           filled: true,
                           fillColor: p.cardSubtle,
                           border: OutlineInputBorder(

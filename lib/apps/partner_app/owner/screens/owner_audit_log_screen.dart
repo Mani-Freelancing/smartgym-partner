@@ -437,8 +437,8 @@ class _OwnerAuditLogScreenState extends State<OwnerAuditLogScreen> {
                           padding: const EdgeInsets.only(bottom: 10),
                           child: CredMetalCard(
                             glowColor: m.isPtClient
-                                ? (p.isDark ? p.gold : p.purple)
-                                : p.accent,
+                                ? p.gold
+                                : (p.isDark ? p.accent : p.textMuted),
                             padding: const EdgeInsets.all(16),
                             borderRadius: 18,
                             child: Column(
@@ -499,7 +499,9 @@ class _OwnerAuditLogScreenState extends State<OwnerAuditLogScreen> {
                                           style: TextStyle(
                                             fontWeight: FontWeight.w900,
                                             fontSize: 15,
-                                            color: p.accent,
+                                            color: p.isDark
+                                                ? p.accent
+                                                : p.textPrimary,
                                           ),
                                         ),
                                         if (m.hasDue)

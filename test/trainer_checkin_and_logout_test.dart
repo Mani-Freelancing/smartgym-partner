@@ -342,7 +342,7 @@ void main() {
         'Coach Sameer Khan',
       );
 
-      // 1. From Trainers tab top History button -> shows newest date on top down to past dates
+      // 1. Only each Trainer card's ⋮ 3-dot menu exposes "View Login History" (no top-right, inline, or Drawer duplicates)
       final shellScaffoldKey = GlobalKey<ScaffoldState>();
       await tester.pumpWidget(
         MaterialApp(
@@ -358,7 +358,19 @@ void main() {
       );
       await tester.pump(const Duration(milliseconds: 250));
 
-      await tester.tap(find.byKey(const ValueKey('owner_trainer_history_btn')));
+      expect(
+        find.byKey(const ValueKey('owner_trainer_history_btn')),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const ValueKey('trainer_history_tr_2')),
+        findsNothing,
+      );
+
+      // Open Coach Arjun Varma (tr_2) ⋮ menu -> View Login History
+      await tester.tap(find.byKey(const ValueKey('trainer_menu_tr_2')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('View Login History'));
       await tester.pumpAndSettle();
 
       expect(find.byType(OwnerTrainerAttendanceScreen), findsOneWidget);
@@ -367,21 +379,6 @@ void main() {
         find.text('NEWEST TO OLDEST CHECK-IN & LOGIN LOGS'),
         findsOneWidget,
       );
-      expect(find.textContaining('TODAY •'), findsOneWidget);
-      expect(find.textContaining('YESTERDAY •'), findsOneWidget);
-
-      // Verify newest date header renders higher (smaller dy) than Yesterday
-      final todayY = tester.getTopLeft(find.textContaining('TODAY •')).dy;
-      final yesterdayY =
-          tester.getTopLeft(find.textContaining('YESTERDAY •')).dy;
-      expect(todayY, lessThan(yesterdayY));
-
-      // Back to Trainers tab, open history pre-filtered to Coach Arjun Varma (tr_2)
-      await tester.pageBack();
-      await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const ValueKey('trainer_history_tr_2')));
-      await tester.pumpAndSettle();
-
       expect(find.text('Coach Arjun Varma'), findsWidgets);
       expect(find.text('Coach Sameer Khan'), findsWidgets);
       // Selected filter chip excludes Sameer Khan's Duty Check-In row in the list
@@ -391,10 +388,28 @@ void main() {
       );
       expect(sameerInCard, findsOneWidget); // Only the filter chip
 
-      // Switch filter to All Trainers -> Sameer Khan entries appear in the list too
+      // Switch filter to All Trainers -> Sameer Khan & Yesterday entries appear chronologically
       await tester.tap(find.text('All Trainers'));
       await tester.pumpAndSettle();
       expect(sameerInCard, findsNWidgets(3)); // Chip + Today check-in + past seed log
+      expect(find.textContaining('TODAY •'), findsOneWidget);
+      expect(find.textContaining('YESTERDAY •'), findsOneWidget);
+
+      // Verify newest date header renders higher (smaller dy) than Yesterday
+      final todayY = tester.getTopLeft(find.textContaining('TODAY •')).dy;
+      final yesterdayY =
+          tester.getTopLeft(find.textContaining('YESTERDAY •')).dy;
+      expect(todayY, lessThan(yesterdayY));
+
+      // Tapping Pick Date opens the animated Custom Calendar Bottom Sheet (same as Owner Home)
+      await tester.tap(find.byKey(const ValueKey('attendance_pick_date_pill')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+      expect(find.byKey(const ValueKey('custom_range_sheet')), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('custom_range_apply_btn')));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('TODAY •'), findsOneWidget);
+      expect(find.textContaining('YESTERDAY •'), findsNothing);
 
       // 2. OwnerDrawer also exposes Trainer Login History directly
       await tester.pageBack();

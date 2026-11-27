@@ -160,28 +160,32 @@ class StagingBannerOverlay extends StatelessWidget {
         child,
         Positioned(
           top: 0,
+          left: 0,
           right: 0,
           child: IgnorePointer(
             child: SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.only(top: 4, right: 6),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 7,
-                    vertical: 2,
-                  ),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFE5C158).withValues(alpha: 0.92),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: const Text(
-                    'STAGING',
-                    style: TextStyle(
-                      color: Colors.black,
-                      fontSize: 9,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: 1.0,
-                      decoration: TextDecoration.none,
+              child: Align(
+                alignment: Alignment.topCenter,
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 2),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 7,
+                      vertical: 1.5,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFE5C158).withValues(alpha: 0.92),
+                      borderRadius: BorderRadius.circular(99),
+                    ),
+                    child: const Text(
+                      'STAGING',
+                      style: TextStyle(
+                        color: Colors.black,
+                        fontSize: 8,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 1.0,
+                        decoration: TextDecoration.none,
+                      ),
                     ),
                   ),
                 ),

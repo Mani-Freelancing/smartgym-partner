@@ -106,6 +106,15 @@ class SmartGymState extends Equatable {
 
   int get activeMembersCount => members.where((m) => !m.isExpired).length;
 
+  List<GymMember> get activeMembers =>
+      members.where((m) => !m.isExpired).toList();
+
+  List<GymMember> get membersInFloor =>
+      members.where((m) => m.isInFloorToday()).toList();
+
+  List<TrainerProfile> get trainersOnFloor =>
+      trainers.where((t) => t.isCheckedInToday()).toList();
+
   List<GymMember> get expiringOrExpiredMembers =>
       members.where((m) => m.daysLeft <= 5).toList();
 

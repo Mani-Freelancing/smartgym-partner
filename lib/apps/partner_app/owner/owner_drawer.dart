@@ -125,21 +125,46 @@ class OwnerDrawer extends StatelessWidget {
                     controller: nameCtrl,
                     style: TextStyle(
                       color: p.textPrimary,
+                      fontSize: 13.5,
                       fontWeight: FontWeight.w700,
                     ),
                     decoration: InputDecoration(
+                      isDense: true,
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 13,
+                      ),
                       labelText: 'Trainer Full Name',
+                      labelStyle: TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w600,
+                        color: p.textSecondary,
+                      ),
+                      floatingLabelStyle: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: p.cyan,
+                      ),
                       hintText: 'e.g. Coach Vikram',
+                      hintStyle: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                        color: p.textMuted,
+                      ),
                       prefixIcon: Icon(
                         Icons.badge_outlined,
                         color: p.cyan,
-                        size: 19,
+                        size: 18,
                       ),
                       filled: true,
                       fillColor: p.cardSubtle,
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(14),
-                        borderSide: BorderSide.none,
+                        borderSide: BorderSide(color: p.border),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(14),
+                        borderSide: BorderSide(color: p.border),
                       ),
                     ),
                   ),
@@ -151,28 +176,55 @@ class OwnerDrawer extends StatelessWidget {
                     inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                     style: TextStyle(
                       color: p.textPrimary,
+                      fontSize: 13.5,
                       fontWeight: FontWeight.w700,
-                      letterSpacing: 1.0,
+                      letterSpacing: 0.6,
                     ),
                     decoration: InputDecoration(
+                      isDense: true,
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 13,
+                      ),
                       counterText: '',
                       prefixText: '+91 ',
                       prefixStyle: TextStyle(
                         color: p.cyan,
+                        fontSize: 13.5,
                         fontWeight: FontWeight.w800,
                       ),
                       labelText: 'Mobile Number',
+                      labelStyle: TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w600,
+                        color: p.textSecondary,
+                      ),
+                      floatingLabelStyle: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: p.cyan,
+                      ),
                       hintText: '98490 00000',
+                      hintStyle: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                        letterSpacing: 0,
+                        color: p.textMuted,
+                      ),
                       prefixIcon: Icon(
                         Icons.phone_android_rounded,
                         color: p.cyan,
-                        size: 19,
+                        size: 18,
                       ),
                       filled: true,
                       fillColor: p.cardSubtle,
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(14),
-                        borderSide: BorderSide.none,
+                        borderSide: BorderSide(color: p.border),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(14),
+                        borderSide: BorderSide(color: p.border),
                       ),
                     ),
                   ),
@@ -181,20 +233,46 @@ class OwnerDrawer extends StatelessWidget {
                     controller: specCtrl,
                     style: TextStyle(
                       color: p.textPrimary,
+                      fontSize: 13.5,
                       fontWeight: FontWeight.w700,
                     ),
                     decoration: InputDecoration(
-                      labelText: 'Specialty',
+                      isDense: true,
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 13,
+                      ),
+                      labelText: 'Specialty / Category',
+                      labelStyle: TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w600,
+                        color: p.textSecondary,
+                      ),
+                      floatingLabelStyle: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: p.cyan,
+                      ),
+                      hintText: 'e.g. Strength & Fat Loss Coach',
+                      hintStyle: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                        color: p.textMuted,
+                      ),
                       prefixIcon: Icon(
                         Icons.fitness_center_rounded,
                         color: p.cyan,
-                        size: 19,
+                        size: 18,
                       ),
                       filled: true,
                       fillColor: p.cardSubtle,
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(14),
-                        borderSide: BorderSide.none,
+                        borderSide: BorderSide(color: p.border),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(14),
+                        borderSide: BorderSide(color: p.border),
                       ),
                     ),
                   ),

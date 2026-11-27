@@ -68,6 +68,17 @@ class GymMember extends Equatable {
     caseSensitive: false,
   );
 
+  static final RegExp _datedFloorPrefix = RegExp(
+    r'^(\d{4}-\d{2}-\d{2})\s*•\s*(.+)$',
+  );
+
+  static String _dateKeyFor(DateTime dt) {
+    final y = dt.year.toString().padLeft(4, '0');
+    final m = dt.month.toString().padLeft(2, '0');
+    final d = dt.day.toString().padLeft(2, '0');
+    return '$y-$m-$d';
+  }
+
   final String id;
   final String name;
   final String gender;
@@ -85,6 +96,8 @@ class GymMember extends Equatable {
   final String paymentMode;
   final String paymentReference;
   final String paymentProofBase64;
+  final bool isInFloor;
+  final String floorCheckInTime;
 
   const GymMember({
     required this.id,
@@ -104,11 +117,32 @@ class GymMember extends Equatable {
     this.paymentMode = 'Cash',
     this.paymentReference = '',
     this.paymentProofBase64 = '',
+    this.isInFloor = false,
+    this.floorCheckInTime = '',
   });
 
   bool get isExpired => daysLeft <= 0;
   bool get isExpiringSoon => daysLeft > 0 && daysLeft <= 5;
   bool get hasDue => dueAmount > 0;
+
+  /// Human-readable check-in time (e.g. `06:30 AM`) without `YYYY-MM-DD • `.
+  String get displayFloorCheckInTime {
+    final raw = floorCheckInTime.trim();
+    if (raw.isEmpty) return '';
+    final match = _datedFloorPrefix.firstMatch(raw);
+    return match != null ? match.group(2)!.trim() : raw;
+  }
+
+  /// True when this member is checked in on the gym floor for [now]'s date.
+  bool isInFloorToday([DateTime? now]) {
+    if (!isInFloor) return false;
+    final raw = floorCheckInTime.trim();
+    final match = _datedFloorPrefix.firstMatch(raw);
+    if (match != null) {
+      return match.group(1) == _dateKeyFor(now ?? DateTime.now());
+    }
+    return true;
+  }
 
   MemberGender? get memberGender => MemberGender.fromString(gender);
   String get genderLabel => memberGender?.label ?? '';
@@ -139,6 +173,8 @@ class GymMember extends Equatable {
     String? paymentMode,
     String? paymentReference,
     String? paymentProofBase64,
+    bool? isInFloor,
+    String? floorCheckInTime,
   }) {
     return GymMember(
       id: id,
@@ -160,6 +196,8 @@ class GymMember extends Equatable {
       paymentMode: paymentMode ?? this.paymentMode,
       paymentReference: paymentReference ?? this.paymentReference,
       paymentProofBase64: paymentProofBase64 ?? this.paymentProofBase64,
+      isInFloor: isInFloor ?? this.isInFloor,
+      floorCheckInTime: floorCheckInTime ?? this.floorCheckInTime,
     );
   }
 
@@ -182,5 +220,7 @@ class GymMember extends Equatable {
         paymentMode,
         paymentReference,
         paymentProofBase64,
+        isInFloor,
+        floorCheckInTime,
       ];
 }

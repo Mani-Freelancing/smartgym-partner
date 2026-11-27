@@ -66,7 +66,7 @@ void main() {
       expect(AppPalette.of(ownerCtx), AppPalette.light);
       expect(AppPalette.of(ownerCtx).isDark, isFalse);
 
-      // 3. Logging out restores Light Login; signing in as Trainer switches to Dark Theme
+      // 3. Logging out restores Light Login; signing in as Trainer ALSO uses Warm Cream & Gold Light Theme
       bloc.add(const LogoutPartnerEvent());
       await tester.pump(const Duration(milliseconds: 300));
       bloc.add(
@@ -79,18 +79,19 @@ void main() {
       await tester.pump(const Duration(milliseconds: 350));
 
       final appTrainer = tester.widget<MaterialApp>(find.byType(MaterialApp));
-      expect(appTrainer.theme?.brightness, Brightness.dark);
+      expect(appTrainer.theme?.brightness, Brightness.light);
 
       final trainerShell = find.byType(TrainerShellScreen);
       expect(trainerShell, findsOneWidget);
       final trainerCtx = tester.element(trainerShell);
-      expect(Theme.of(trainerCtx).brightness, Brightness.dark);
-      expect(AppPalette.of(trainerCtx).isDark, isTrue);
+      expect(Theme.of(trainerCtx).brightness, Brightness.light);
+      expect(AppPalette.of(trainerCtx), AppPalette.light);
+      expect(AppPalette.of(trainerCtx).isDark, isFalse);
     },
   );
 
   testWidgets(
-    'Standalone Owner screens enforce Light Theme & AppPalette.light inside bare MaterialApp',
+    'Standalone Owner & Trainer screens enforce Light Theme & AppPalette.light inside bare MaterialApp',
     (WidgetTester tester) async {
       tester.view.physicalSize = const Size(390, 900);
       tester.view.devicePixelRatio = 1.0;
@@ -105,6 +106,7 @@ void main() {
         OwnerAuditLogScreen(),
         OwnerOrdersLeadsScreen(),
         OwnerDrawer(),
+        TrainerShellScreen(),
       ]) {
         await tester.pumpWidget(
           MaterialApp(

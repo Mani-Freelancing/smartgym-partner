@@ -102,9 +102,9 @@ class _CredMetalCardState extends State<CredMetalCard>
             border: isLight
                 ? Border.all(
                     color: Color.lerp(
-                      const Color(0xFFE2E8F0),
+                      const Color(0xFFE6E1D5),
                       widget.glowColor,
-                      0.24,
+                      0.14,
                     )!,
                     width: 1,
                   )
@@ -112,14 +112,14 @@ class _CredMetalCardState extends State<CredMetalCard>
             boxShadow: isLight
                 ? [
                     BoxShadow(
-                      color: const Color(0xFF1E3A8A).withValues(alpha: 0.055),
+                      color: const Color(0xFF1C1917).withValues(alpha: 0.045),
                       blurRadius: 22,
                       offset: const Offset(0, 7),
                     ),
                     BoxShadow(
-                      color: widget.glowColor.withValues(alpha: 0.045),
-                      blurRadius: 12,
-                      spreadRadius: -2,
+                      color: const Color(0xFF1C1917).withValues(alpha: 0.02),
+                      blurRadius: 6,
+                      offset: const Offset(0, 2),
                     ),
                   ]
                 : [
@@ -154,7 +154,7 @@ class _CredMetalCardState extends State<CredMetalCard>
                               Color.lerp(
                                 Colors.white,
                                 widget.glowColor,
-                                0.055,
+                                0.03,
                               )!,
                               Colors.white,
                             ],
@@ -355,7 +355,7 @@ class CredArcGauge extends StatelessWidget {
               activeColor: activeColor,
               trackColor: p.isDark
                   ? Colors.white.withValues(alpha: 0.08)
-                  : const Color(0xFFE2E8F0),
+                  : const Color(0xFFE6E1D5),
             ),
             child: Center(
               child: Column(

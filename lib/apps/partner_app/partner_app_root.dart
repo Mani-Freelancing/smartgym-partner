@@ -52,23 +52,22 @@ class PartnerAppRoot extends StatelessWidget {
         final isOwner = state.partnerRole == PartnerRole.owner;
         if (state.gyms.isEmpty) {
           return Theme(
-            data: isOwner ? AppTheme.lightTheme : AppTheme.darkTheme,
-            child: Scaffold(
-              backgroundColor:
-                  isOwner ? AppTheme.lightScaffoldBg : AppTheme.scaffoldBg,
+            data: AppTheme.lightTheme,
+            child: const Scaffold(
+              backgroundColor: AppTheme.lightScaffoldBg,
               body: Center(
                 child: CircularProgressIndicator(
-                  color: isOwner ? AppTheme.lightOwnerGold : AppTheme.ownerGold,
+                  color: AppTheme.lightOwnerGold,
                 ),
               ),
             ),
           );
         }
 
-        final p = isOwner ? AppPalette.light : AppPalette.dark;
+        const p = AppPalette.light;
 
         return Theme(
-          data: isOwner ? AppTheme.lightTheme : AppTheme.darkTheme,
+          data: AppTheme.lightTheme,
           child: Scaffold(
             backgroundColor: p.bg,
             drawer: isOwner ? const OwnerDrawer() : null,
@@ -76,116 +75,208 @@ class PartnerAppRoot extends StatelessWidget {
               child: Column(
                 children: [
                   Padding(
-                    padding: const EdgeInsets.fromLTRB(12, 10, 12, 8),
+                    padding: const EdgeInsets.fromLTRB(14, 15, 14, 6),
                     child: Row(
                       children: [
                         if (isOwner) ...[
+                          // Golden Brand Crest / Menu Trigger (matches reference header)
                           Builder(
-                            builder: (ctx) => IconButton(
-                              tooltip: 'Owner Menu',
-                              style: IconButton.styleFrom(
-                                fixedSize: const Size(40, 40),
-                                padding: EdgeInsets.zero,
-                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                backgroundColor: p.isDark
-                                    ? p.gold.withValues(alpha: 0.12)
-                                    : p.card,
-                                foregroundColor:
-                                    p.isDark ? p.gold : p.textPrimary,
-                                side: p.isDark
-                                    ? null
-                                    : BorderSide(color: p.border),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(11),
-                                ),
-                              ),
-                              onPressed: () {
+                            builder: (ctx) => GestureDetector(
+                              onTap: () {
                                 HapticFeedback.selectionClick();
                                 Scaffold.of(ctx).openDrawer();
                               },
-                              icon: const Icon(Icons.menu_rounded, size: 20),
+                              child: Tooltip(
+                                message: 'Owner Menu',
+                                child: Container(
+                                  width: 42,
+                                  height: 42,
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    gradient: const LinearGradient(
+                                      begin: Alignment.topLeft,
+                                      end: Alignment.bottomRight,
+                                      colors: [
+                                        Color(0xFFFFF4D9),
+                                        Color(0xFFFDE4B0),
+                                      ],
+                                    ),
+                                    border: Border.all(
+                                      color: p.gold.withValues(alpha: 0.45),
+                                      width: 1.2,
+                                    ),
+                                    boxShadow: p.cardShadow,
+                                  ),
+                                  child: Icon(
+                                    Icons.shield_rounded,
+                                    color: p.gold,
+                                    size: 21,
+                                  ),
+                                ),
+                              ),
                             ),
                           ),
-                          const SizedBox(width: 10),
+                          const SizedBox(width: 11),
+                        ] else ...[
+                          // Trainer Crest Badge in matching sunlit warm theme
+                          Container(
+                            width: 42,
+                            height: 42,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              gradient: const LinearGradient(
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                                colors: [
+                                  Color(0xFFFFF4D9),
+                                  Color(0xFFFDE4B0),
+                                ],
+                              ),
+                              border: Border.all(
+                                color: p.gold.withValues(alpha: 0.45),
+                                width: 1.2,
+                              ),
+                              boxShadow: p.cardShadow,
+                            ),
+                            child: Icon(
+                              Icons.fitness_center_rounded,
+                              color: p.gold,
+                              size: 20,
+                            ),
+                          ),
+                          const SizedBox(width: 11),
                         ],
                         Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                isOwner
-                                    ? 'OWNER CEO PORTAL • VERIFIED'
-                                    : 'TRAINER PORTAL • ${state.loggedInTrainerName.toUpperCase()}',
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  fontSize: 9.5,
-                                  fontWeight: FontWeight.w900,
-                                  letterSpacing: 1.4,
-                                  color: isOwner ? p.gold : p.cyan,
-                                ),
-                              ),
-                              const SizedBox(height: 2),
-                              // Multi-Branch Dropdown Selector
-                              DropdownButtonHideUnderline(
-                                child: DropdownButton<int>(
-                                  value: state.selectedGymIndex,
-                                  isDense: true,
-                                  isExpanded: true,
-                                  dropdownColor: p.card,
-                                  icon: Icon(
-                                    Icons.keyboard_arrow_down_rounded,
-                                    color: p.textSecondary,
-                                    size: 20,
-                                  ),
-                                  items:
-                                      List.generate(state.gyms.length, (index) {
-                                    final g = state.gyms[index];
-                                    return DropdownMenuItem<int>(
-                                      value: index,
-                                      child: Text(
-                                        '${g.name} (${g.area})',
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: TextStyle(
-                                          fontSize: 15,
-                                          fontWeight: FontWeight.w900,
-                                          color: p.textPrimary,
+                          child: isOwner
+                              ? Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    DropdownButtonHideUnderline(
+                                      child: DropdownButton<int>(
+                                        value: state.selectedGymIndex,
+                                        isDense: true,
+                                        isExpanded: true,
+                                        dropdownColor: p.card,
+                                        icon: Icon(
+                                          Icons.keyboard_arrow_down_rounded,
+                                          color: p.textSecondary,
+                                          size: 19,
                                         ),
+                                        items: List.generate(state.gyms.length,
+                                            (index) {
+                                          final g = state.gyms[index];
+                                          return DropdownMenuItem<int>(
+                                            value: index,
+                                            child: Text(
+                                              g.name.toUpperCase(),
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: TextStyle(
+                                                fontSize: 15.5,
+                                                fontWeight: FontWeight.w900,
+                                                letterSpacing: 0.4,
+                                                color: p.textPrimary,
+                                              ),
+                                            ),
+                                          );
+                                        }),
+                                        onChanged: (idx) {
+                                          if (idx != null) {
+                                            HapticFeedback.selectionClick();
+                                            context
+                                                .read<SmartGymBloc>()
+                                                .add(SelectGymTenantEvent(idx));
+                                          }
+                                        },
                                       ),
-                                    );
-                                  }),
-                                  onChanged: (idx) {
-                                    if (idx != null) {
-                                      HapticFeedback.selectionClick();
-                                      context
-                                          .read<SmartGymBloc>()
-                                          .add(SelectGymTenantEvent(idx));
-                                    }
-                                  },
+                                    ),
+                                    const SizedBox(height: 1),
+                                    Text(
+                                      state.currentGym.area.trim().isNotEmpty
+                                          ? 'Stronger Together • ${_titleCase(state.currentGym.area)}'
+                                          : 'Stronger Together',
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        fontSize: 11.5,
+                                        fontWeight: FontWeight.w600,
+                                        color: p.textSecondary,
+                                      ),
+                                    ),
+                                  ],
+                                )
+                              : Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'TRAINER PORTAL • ${state.loggedInTrainerName.toUpperCase()}',
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                        fontSize: 9.5,
+                                        fontWeight: FontWeight.w900,
+                                        letterSpacing: 1.4,
+                                        color: Color(0xFF0F766E),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    DropdownButtonHideUnderline(
+                                      child: DropdownButton<int>(
+                                        value: state.selectedGymIndex,
+                                        isDense: true,
+                                        isExpanded: true,
+                                        dropdownColor: p.card,
+                                        icon: Icon(
+                                          Icons.keyboard_arrow_down_rounded,
+                                          color: p.textSecondary,
+                                          size: 19,
+                                        ),
+                                        items: List.generate(state.gyms.length,
+                                            (index) {
+                                          final g = state.gyms[index];
+                                          final areaLabel =
+                                              g.area.trim().isNotEmpty
+                                                  ? ' (${_titleCase(g.area)})'
+                                                  : '';
+                                          return DropdownMenuItem<int>(
+                                            value: index,
+                                            child: Text(
+                                              '${g.name.toUpperCase()}$areaLabel',
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: TextStyle(
+                                                fontSize: 14.5,
+                                                fontWeight: FontWeight.w900,
+                                                color: p.textPrimary,
+                                              ),
+                                            ),
+                                          );
+                                        }),
+                                        onChanged: (idx) {
+                                          if (idx != null) {
+                                            HapticFeedback.selectionClick();
+                                            context
+                                                .read<SmartGymBloc>()
+                                                .add(SelectGymTenantEvent(idx));
+                                          }
+                                        },
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                              ),
-                            ],
-                          ),
                         ),
                         if (isOwner) ...[
-                          const SizedBox(width: 8),
+                          const SizedBox(width: 6),
                           IconButton(
                             tooltip: 'Team & Gym QRs',
                             style: IconButton.styleFrom(
-                              fixedSize: const Size(40, 40),
+                              fixedSize: const Size(38, 38),
                               padding: EdgeInsets.zero,
                               tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                              backgroundColor: p.isDark
-                                  ? p.gold.withValues(alpha: 0.12)
-                                  : p.card,
+                              backgroundColor: p.card,
                               foregroundColor: p.gold,
-                              side: p.isDark
-                                  ? null
-                                  : BorderSide(color: p.border),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(11),
-                              ),
+                              side: BorderSide(color: p.border),
+                              shape: const CircleBorder(),
                             ),
                             onPressed: () {
                               HapticFeedback.selectionClick();
@@ -211,15 +302,16 @@ class PartnerAppRoot extends StatelessWidget {
                           const SizedBox(width: 8),
                           OutlinedButton.icon(
                             style: OutlinedButton.styleFrom(
-                              side: const BorderSide(color: Colors.white24),
-                              foregroundColor: Colors.white70,
+                              backgroundColor: p.card,
+                              side: BorderSide(color: p.border),
+                              foregroundColor: p.danger,
                               visualDensity: VisualDensity.compact,
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 10,
                                 vertical: 6,
                               ),
                               shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(10),
+                                borderRadius: BorderRadius.circular(11),
                               ),
                             ),
                             onPressed: () => confirmAndLogout(context),
@@ -249,4 +341,17 @@ class PartnerAppRoot extends StatelessWidget {
       },
     );
   }
+}
+
+String _titleCase(String input) {
+  final trimmed = input.trim();
+  if (trimmed.isEmpty) return trimmed;
+  return trimmed
+      .split(RegExp(r'\s+'))
+      .map(
+        (w) => w.isEmpty
+            ? w
+            : '${w[0].toUpperCase()}${w.substring(1).toLowerCase()}',
+      )
+      .join(' ');
 }

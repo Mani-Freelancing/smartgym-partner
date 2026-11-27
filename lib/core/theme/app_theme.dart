@@ -16,17 +16,23 @@ class AppTheme {
   static const Color danger = Color(0xFFFF453A);
   static const Color softRed = Color(0xFFFF6B6B);
 
-  // Razorpay / Ocean Sapphire Fintech Palette for Owner Portal
-  static const Color lightScaffoldBg = Color(0xFFF4F7FC);
+  // Warm Cream-Porcelain & Rich Golden-Amber Executive Palette for Owner Portal
+  static const Color lightScaffoldBg = Color(0xFFFAF7F2);
   static const Color lightCardSurface = Color(0xFFFFFFFF);
-  static const Color lightCardSubtle = Color(0xFFF1F5F9);
-  static const Color lightOwnerGold = Color(0xFF2563EB);
-  static const Color lightOwnerGoldButton = Color(0xFF2563EB);
-  static const Color lightAccent = Color(0xFF059669);
-  static const Color lightCyan = Color(0xFF0891B2);
+  static const Color lightCardSubtle = Color(0xFFFFF6E5);
+  static const Color lightOwnerGold = Color(0xFFD98A16);
+  static const Color lightOwnerGoldButton = Color(0xFFD98A16);
+  static const Color lightAccent = Color(0xFF16A34A);
+  static const Color lightCyan = Color(0xFFB87314);
   static const Color lightAmber = Color(0xFFD97706);
-  static const Color lightDanger = Color(0xFFE11D48);
-  static const Color lightPurple = Color(0xFF7C3AED);
+  static const Color lightDanger = Color(0xFFDC2626);
+  static const Color lightPurple = Color(0xFF8B5CF6);
+
+  /// Compact Dark-Gold Collections Banner tokens (used ONLY on compact top summary card).
+  static const Color heroChampagneGold = Color(0xFFF3B43F);
+  static const Color heroObsidianStart = Color(0xFF2B2317);
+  static const Color heroObsidianMid = Color(0xFF1F1A13);
+  static const Color heroObsidianEnd = Color(0xFF17140F);
 
   static ThemeData get lightTheme {
     return ThemeData(
@@ -34,14 +40,19 @@ class AppTheme {
       scaffoldBackgroundColor: lightScaffoldBg,
       colorScheme: const ColorScheme.light(
         primary: lightOwnerGold,
-        secondary: lightPurple,
+        secondary: lightCyan,
         surface: lightCardSurface,
-        onSurface: Color(0xFF0F172A),
+        surfaceTint: Colors.transparent,
+        onSurface: Color(0xFF1C1917),
         error: lightDanger,
+      ),
+      cardTheme: const CardThemeData(
+        color: lightCardSurface,
+        surfaceTintColor: Colors.transparent,
       ),
       appBarTheme: const AppBarTheme(
         backgroundColor: lightScaffoldBg,
-        foregroundColor: Color(0xFF0F172A),
+        foregroundColor: Color(0xFF1C1917),
         surfaceTintColor: Colors.transparent,
         elevation: 0,
         scrolledUnderElevation: 0,
@@ -54,7 +65,7 @@ class AppTheme {
         backgroundColor: lightCardSurface,
         surfaceTintColor: Colors.transparent,
       ),
-      dividerColor: const Color(0xFFE2E8F0),
+      dividerColor: const Color(0xFFF0E8DA),
       useMaterial3: true,
       extensions: const [AppPalette.light],
     );
@@ -137,11 +148,11 @@ class AppPalette extends ThemeExtension<AppPalette> {
     card: AppTheme.lightCardSurface,
     cardSubtle: AppTheme.lightCardSubtle,
     navBar: Colors.white,
-    border: Color(0xFFE2E8F0),
-    divider: Color(0xFFE8EDF5),
-    textPrimary: Color(0xFF0F172A),
-    textSecondary: Color(0xFF475569),
-    textMuted: Color(0xFF64748B),
+    border: Color(0xFFEDE4D3),
+    divider: Color(0xFFF2ECE1),
+    textPrimary: Color(0xFF1C1917),
+    textSecondary: Color(0xFF57534E),
+    textMuted: Color(0xFF8A8275),
     accent: AppTheme.lightAccent,
     gold: AppTheme.lightOwnerGold,
     goldButton: AppTheme.lightOwnerGoldButton,
@@ -150,7 +161,7 @@ class AppPalette extends ThemeExtension<AppPalette> {
     danger: AppTheme.lightDanger,
     purple: AppTheme.lightPurple,
     onAccent: Colors.white,
-    snackBg: Color(0xFF0F172A),
+    snackBg: Color(0xFF292524),
   );
 
   static AppPalette of(BuildContext context) {
@@ -161,13 +172,13 @@ class AppPalette extends ThemeExtension<AppPalette> {
       ? const []
       : [
           BoxShadow(
-            color: const Color(0xFF1E3A8A).withValues(alpha: 0.055),
-            blurRadius: 20,
+            color: const Color(0xFF9A6B16).withValues(alpha: 0.055),
+            blurRadius: 18,
             offset: const Offset(0, 6),
           ),
           BoxShadow(
-            color: const Color(0xFF0F172A).withValues(alpha: 0.03),
-            blurRadius: 6,
+            color: const Color(0xFF1C1917).withValues(alpha: 0.03),
+            blurRadius: 5,
             offset: const Offset(0, 2),
           ),
         ];

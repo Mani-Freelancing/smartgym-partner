@@ -7,6 +7,7 @@ import '../../../../domain/models/trainer_attendance_log.dart';
 import '../../../../domain/models/trainer_profile.dart';
 import '../../../../shared_bloc/smart_gym_bloc.dart';
 import '../../../../shared_bloc/smart_gym_state.dart';
+import '../analytics/custom_range_bottom_sheet.dart';
 
 class OwnerTrainerAttendanceScreen extends StatefulWidget {
   final String? initialTrainerId;
@@ -27,10 +28,25 @@ enum _DateRangeFilter { all, today, last7Days, custom }
 
 class _OwnerTrainerAttendanceScreenState
     extends State<OwnerTrainerAttendanceScreen> {
+  static const List<String> _shortMonths = [
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
+  ];
+
   String? _selectedTrainerId;
   String? _selectedTrainerName;
   _DateRangeFilter _range = _DateRangeFilter.all;
-  DateTime? _pickedDate;
+  DateTimeRange? _pickedRange;
 
   @override
   void initState() {
@@ -39,39 +55,28 @@ class _OwnerTrainerAttendanceScreenState
     _selectedTrainerName = widget.initialTrainerName;
   }
 
+  String _formatPickedLabel(DateTimeRange r) {
+    final s = r.start;
+    final e = r.end;
+    if (s.year == e.year && s.month == e.month && s.day == e.day) {
+      return '${s.day} ${_shortMonths[s.month - 1]} ${s.year}';
+    }
+    return '${s.day} ${_shortMonths[s.month - 1]} – ${e.day} ${_shortMonths[e.month - 1]}';
+  }
+
   Future<void> _pickDate() async {
-    final p = AppPalette.of(context);
     HapticFeedback.selectionClick();
     final now = DateTime.now();
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: _pickedDate ?? now,
+    final today = DateTime(now.year, now.month, now.day);
+    final picked = await showCustomRangeBottomSheet(
+      context,
+      initialRange: _pickedRange ?? DateTimeRange(start: today, end: today),
       firstDate: DateTime(2024),
-      lastDate: DateTime(now.year, now.month, now.day),
-      builder: (ctx, child) => Theme(
-        data: p.isDark
-            ? ThemeData.dark().copyWith(
-                colorScheme: const ColorScheme.dark(
-                  primary: AppTheme.ownerGold,
-                  onPrimary: Colors.black,
-                  surface: Color(0xFF1A1E29),
-                  onSurface: Colors.white,
-                ),
-              )
-            : AppTheme.lightTheme.copyWith(
-                colorScheme: ColorScheme.light(
-                  primary: p.goldButton,
-                  onPrimary: p.onAccent,
-                  surface: p.card,
-                  onSurface: p.textPrimary,
-                ),
-              ),
-        child: child!,
-      ),
+      lastDate: today,
     );
     if (picked != null && mounted) {
       setState(() {
-        _pickedDate = picked;
+        _pickedRange = picked;
         _range = _DateRangeFilter.custom;
       });
     }
@@ -137,8 +142,11 @@ class _OwnerTrainerAttendanceScreenState
         final cutoffKey = TrainerAttendanceLog.dateKeyFor(cutoff);
         return log.dateKey.compareTo(cutoffKey) >= 0;
       case _DateRangeFilter.custom:
-        if (_pickedDate == null) return true;
-        return log.dateKey == TrainerAttendanceLog.dateKeyFor(_pickedDate);
+        if (_pickedRange == null) return true;
+        final startKey = TrainerAttendanceLog.dateKeyFor(_pickedRange!.start);
+        final endKey = TrainerAttendanceLog.dateKeyFor(_pickedRange!.end);
+        return log.dateKey.compareTo(startKey) >= 0 &&
+            log.dateKey.compareTo(endKey) <= 0;
     }
   }
 
@@ -202,62 +210,119 @@ class _OwnerTrainerAttendanceScreenState
                         color: p.textMuted,
                       ),
                     ),
-                    const SizedBox(height: 10),
-                    SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
+                    const SizedBox(height: 12),
+                    // 1. Date Range Selector — Warm Golden-Amber Segmented Track
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.calendar_today_rounded,
+                          size: 12,
+                          color: p.gold,
+                        ),
+                        const SizedBox(width: 5),
+                        Text(
+                          'DATE FILTER',
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 1.1,
+                            color: p.gold,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 15),
+                    Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: BoxDecoration(
+                        color: p.cardSubtle,
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: p.border),
+                      ),
                       child: Row(
                         children: [
-                          _FilterChip(
-                            label: 'All Dates',
-                            selected: _range == _DateRangeFilter.all,
-                            accent: p.goldButton,
-                            onTap: () => setState(() {
-                              _range = _DateRangeFilter.all;
-                              _pickedDate = null;
-                            }),
+                          Expanded(
+                            child: _DateSegmentPill(
+                              label: 'All Dates',
+                              selected: _range == _DateRangeFilter.all,
+                              onTap: () => setState(() {
+                                _range = _DateRangeFilter.all;
+                                _pickedRange = null;
+                              }),
+                            ),
                           ),
-                          const SizedBox(width: 8),
-                          _FilterChip(
-                            label: 'Today',
-                            selected: _range == _DateRangeFilter.today,
-                            accent: p.goldButton,
-                            onTap: () => setState(() {
-                              _range = _DateRangeFilter.today;
-                            }),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: _DateSegmentPill(
+                              label: 'Today',
+                              selected: _range == _DateRangeFilter.today,
+                              onTap: () => setState(() {
+                                _range = _DateRangeFilter.today;
+                              }),
+                            ),
                           ),
-                          const SizedBox(width: 8),
-                          _FilterChip(
-                            label: 'Last 7 Days',
-                            selected: _range == _DateRangeFilter.last7Days,
-                            accent: p.goldButton,
-                            onTap: () => setState(() {
-                              _range = _DateRangeFilter.last7Days;
-                            }),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: _DateSegmentPill(
+                              label: 'Last 7 Days',
+                              selected: _range == _DateRangeFilter.last7Days,
+                              onTap: () => setState(() {
+                                _range = _DateRangeFilter.last7Days;
+                              }),
+                            ),
                           ),
-                          const SizedBox(width: 8),
-                          _FilterChip(
-                            label: _range == _DateRangeFilter.custom &&
-                                    _pickedDate != null
-                                ? TrainerAttendanceLog.dateKeyFor(_pickedDate)
-                                : 'Pick Date',
-                            selected: _range == _DateRangeFilter.custom,
-                            accent: p.goldButton,
-                            onTap: _pickDate,
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: _DateSegmentPill(
+                              key: const ValueKey('attendance_pick_date_pill'),
+                              label: _range == _DateRangeFilter.custom &&
+                                      _pickedRange != null
+                                  ? _formatPickedLabel(_pickedRange!)
+                                  : 'Pick Date',
+                              icon: Icons.event_rounded,
+                              selected: _range == _DateRangeFilter.custom,
+                              onTap: _pickDate,
+                            ),
                           ),
                         ],
                       ),
                     ),
                     if (state.trainers.isNotEmpty) ...[
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 20),
+                      // 2. Trainer Filter — Distinct Deep Teal-Emerald Coach Pills
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.badge_outlined,
+                            size: 13,
+                            color: p.isDark
+                                ? p.cyan
+                                : const Color(0xFF0F766E),
+                          ),
+                          const SizedBox(width: 20),
+                          Text(
+                            'TRAINER FILTER',
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: 1.1,
+                              color: p.isDark
+                                  ? p.cyan
+                                  : const Color(0xFF0F766E),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 20),
                       SingleChildScrollView(
                         scrollDirection: Axis.horizontal,
                         child: Row(
                           children: [
-                            _FilterChip(
+                            _TrainerFilterPill(
                               label: 'All Trainers',
+                              isAllOption: true,
                               selected: _selectedTrainerId == null &&
                                   _selectedTrainerName == null,
-                              accent: p.cyan,
                               onTap: () => setState(() {
                                 _selectedTrainerId = null;
                                 _selectedTrainerName = null;
@@ -273,10 +338,9 @@ class _OwnerTrainerAttendanceScreenState
                                           t.name.trim().toLowerCase());
                               return Padding(
                                 padding: const EdgeInsets.only(left: 8),
-                                child: _FilterChip(
+                                child: _TrainerFilterPill(
                                   label: t.name,
                                   selected: selected,
-                                  accent: p.cyan,
                                   onTap: () => setState(() {
                                     _selectedTrainerId = t.id;
                                     _selectedTrainerName = t.name;
@@ -439,39 +503,152 @@ class _OwnerTrainerAttendanceScreenState
   }
 }
 
-class _FilterChip extends StatelessWidget {
+class _DateSegmentPill extends StatelessWidget {
   final String label;
+  final IconData? icon;
   final bool selected;
-  final Color accent;
   final VoidCallback onTap;
 
-  const _FilterChip({
+  const _DateSegmentPill({
+    super.key,
     required this.label,
+    this.icon,
     required this.selected,
-    required this.accent,
     required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
     final p = AppPalette.of(context);
-    return ChoiceChip(
-      label: Text(
-        label,
-        style: TextStyle(
-          fontSize: 11.5,
-          fontWeight: FontWeight.w800,
-          color: selected ? p.onAccent : p.textSecondary,
+    return Material(
+      color: selected ? p.goldButton : Colors.transparent,
+      borderRadius: BorderRadius.circular(10),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(10),
+        onTap: () {
+          HapticFeedback.selectionClick();
+          onTap();
+        },
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(10),
+            boxShadow: selected
+                ? [
+                    BoxShadow(
+                      color: p.goldButton.withValues(alpha: 0.25),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ]
+                : null,
+          ),
+          child: Center(
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (icon != null) ...[
+                    Icon(
+                      icon,
+                      size: 13,
+                      color: selected ? p.onAccent : p.gold,
+                    ),
+                    const SizedBox(width: 4),
+                  ],
+                  Text(
+                    label,
+                    maxLines: 1,
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w800,
+                      color: selected ? p.onAccent : p.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
         ),
       ),
-      selected: selected,
-      selectedColor: accent,
-      backgroundColor: p.card,
-      side: BorderSide(color: selected ? accent : p.border),
-      onSelected: (_) {
-        HapticFeedback.selectionClick();
-        onTap();
-      },
+    );
+  }
+}
+
+class _TrainerFilterPill extends StatelessWidget {
+  final String label;
+  final bool selected;
+  final bool isAllOption;
+  final VoidCallback onTap;
+
+  const _TrainerFilterPill({
+    required this.label,
+    required this.selected,
+    this.isAllOption = false,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final p = AppPalette.of(context);
+    final coachTeal = p.isDark ? p.cyan : const Color(0xFF0F766E);
+    final unselectedBg = p.isDark ? p.card : const Color(0xFFF2FAF8);
+    final unselectedBorder = p.isDark ? p.border : const Color(0xFFCBE6E1);
+
+    return Material(
+      color: selected ? coachTeal : unselectedBg,
+      borderRadius: BorderRadius.circular(99),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(99),
+        onTap: () {
+          HapticFeedback.selectionClick();
+          onTap();
+        },
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7.5),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(99),
+            border: Border.all(
+              color: selected ? coachTeal : unselectedBorder,
+            ),
+            boxShadow: selected
+                ? [
+                    BoxShadow(
+                      color: coachTeal.withValues(alpha: 0.22),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ]
+                : null,
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                isAllOption ? Icons.groups_rounded : Icons.person_rounded,
+                size: 13.5,
+                color: selected
+                    ? (p.isDark ? Colors.black : Colors.white)
+                    : coachTeal,
+              ),
+              const SizedBox(width: 6),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w800,
+                  color: selected
+                      ? (p.isDark ? Colors.black : Colors.white)
+                      : (p.isDark ? p.textSecondary : const Color(0xFF134E4A)),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

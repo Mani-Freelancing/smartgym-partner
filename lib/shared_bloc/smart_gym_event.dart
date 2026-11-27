@@ -223,6 +223,14 @@ class ResetGymFloorCrowdEvent extends SmartGymEvent {
   const ResetGymFloorCrowdEvent();
 }
 
+class CheckOutMemberFromFloorEvent extends SmartGymEvent {
+  final String memberId;
+  const CheckOutMemberFromFloorEvent(this.memberId);
+
+  @override
+  List<Object?> get props => [memberId];
+}
+
 class RenewMembershipViaUpiEvent extends SmartGymEvent {
   final bool unlockPt;
   const RenewMembershipViaUpiEvent({this.unlockPt = false});

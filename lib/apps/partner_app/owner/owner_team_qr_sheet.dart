@@ -155,7 +155,7 @@ class _OwnerTeamQrSheetState extends State<OwnerTeamQrSheet> {
                       ),
                       const SizedBox(width: 8),
                       _TabPill(
-                        label: '+ Add Phone',
+                        label: '+ Add Trainer',
                         selected: _tab == 2,
                         onTap: () => setState(() => _tab = 2),
                       ),
@@ -268,14 +268,43 @@ class _OwnerTeamQrSheetState extends State<OwnerTeamQrSheet> {
                   ] else ...[
                     TextField(
                       controller: _nameCtrl,
-                      style: TextStyle(color: p.textPrimary),
+                      style: TextStyle(
+                        color: p.textPrimary,
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.w700,
+                      ),
                       decoration: InputDecoration(
+                        isDense: true,
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 13,
+                        ),
                         labelText: 'Trainer Name',
+                        labelStyle: TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w600,
+                          color: p.textSecondary,
+                        ),
+                        floatingLabelStyle: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: p.gold,
+                        ),
+                        hintText: 'e.g. Coach Vikram',
+                        hintStyle: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          color: p.textMuted,
+                        ),
                         filled: true,
                         fillColor: p.cardSubtle,
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide.none,
+                          borderSide: BorderSide(color: p.border),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(color: p.border),
                         ),
                       ),
                     ),
@@ -285,34 +314,95 @@ class _OwnerTeamQrSheetState extends State<OwnerTeamQrSheet> {
                       keyboardType: TextInputType.phone,
                       maxLength: 10,
                       inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                      style: TextStyle(color: p.textPrimary),
+                      style: TextStyle(
+                        color: p.textPrimary,
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.6,
+                      ),
                       decoration: InputDecoration(
+                        isDense: true,
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 13,
+                        ),
                         counterText: '',
                         prefixText: '+91 ',
                         prefixStyle: TextStyle(
                           color: p.gold,
+                          fontSize: 13.5,
                           fontWeight: FontWeight.w800,
                         ),
                         labelText: 'Trainer Mobile Number',
+                        labelStyle: TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w600,
+                          color: p.textSecondary,
+                        ),
+                        floatingLabelStyle: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: p.gold,
+                        ),
+                        hintText: '98490 00000',
+                        hintStyle: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          letterSpacing: 0,
+                          color: p.textMuted,
+                        ),
                         filled: true,
                         fillColor: p.cardSubtle,
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide.none,
+                          borderSide: BorderSide(color: p.border),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(color: p.border),
                         ),
                       ),
                     ),
                     const SizedBox(height: 10),
                     TextField(
                       controller: _specialtyCtrl,
-                      style: TextStyle(color: p.textPrimary),
+                      style: TextStyle(
+                        color: p.textPrimary,
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.w700,
+                      ),
                       decoration: InputDecoration(
-                        labelText: 'Specialty',
+                        isDense: true,
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 13,
+                        ),
+                        labelText: 'Specialty / Category',
+                        labelStyle: TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w600,
+                          color: p.textSecondary,
+                        ),
+                        floatingLabelStyle: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: p.gold,
+                        ),
+                        hintText: 'e.g. Strength & Fat Loss Coach',
+                        hintStyle: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          color: p.textMuted,
+                        ),
                         filled: true,
                         fillColor: p.cardSubtle,
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide.none,
+                          borderSide: BorderSide(color: p.border),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(color: p.border),
                         ),
                       ),
                     ),

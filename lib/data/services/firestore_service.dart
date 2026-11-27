@@ -574,6 +574,8 @@ class FirestoreService {
         paymentMode: (d['paymentMode'] ?? 'Cash') as String,
         paymentReference: (d['paymentReference'] ?? '') as String,
         paymentProofBase64: (d['paymentProofBase64'] ?? '') as String,
+        isInFloor: (d['isInFloor'] ?? false) as bool,
+        floorCheckInTime: (d['floorCheckInTime'] ?? '') as String,
       );
     });
   }
@@ -643,9 +645,43 @@ class FirestoreService {
               paymentMode: (d['paymentMode'] ?? 'Cash') as String,
               paymentReference: (d['paymentReference'] ?? '') as String,
               paymentProofBase64: (d['paymentProofBase64'] ?? '') as String,
+              isInFloor: (d['isInFloor'] ?? false) as bool,
+              floorCheckInTime: (d['floorCheckInTime'] ?? '') as String,
             );
           }).toList(),
         );
+  }
+
+  Future<void> updateMemberFloorStatus({
+    required String gymId,
+    required String memberId,
+    required bool isInFloor,
+    required String floorCheckInTime,
+  }) async {
+    await _db
+        .collection('gyms')
+        .doc(gymId)
+        .collection('members')
+        .doc(memberId)
+        .update({
+      'isInFloor': isInFloor,
+      'floorCheckInTime': floorCheckInTime,
+    });
+  }
+
+  Future<void> clearMembersFloorStatus(
+    String gymId,
+    List<String> memberIds,
+  ) async {
+    if (memberIds.isEmpty) return;
+    final batch = _db.batch();
+    for (final id in memberIds) {
+      batch.update(
+        _db.collection('gyms').doc(gymId).collection('members').doc(id),
+        {'isInFloor': false},
+      );
+    }
+    await batch.commit();
   }
 
   Stream<List<TrainerProfile>> watchTrainers(String gymId) {

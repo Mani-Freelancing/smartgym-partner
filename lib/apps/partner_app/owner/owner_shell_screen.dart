@@ -53,57 +53,63 @@ class _OwnerShellScreenState extends State<OwnerShellScreen> {
                     const OwnerOrdersLeadsScreen(),
                   ],
                 ),
-                bottomNavigationBar: SafeArea(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(12, 4, 12, 10),
-                    child: Container(
-                      height: 66,
-                      padding: const EdgeInsets.all(6),
-                      decoration: BoxDecoration(
-                        color: p.navBar,
-                        borderRadius: BorderRadius.circular(24),
-                        border: Border.all(
-                          color: p.border,
-                          width: 1,
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: const Color(0xFF0F172A)
-                                .withValues(alpha: p.isDark ? 0.55 : 0.08),
-                            blurRadius: 20,
-                            offset: const Offset(0, 6),
-                          ),
-                        ],
+                bottomNavigationBar: Container(
+                  decoration: BoxDecoration(
+                    color: p.navBar,
+                    border: Border(
+                      top: BorderSide(color: p.border, width: 1),
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF8C6218)
+                            .withValues(alpha: p.isDark ? 0.45 : 0.08),
+                        blurRadius: 20,
+                        offset: const Offset(0, -4),
                       ),
-                      child: Row(
-                        children: [
-                          _buildNavItem(
-                            p: p,
-                            navKey: const ValueKey('owner_nav_home'),
-                            index: 0,
-                            icon: Icons.dashboard_rounded,
-                            label: 'Home',
-                            badgeCount: 0,
-                          ),
-                          const SizedBox(width: 6),
-                          _buildNavItem(
-                            p: p,
-                            navKey: const ValueKey('owner_nav_audit'),
-                            index: 1,
-                            icon: Icons.fact_check_rounded,
-                            label: 'Audit Log',
-                            badgeCount: 0,
-                          ),
-                          const SizedBox(width: 6),
-                          _buildNavItem(
-                            p: p,
-                            navKey: const ValueKey('owner_nav_trainers'),
-                            index: 2,
-                            icon: Icons.groups_2_rounded,
-                            label: 'Trainers',
-                            badgeCount: pendingCount,
-                          ),
-                        ],
+                    ],
+                  ),
+                  child: SafeArea(
+                    top: false,
+                    child: SizedBox(
+                      height: 66,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 6,
+                        ),
+                        child: Row(
+                          children: [
+                            _buildNavItem(
+                              p: p,
+                              navKey: const ValueKey('owner_nav_home'),
+                              index: 0,
+                              activeIcon: Icons.home_rounded,
+                              inactiveIcon: Icons.home_outlined,
+                              label: 'Home',
+                              badgeCount: 0,
+                            ),
+                            const SizedBox(width: 8),
+                            _buildNavItem(
+                              p: p,
+                              navKey: const ValueKey('owner_nav_audit'),
+                              index: 1,
+                              activeIcon: Icons.people_alt_rounded,
+                              inactiveIcon: Icons.people_outline_rounded,
+                              label: 'Members',
+                              badgeCount: 0,
+                            ),
+                            const SizedBox(width: 8),
+                            _buildNavItem(
+                              p: p,
+                              navKey: const ValueKey('owner_nav_trainers'),
+                              index: 2,
+                              activeIcon: Icons.bar_chart_rounded,
+                              inactiveIcon: Icons.bar_chart_outlined,
+                              label: 'Trainers',
+                              badgeCount: pendingCount,
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ),
@@ -120,7 +126,8 @@ class _OwnerShellScreenState extends State<OwnerShellScreen> {
     required AppPalette p,
     required Key navKey,
     required int index,
-    required IconData icon,
+    required IconData activeIcon,
+    required IconData inactiveIcon,
     required String label,
     required int badgeCount,
   }) {
@@ -135,79 +142,73 @@ class _OwnerShellScreenState extends State<OwnerShellScreen> {
           setState(() => _tabIndex = index);
         },
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 240),
+          duration: const Duration(milliseconds: 220),
           curve: Curves.easeOutCubic,
-          padding: const EdgeInsets.symmetric(horizontal: 6),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           decoration: BoxDecoration(
-            color: selected
-                ? p.gold.withValues(alpha: p.isDark ? 0.16 : 0.10)
-                : Colors.transparent,
-            borderRadius: BorderRadius.circular(18),
-            border: selected
-                ? Border.all(
-                    color: p.gold.withValues(alpha: p.isDark ? 0.55 : 0.30),
-                    width: 1.1,
+            // Soft Warm Golden-Cream Glow like the screenshot (NO heavy black pill!)
+            gradient: selected && !p.isDark
+                ? const RadialGradient(
+                    center: Alignment.center,
+                    radius: 0.95,
+                    colors: [
+                      Color(0xFFFFEAB8),
+                      Color(0xFFFFF7E4),
+                      Colors.white,
+                    ],
                   )
-                : Border.all(color: Colors.transparent),
+                : null,
+            color: selected && p.isDark
+                ? p.gold.withValues(alpha: 0.16)
+                : null,
+            borderRadius: BorderRadius.circular(18),
           ),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              AnimatedContainer(
-                duration: const Duration(milliseconds: 220),
-                width: selected ? 20 : 0,
-                height: 2.5,
-                margin: const EdgeInsets.only(bottom: 5),
-                decoration: BoxDecoration(
-                  color: p.gold,
-                  borderRadius: BorderRadius.circular(99),
-                ),
-              ),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
+              Stack(
+                clipBehavior: Clip.none,
                 children: [
                   Icon(
-                    icon,
-                    size: 17,
-                    color: selected ? p.gold : p.textMuted,
+                    selected ? activeIcon : inactiveIcon,
+                    size: 22,
+                    color: selected ? p.textPrimary : p.textMuted,
                   ),
-                  const SizedBox(width: 5),
-                  Flexible(
-                    child: Text(
-                      label,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 11.5,
-                        letterSpacing: 0.1,
-                        fontWeight:
-                            selected ? FontWeight.w900 : FontWeight.w600,
-                        color: selected ? p.textPrimary : p.textSecondary,
-                      ),
-                    ),
-                  ),
-                  if (badgeCount > 0) ...[
-                    const SizedBox(width: 4),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 5,
-                        vertical: 1.5,
-                      ),
-                      decoration: BoxDecoration(
-                        color: p.gold,
-                        borderRadius: BorderRadius.circular(99),
-                      ),
-                      child: Text(
-                        '$badgeCount',
-                        style: TextStyle(
-                          color: p.onAccent,
-                          fontSize: 9.5,
-                          fontWeight: FontWeight.w900,
+                  if (badgeCount > 0)
+                    Positioned(
+                      right: -9,
+                      top: -4,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 4.5,
+                          vertical: 1,
+                        ),
+                        decoration: BoxDecoration(
+                          color: p.gold,
+                          borderRadius: BorderRadius.circular(99),
+                        ),
+                        child: Text(
+                          '$badgeCount',
+                          style: TextStyle(
+                            color: p.onAccent,
+                            fontSize: 8.5,
+                            fontWeight: FontWeight.w900,
+                          ),
                         ),
                       ),
                     ),
-                  ],
                 ],
+              ),
+              const SizedBox(height: 2),
+              Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
+                  color: selected ? p.gold : p.textSecondary,
+                ),
               ),
             ],
           ),

@@ -7,7 +7,6 @@ import 'core/config/app_config.dart';
 import 'core/theme/app_theme.dart';
 import 'data/repositories/gym_repository.dart';
 import 'data/services/firestore_service.dart';
-import 'domain/models/partner_role.dart';
 import 'shared_bloc/smart_gym_bloc.dart';
 import 'shared_bloc/smart_gym_state.dart';
 
@@ -51,9 +50,7 @@ class SmartGymPartnerApp extends StatelessWidget {
               prev.partnerRole != curr.partnerRole ||
               prev.needsOnboarding != curr.needsOnboarding,
           builder: (context, state) {
-            final useLightTheme = !state.needsOnboarding &&
-                (!state.isPartnerLoggedIn ||
-                    state.partnerRole == PartnerRole.owner);
+            final useLightTheme = !state.needsOnboarding;
             return MaterialApp(
               title: AppConfig.partnerAppTitle(),
               debugShowCheckedModeBanner: false,

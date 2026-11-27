@@ -98,6 +98,8 @@ rules_version = '2';
 //   - paymentMode: string (optional, "Cash" | "Online")
 //   - paymentReference: string (optional, 0..64 chars)
 //   - paymentProofBase64: string (optional, 0..150000 chars)
+//   - isInFloor: bool (optional)
+//   - floorCheckInTime: string (optional, 0..30 chars, e.g. "2026-11-27 • 06:30 AM" or "")
 //   - createdAt: timestamp (optional, immutable)
 //
 // Collection: gyms/{gymId}/enquiries/{enquiryId}
@@ -497,7 +499,8 @@ service cloud.firestore {
                'dueAmount', 'joinedDate', 'expiryDate', 'daysLeft',
                'assignedTrainer', 'isPtClient', 'addedByTrainer',
                'currentWeightKg', 'paymentMode', 'paymentReference',
-               'paymentProofBase64', 'createdAt'
+               'paymentProofBase64', 'isInFloor', 'floorCheckInTime',
+               'createdAt'
              ]) &&
              isValidOptionalString(data, 'id', 1, 64) &&
              isValidString(data.name, 1, 100) &&
@@ -516,6 +519,8 @@ service cloud.firestore {
              (!('paymentMode' in data) || (data.paymentMode is string && data.paymentMode in ['Cash', 'Online'])) &&
              isValidOptionalString(data, 'paymentReference', 0, 64) &&
              isValidOptionalString(data, 'paymentProofBase64', 0, 150000) &&
+             (!('isInFloor' in data) || data.isInFloor is bool) &&
+             isValidOptionalString(data, 'floorCheckInTime', 0, 30) &&
              isValidOptionalTimestamp(data, 'createdAt');
     }
 
@@ -726,9 +731,17 @@ service cloud.firestore {
 
         allow create: if isStaffOfGym(gymId) && isValidMember(request.resource.data);
 
-        allow update: if isStaffOfGym(gymId) &&
-                         isValidMember(request.resource.data) &&
-                         areImmutableFieldsUnchanged(['id', 'createdAt']);
+        // Staff can update member records; a gym member can update only isInFloor and floorCheckInTime on their own member document.
+        allow update: if (isStaffOfGym(gymId) &&
+                          isValidMember(request.resource.data) &&
+                          areImmutableFieldsUnchanged(['id', 'createdAt'])) ||
+                         (isGymMember(gymId) &&
+                          hasPhone() &&
+                          ('phone' in resource.data) &&
+                          resource.data.phone == userPhone() &&
+                          isValidMember(request.resource.data) &&
+                          areImmutableFieldsUnchanged(['id', 'createdAt']) &&
+                          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isInFloor', 'floorCheckInTime']));
 
         allow delete: if isGymOwner(gymId);
       }

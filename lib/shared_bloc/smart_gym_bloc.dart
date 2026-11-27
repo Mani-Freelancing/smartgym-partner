@@ -114,6 +114,7 @@ class SmartGymBloc extends Bloc<SmartGymEvent, SmartGymState> {
     on<SimulateQrCheckInEvent>(_onSimulateQrCheckIn);
     on<CustomerCheckOutEvent>(_onCustomerCheckOut);
     on<ResetGymFloorCrowdEvent>(_onResetGymFloorCrowd);
+    on<CheckOutMemberFromFloorEvent>(_onCheckOutMemberFromFloor);
     on<RenewMembershipViaUpiEvent>(_onRenewMembershipViaUpi);
     on<TogglePeakCrowdSimulationEvent>(_onTogglePeakCrowdSimulation);
     on<TogglePtLockDemoEvent>(_onTogglePtLockDemo);
@@ -1148,18 +1149,20 @@ class SmartGymBloc extends Bloc<SmartGymEvent, SmartGymState> {
     SimulateQrCheckInEvent event,
     Emitter<SmartGymState> emit,
   ) {
-    final todayKey = GymTenant.dateKeyFor();
+    final now = DateTime.now();
+    final todayKey = GymTenant.dateKeyFor(now);
+    final checkInStamp = TrainerProfile.formatCheckInRecord(now);
     final nextScoops = state.wheyScoopsLeft > 1
         ? state.wheyScoopsLeft - 1
         : state.wheyScoopsLeft;
-    final nextCrowd = (state.currentGym.activeCrowdForDate() + 1)
+    final nextCrowd = (state.currentGym.activeCrowdForDate(now) + 1)
         .clamp(0, state.currentGym.maxCapacity);
     final currentHours = state.currentGym.hourlyCheckIns;
     final nextHours = List<int>.generate(
       24,
       (h) => h < currentHours.length ? currentHours[h] : 0,
     );
-    final currentHour = DateTime.now().hour.clamp(0, 23);
+    final currentHour = now.hour.clamp(0, 23);
     nextHours[currentHour] = nextHours[currentHour] + 1;
 
     final updatedGyms = List<GymTenant>.from(state.gyms);
@@ -1171,23 +1174,65 @@ class SmartGymBloc extends Bloc<SmartGymEvent, SmartGymState> {
         hourlyCheckIns: nextHours,
       );
     }
+
+    String? targetMemberId = state.currentMember?.id;
+    final authPhone = state.authenticatedPhone.trim();
+    if ((targetMemberId == null || targetMemberId.isEmpty) &&
+        authPhone.isNotEmpty) {
+      for (final m in state.members) {
+        if (m.phone.trim() == authPhone) {
+          targetMemberId = m.id;
+          break;
+        }
+      }
+    }
+
+    final updatedMembers = targetMemberId == null
+        ? state.members
+        : state.members
+            .map(
+              (m) => m.id == targetMemberId
+                  ? m.copyWith(
+                      isInFloor: true,
+                      floorCheckInTime: checkInStamp,
+                    )
+                  : m,
+            )
+            .toList();
+    final updatedCurrentMember = state.currentMember?.copyWith(
+      isInFloor: true,
+      floorCheckInTime: checkInStamp,
+    );
+
     emit(
       state.copyWith(
         gyms: updatedGyms,
+        members: updatedMembers,
+        currentMember: updatedCurrentMember,
         streakDays: state.streakDays + 1,
         crowdDelta: 0,
         wheyScoopsLeft: nextScoops,
       ),
     );
     if (state.currentGym.id.isNotEmpty) {
-      _syncAsync(
-        () => firestoreService!.incrementGymCrowd(
-          state.currentGym.id,
+      final gymId = state.currentGym.id;
+      final memId = targetMemberId;
+      _syncAsync(() async {
+        await firestoreService!.incrementGymCrowd(
+          gymId,
           nextCrowd,
           hourlyCheckIns: nextHours,
           crowdDate: todayKey,
-        ),
-      );
+        );
+        if (memId != null && memId.isNotEmpty) {
+          await firestoreService!.updateMemberFloorStatus(
+            gymId: gymId,
+            memberId: memId,
+            isInFloor: true,
+            floorCheckInTime: checkInStamp,
+          );
+        }
+      });
     }
   }
 
@@ -1206,15 +1251,115 @@ class SmartGymBloc extends Bloc<SmartGymEvent, SmartGymState> {
         crowdDate: todayKey,
       );
     }
-    emit(state.copyWith(gyms: updatedGyms, crowdDelta: 0));
+
+    String? targetMemberId = state.currentMember?.id;
+    final authPhone = state.authenticatedPhone.trim();
+    if ((targetMemberId == null || targetMemberId.isEmpty) &&
+        authPhone.isNotEmpty) {
+      for (final m in state.members) {
+        if (m.phone.trim() == authPhone) {
+          targetMemberId = m.id;
+          break;
+        }
+      }
+    }
+
+    final updatedMembers = targetMemberId == null
+        ? state.members
+        : state.members
+            .map(
+              (m) => m.id == targetMemberId ? m.copyWith(isInFloor: false) : m,
+            )
+            .toList();
+    final updatedCurrentMember = state.currentMember?.copyWith(
+      isInFloor: false,
+    );
+
+    emit(
+      state.copyWith(
+        gyms: updatedGyms,
+        members: updatedMembers,
+        currentMember: updatedCurrentMember,
+        crowdDelta: 0,
+      ),
+    );
     if (state.currentGym.id.isNotEmpty) {
-      _syncAsync(
-        () => firestoreService!.incrementGymCrowd(
-          state.currentGym.id,
+      final gymId = state.currentGym.id;
+      final memId = targetMemberId;
+      final existingStamp = state.currentMember?.floorCheckInTime ?? '';
+      _syncAsync(() async {
+        await firestoreService!.incrementGymCrowd(
+          gymId,
           nextCrowd,
           crowdDate: todayKey,
-        ),
+        );
+        if (memId != null && memId.isNotEmpty) {
+          await firestoreService!.updateMemberFloorStatus(
+            gymId: gymId,
+            memberId: memId,
+            isInFloor: false,
+            floorCheckInTime: existingStamp,
+          );
+        }
+      });
+    }
+  }
+
+  void _onCheckOutMemberFromFloor(
+    CheckOutMemberFromFloorEvent event,
+    Emitter<SmartGymState> emit,
+  ) {
+    GymMember? target;
+    for (final m in state.members) {
+      if (m.id == event.memberId) {
+        target = m;
+        break;
+      }
+    }
+    if (target == null || !target.isInFloorToday()) return;
+
+    final todayKey = GymTenant.dateKeyFor();
+    final nextCrowd = (state.currentGym.activeCrowdForDate() - 1)
+        .clamp(0, state.currentGym.maxCapacity);
+    final updatedGyms = List<GymTenant>.from(state.gyms);
+    if (updatedGyms.isNotEmpty) {
+      final idx = state.selectedGymIndex.clamp(0, updatedGyms.length - 1);
+      updatedGyms[idx] = updatedGyms[idx].copyWith(
+        activeCrowd: nextCrowd,
+        crowdDate: todayKey,
       );
+    }
+    final updatedMembers = state.members
+        .map((m) => m.id == event.memberId ? m.copyWith(isInFloor: false) : m)
+        .toList();
+    final updatedCurrentMember = state.currentMember?.id == event.memberId
+        ? state.currentMember!.copyWith(isInFloor: false)
+        : state.currentMember;
+
+    emit(
+      state.copyWith(
+        gyms: updatedGyms,
+        members: updatedMembers,
+        currentMember: updatedCurrentMember,
+        crowdDelta: 0,
+      ),
+    );
+    if (state.currentGym.id.isNotEmpty) {
+      final gymId = state.currentGym.id;
+      final stamp = target.floorCheckInTime;
+      _syncAsync(() async {
+        await firestoreService!.incrementGymCrowd(
+          gymId,
+          nextCrowd,
+          crowdDate: todayKey,
+        );
+        await firestoreService!.updateMemberFloorStatus(
+          gymId: gymId,
+          memberId: event.memberId,
+          isInFloor: false,
+          floorCheckInTime: stamp,
+        );
+      });
     }
   }
 
@@ -1231,15 +1376,37 @@ class SmartGymBloc extends Bloc<SmartGymEvent, SmartGymState> {
         crowdDate: todayKey,
       );
     }
-    emit(state.copyWith(gyms: updatedGyms, crowdDelta: 0));
+    final inFloorIds = state.members
+        .where((m) => m.isInFloor)
+        .map((m) => m.id)
+        .toList();
+    final updatedMembers = state.members
+        .map((m) => m.isInFloor ? m.copyWith(isInFloor: false) : m)
+        .toList();
+    final updatedCurrentMember = state.currentMember?.isInFloor == true
+        ? state.currentMember!.copyWith(isInFloor: false)
+        : state.currentMember;
+
+    emit(
+      state.copyWith(
+        gyms: updatedGyms,
+        members: updatedMembers,
+        currentMember: updatedCurrentMember,
+        crowdDelta: 0,
+      ),
+    );
     if (state.currentGym.id.isNotEmpty) {
-      _syncAsync(
-        () => firestoreService!.incrementGymCrowd(
-          state.currentGym.id,
+      final gymId = state.currentGym.id;
+      _syncAsync(() async {
+        await firestoreService!.incrementGymCrowd(
+          gymId,
           0,
           crowdDate: todayKey,
-        ),
-      );
+        );
+        if (inFloorIds.isNotEmpty) {
+          await firestoreService!.clearMembersFloorStatus(gymId, inFloorIds);
+        }
+      });
     }
   }
 

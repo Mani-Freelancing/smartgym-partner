@@ -21,10 +21,13 @@ Future<DateTimeRange?> showCustomRangeBottomSheet(
       curve: Curves.easeOutQuart,
       reverseCurve: Curves.easeInCubic,
     ),
-    builder: (ctx) => _CustomRangeCalendarSheet(
-      initialRange: initialRange,
-      firstDate: firstDate,
-      lastDate: lastDate,
+    builder: (ctx) => AppTheme.ensureOwnerLight(
+      ctx,
+      child: _CustomRangeCalendarSheet(
+        initialRange: initialRange,
+        firstDate: firstDate,
+        lastDate: lastDate,
+      ),
     ),
   );
 }

@@ -480,6 +480,18 @@ void main() {
     await tester.pump();
     await tester.tap(find.byKey(const ValueKey('home_metric_active')));
     await tester.pump();
+    await tester.pump(const Duration(milliseconds: 350));
+
+    // Active Members opens focused bottom sheet right on Home (excludes expired Kiran Rao)
+    expect(find.byKey(const ValueKey('active_members_sheet')), findsOneWidget);
+    expect(find.text('Active Members (2)'), findsOneWidget);
+    expect(find.text('Rohan Verma'), findsOneWidget);
+    expect(find.text('Sneha Nair'), findsOneWidget);
+    expect(find.text('Kiran Rao'), findsNothing);
+
+    // Tapping "View All →" opens full Members (OwnerAuditLogScreen)
+    await tester.tap(find.byKey(const ValueKey('active_sheet_view_all_btn')));
+    await tester.pump();
     await tester.pump(const Duration(milliseconds: 500));
 
     expect(find.byType(OwnerAuditLogScreen), findsOneWidget);
@@ -580,14 +592,32 @@ void main() {
     expect(find.byKey(const ValueKey('owner_nav_audit')), findsOneWidget);
     expect(find.byKey(const ValueKey('owner_nav_trainers')), findsOneWidget);
 
-    // Tapping Expiring Soon switches directly to Audit Log tab filtered to Expiring
+    // Tapping Expiring Soon opens focused Expiring Soon bottom sheet right on Home
     await tester.tap(find.byKey(const ValueKey('home_metric_expiring')));
-    await tester.pump(const Duration(milliseconds: 300));
-    expect(find.text('WHO JOINED & AUDIT LOG'), findsOneWidget);
-    expect(find.text('2 of 3 shown'), findsOneWidget);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 350));
+    expect(find.byKey(const ValueKey('expiring_members_sheet')), findsOneWidget);
     expect(find.text('Sneha Nair'), findsOneWidget);
     expect(find.text('Kiran Rao'), findsOneWidget);
     expect(find.text('Rohan Verma'), findsNothing);
+
+    // Dismiss sheet -> tapping Active Members opens Active Members bottom sheet right on Home
+    Navigator.of(tester.element(find.byKey(const ValueKey('expiring_members_sheet')))).pop();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    await tester.tap(find.byKey(const ValueKey('home_metric_active')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 350));
+    expect(find.byKey(const ValueKey('active_members_sheet')), findsOneWidget);
+    expect(find.text('Active Members (2)'), findsOneWidget);
+
+    // Tapping View All → inside Active Members sheet switches to full Members (Audit Log) tab
+    await tester.tap(find.byKey(const ValueKey('active_sheet_view_all_btn')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.text('WHO JOINED & AUDIT LOG'), findsOneWidget);
+    expect(find.text('3 of 3 shown'), findsOneWidget);
 
     // Filter to Dues inside embedded tab
     await tester.tap(find.text('Dues'));
@@ -595,10 +625,58 @@ void main() {
     expect(find.text('1 of 3 shown'), findsOneWidget);
     expect(find.text('Sneha Nair'), findsOneWidget);
 
-    // Return to Home tab, then tap Walk-In Leads to jump to Trainers tab
+    // Return to Home tab -> Live In Floor & Pending Dues open focused bottom sheets
     await tester.tap(find.byKey(const ValueKey('owner_nav_home')));
     await tester.pump(const Duration(milliseconds: 200));
-    await tester.tap(find.byKey(const ValueKey('home_metric_walkins')));
+
+    // Simulate Rohan Verma scanning the door QR -> verify he shows in Live In Floor sheet
+    bloc.add(
+      const SyncCurrentMemberEvent(
+        GymMember(
+          id: 'm1',
+          name: 'Rohan Verma',
+          phone: '+919800011122',
+          planTitle: 'Monthly Plan',
+          feePaid: 2000,
+          joinedDate: '01 Nov',
+          expiryDate: '01 Dec',
+          daysLeft: 20,
+          isPtClient: false,
+          addedByTrainer: 'Owner',
+          paymentMode: 'Online',
+        ),
+      ),
+    );
+    bloc.add(const SimulateQrCheckInEvent());
+    await tester.pump(const Duration(milliseconds: 200));
+
+    await tester.tap(find.byKey(const ValueKey('home_metric_floor')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 350));
+    expect(find.byKey(const ValueKey('live_floor_sheet')), findsOneWidget);
+    expect(find.text('Live In Floor (5/80)'), findsOneWidget);
+    expect(find.text('Rohan Verma'), findsOneWidget);
+    expect(find.text('Coach Karthik Reddy'), findsOneWidget);
+
+    // Owner checks Rohan Verma out right from the Live In Floor sheet -> count drops 5 -> 4
+    await tester.tap(find.byKey(const ValueKey('floor_checkout_m1')));
+    await tester.pump(const Duration(milliseconds: 200));
+    expect(find.text('Live In Floor (4/80)'), findsOneWidget);
+    expect(find.text('Rohan Verma'), findsNothing);
+
+    Navigator.of(tester.element(find.byKey(const ValueKey('live_floor_sheet')))).pop();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    await tester.tap(find.byKey(const ValueKey('home_metric_dues')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 350));
+    expect(find.byKey(const ValueKey('pending_dues_sheet')), findsOneWidget);
+    Navigator.of(tester.element(find.byKey(const ValueKey('pending_dues_sheet')))).pop();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    await tester.tap(find.byKey(const ValueKey('owner_nav_trainers')));
     await tester.pump(const Duration(milliseconds: 300));
     expect(find.text('TRAINER TEAM & PAYOUTS'), findsOneWidget);
   });

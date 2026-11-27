@@ -128,6 +128,8 @@ class GymRepository {
         isPtClient: true,
         addedByTrainer: 'Coach Karthik Reddy',
         currentWeightKg: 78.4,
+        isInFloor: true,
+        floorCheckInTime: '06:35 AM',
       ),
       GymMember(
         id: 'mem_2',
